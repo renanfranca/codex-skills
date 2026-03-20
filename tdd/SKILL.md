@@ -63,6 +63,7 @@ Example intent list:
 - In green, add only enough production code to satisfy the current suite.
 - Do not add comments in production code unless the user explicitly asks for them.
 - Refactor only while the suite is green.
+- Run a vertical checkpoint at least every two cycles using the public path of the feature.
 - If the user asks to skip directly to implementation, call out that it breaks the TDD contract and ask whether to leave TDD mode.
 
 ## Session Pattern
@@ -77,7 +78,8 @@ Use this cadence:
 6. Run the full test suite.
 7. `🌱` Add the smallest code change that should make the suite pass.
 8. Run the full test suite again.
-9. `🌀` Propose a refactor if one is justified, then rerun the suite.
+9. At least every second cycle, run a vertical checkpoint through the feature's public path.
+10. `🌀` Propose a refactor if one is justified, then rerun the suite.
 
 ## Pushback Conditions
 
