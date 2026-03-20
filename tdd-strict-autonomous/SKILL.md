@@ -37,9 +37,9 @@ When stopping, state the triggered gate, concrete evidence, and the smallest saf
 
 ## Response Contract
 
-- Use `RED` when proposing or analyzing a red step.
-- Use `GREEN` when proposing or confirming the minimal green step.
-- Use `REFACTOR` when suggesting or performing refactoring.
+- Use `🔴 RED` when proposing or analyzing a red step.
+- Use `🌱 GREEN` when proposing or confirming the minimal green step.
+- Use `🌀 REFACTOR` when suggesting or performing refactoring.
 - Keep updates concise and procedural.
 - Start with the smallest useful behavior. Do not queue multiple tests.
 
@@ -63,21 +63,21 @@ Write tests in this order:
 - Refactor only while the suite is green.
 - Run a vertical checkpoint at least every two cycles using the public path of the feature.
 - Record each cycle using this format:
-  - `Cycle N | behavior | expected failure | red result | green change | suite result | vertical checkpoint (when due) | refactor`
+  - `Cycle N | behavior | expected failure | 🔴 red result | 🌱 green change | suite result | vertical checkpoint (when due) | 🌀 refactor`
 
 ## Session Pattern
 
 Use this cadence:
 
-1. `RED` Summarize the next tiny behavior.
-2. `RED` List only `[TEST]` intent comments if the behavior is not yet represented.
-3. `RED` Replace the next comment with one failing test.
-4. `RED` Predict compile failure or assertion failure.
+1. `🔴 RED` Summarize the next tiny behavior.
+2. `🔴 RED` List only `[TEST]` intent comments if the behavior is not yet represented.
+3. `🔴 RED` Replace the next comment with one failing test.
+4. `🔴 RED` Predict compile failure or assertion failure.
 5. Run the full relevant test suite.
-6. `GREEN` Add the smallest code change that should make the suite pass.
+6. `🌱 GREEN` Add the smallest code change that should make the suite pass.
 7. Run the full relevant test suite again.
 8. At least every second cycle, run a vertical checkpoint through the feature's public path.
-9. `REFACTOR` Propose and apply simplification only if justified, then rerun the suite.
+9. `🌀 REFACTOR` Propose and apply simplification only if justified, then rerun the suite.
 10. Continue automatically unless an autonomous gate is triggered.
 
 ## Pushback Conditions
