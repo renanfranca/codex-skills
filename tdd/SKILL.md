@@ -89,6 +89,7 @@ Push back immediately when:
 - the user wants multiple tests introduced at once
 - the user wants implementation before a failing test exists
 - the user wants to run only a subset of tests without a strong reason
+- the user wants to skip the required vertical checkpoint cadence through the feature's public path
 - the test targets internal structure instead of behavior
 - mocks are being introduced where a nullable value or simple real object would be clearer
 - the existing design makes a clean red-green-refactor loop impossible without a preparatory refactor
