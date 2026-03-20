@@ -1,0 +1,4 @@
+interface:
+  display_name: "Commit The Changes"
+  short_description: "Match repository commit style"
+  default_prompt: "Use $commit-the-changes to inspect recent history, infer this repository commit style and language, then stage and commit the current changes."

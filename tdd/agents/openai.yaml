@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD"
+  short_description: "Guide strict red-green-refactor sessions"
+  default_prompt: "Use $tdd to guide this change with strict red-green-refactor steps and explicit confirmations."
