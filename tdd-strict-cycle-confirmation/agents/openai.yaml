@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD Strict Cycle Confirmation"
+  short_description: "Strict TDD with mandatory end-of-cycle confirmation"
+  default_prompt: "Use $tdd-strict-cycle-confirmation to run strict red-green-refactor cycles and require my confirmation after each cycle before continuing."
