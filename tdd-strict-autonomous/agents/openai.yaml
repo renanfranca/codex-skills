@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD Strict Autonomous"
+  short_description: "Strict TDD cycles with autonomous exception gates"
+  default_prompt: "Use $tdd-strict-autonomous to run strict red-green-refactor cycles without per-cycle confirmation, and pause only on exception gates."
