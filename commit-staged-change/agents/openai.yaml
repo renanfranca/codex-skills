@@ -1,4 +1,4 @@
 interface:
   display_name: "Commit Staged Change"
-  short_description: "Infer conventions and commit staged git changes"
-  default_prompt: "Analyze repository commit history, infer commit conventions, draft a compliant commit message, confirm staged changes are intentional, and run a safe git commit."
+  short_description: "Conventional Commits with repository-style alignment"
+  default_prompt: "Inspect commit history and staged changes, draft a Conventional Commits v1.0.0 message that follows repository conventions when they are already conventional, validate safety checks, and run a safe git commit."

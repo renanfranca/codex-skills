@@ -1,13 +1,35 @@
 ---
 name: commit-staged-change
-description: Build commit messages from repository history and execute git commits. Use when Codex must infer commit conventions (format, scope, tone, and language), draft a message aligned with existing commits, and commit staged changes safely.
+description: Create Conventional Commits v1.0.0 messages and execute safe commits for already staged changes. Use when Codex should inspect history and staged diffs, align with repository conventions when they are already conventional, and run git commit safely.
 ---
 
 # Commit Staged Change
 
 ## Objective
 
-Infer the repository's commit conventions, draft a compliant message for staged changes, and execute a safe `git commit`.
+Draft and execute a safe `git commit` for currently staged files using the Conventional Commits v1.0.0 format, while aligning with repository history when the repository already follows Conventional Commits.
+
+## Conventional Commits Rules
+
+- Subject format: `<type>[optional scope][!]: <description>`.
+- Allowed `type` values: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
+- Use imperative mood and keep the subject concise (preferably up to 72 chars).
+- Use `!` when the change introduces a breaking change.
+- Add footer `BREAKING CHANGE: <details>` when breaking behavior needs explicit migration context.
+- Add body/footer only when useful for rationale, context, references, or migration notes.
+
+Reference: https://www.conventionalcommits.org/en/v1.0.0/
+
+## History-Aware Convention Strategy
+
+- Inspect recent commit subjects with `git log --pretty=format:%s -n 100`.
+- Detect whether the repository already uses Conventional Commits consistently.
+- If yes, prefer the repository's local conventions while remaining valid Conventional Commits v1.0.0:
+  - common `type` usage and naming choices
+  - scope presence and scope naming style
+  - subject language and wording style
+  - common footer/reference patterns
+- If not, still produce a valid Conventional Commit using neutral defaults from this skill.
 
 ## Workflow
 
@@ -16,10 +38,10 @@ Infer the repository's commit conventions, draft a compliant message for staged 
 - Stop and ask for staging if no files are staged.
 - Stop and resolve conflicts first when merge/rebase/cherry-pick state is active.
 
-2. Infer the commit convention from recent history.
-- Read recent subjects with `git log --pretty=format:%s -n 50`.
-- Detect dominant patterns: prefix style, scope usage, tense, language, and ticket IDs.
-- Follow the dominant recent pattern on the current branch when multiple styles exist.
+2. Analyze commit history.
+- Run `git log --pretty=format:%s -n 100`.
+- Identify whether Conventional Commits are dominant.
+- Extract repository-specific conventions when dominant.
 
 3. Understand staged changes.
 - Inspect staged files with `git diff --cached --name-status`.
@@ -27,25 +49,26 @@ Infer the repository's commit conventions, draft a compliant message for staged 
 - Summarize intent before drafting the message.
 - Warn when staged changes appear unrelated; suggest splitting commits.
 
-4. Draft the commit message.
-- Write a subject that matches inferred style.
-- Keep the subject concise (usually up to 72 characters unless repository history shows otherwise).
-- Add a body only when needed for rationale, context, or migration notes.
-- Keep message language aligned with recent repository commits.
+4. Draft the commit message in Conventional Commits format.
+- Pick the best `type` from the staged intent.
+- Add scope when it increases clarity and follows repository style.
+- Write a compliant subject line.
+- Add body/footer only when needed.
+- If the user asks for draft-only, stop before execution.
 
 5. Perform safety checks.
 - Verify author configuration with `git config user.name` and `git config user.email`.
 - Recheck staging with `git status --short` before commit.
 - Show final message and staged file summary before executing.
-- Stop before execution when user requests a dry run.
 
 6. Execute the commit.
 - Run `git commit -m "<subject>"`.
-- Add additional `-m` flags for multi-paragraph body text when needed.
+- Add additional `-m` flags for body/footer paragraphs when needed.
 - Return resulting hash and summary from `git log -1 --oneline`.
 
 ## Guardrails
 
+- Avoid non-Conventional-Commits subjects unless explicitly requested.
 - Avoid `git commit --amend` unless explicitly requested.
 - Avoid signing, pushing, rebasing, or force operations unless explicitly requested.
 - Avoid `--allow-empty` unless explicitly requested.
@@ -54,7 +77,6 @@ Infer the repository's commit conventions, draft a compliant message for staged 
 
 ## Example Triggers
 
-- `Create a commit message from history and commit staged changes.`
-- `Infer our commit format and prepare the best commit message.`
-- `Write the message in the same language used by recent commits.`
-- `Draft only; do not run git commit.`
+- `Create a conventional commit from staged changes and commit it.`
+- `Use Conventional Commits v1.0.0 and draft only.`
+- `Follow repository conventions if they already use conventional commits.`
