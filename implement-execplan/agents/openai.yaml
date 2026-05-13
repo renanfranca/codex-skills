@@ -1,0 +1,4 @@
+interface:
+  display_name: "Implement ExecPlan"
+  short_description: "Write and execute living ExecPlans"
+  default_prompt: "Use $implement-execplan to create and execute a complete ExecPlan for this repository task."
