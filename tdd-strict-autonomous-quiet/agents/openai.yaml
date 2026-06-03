@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD Strict Autonomous Quiet"
+  short_description: "Strict autonomous TDD with essential-only updates"
+  default_prompt: "Use $tdd-strict-autonomous-quiet to run strict red-green-refactor cycles autonomously while emitting only essential updates for risks, decisions, blockers, and the final summary."
