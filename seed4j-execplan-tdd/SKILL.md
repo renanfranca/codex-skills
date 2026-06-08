@@ -12,7 +12,7 @@ Use this skill only for work in `/home/renanfranca/projects/seed4j-cli`.
 1. Load and follow the `implement-execplan` skill before creating or updating any plan.
 2. Save every ExecPlan under `/home/renanfranca/projects/seed4j-cli/_temporary/ai_agent/seed4j-cli-ai-context/shared`.
 3. Name new plans as `<YYYY-MM-DD>_<TYPE>_<short-kebab-title>-exec-plan.md`, where `TYPE` is a concise uppercase change category such as `FEATURE`, `FIX`, `REFACTOR`, `DOCS`, or `TEST`.
-4. Before implementing from an ExecPlan, load and follow the `tdd-strict-autonomous-quiet` skill.
+4. Before implementing from an ExecPlan, load and follow the `tdd-behavior-autonomous-quiet` skill.
 5. Keep the ExecPlan living during execution: update Progress, Decisions, Risks, Lessons Learned, validation results, and any scope changes as work proceeds.
 
 ## Seed4J Constraints
