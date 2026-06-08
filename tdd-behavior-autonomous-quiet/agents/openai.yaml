@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD Behavior Autonomous Quiet"
+  short_description: "Quiet autonomous TDD focused on behavior"
+  default_prompt: "Use $tdd-behavior-autonomous-quiet to run strict autonomous TDD with quiet output while keeping tests focused on observable behavior instead of production file structure."
