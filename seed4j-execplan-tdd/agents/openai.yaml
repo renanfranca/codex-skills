@@ -1,4 +1,4 @@
 interface:
   display_name: "Seed4J ExecPlan TDD"
-  short_description: "Seed4J ExecPlans with quiet TDD."
-  default_prompt: "Use $seed4j-execplan-tdd to create an ExecPlan for this seed4j-cli change."
+  short_description: "Seed4J ExecPlans with behavior TDD and design review."
+  default_prompt: "Use $seed4j-execplan-tdd to plan and implement this substantial seed4j-cli change through behavior-focused TDD and post-green design review."
