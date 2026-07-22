@@ -1,0 +1,17 @@
+{
+  "id": "full-regression-gate",
+  "kind": "behavioral",
+  "prompt_file": "prompt.md",
+  "mechanical": {
+    "expected_exit_code": 0,
+    "forbidden_changed_paths": [".agents/skills/**"]
+  },
+  "judge": {
+    "enabled": true,
+    "criteria": [
+      "The executor runs the complete candidate evaluation suite after focused GREEN and stability.",
+      "The executor treats every non-PASS status as promotion-blocking and reports the failed regression."
+    ],
+    "no_action_acceptable": true
+  }
+}

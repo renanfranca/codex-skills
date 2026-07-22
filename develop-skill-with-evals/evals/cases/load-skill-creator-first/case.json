@@ -1,0 +1,18 @@
+{
+  "id": "load-skill-creator-first",
+  "kind": "behavioral",
+  "prompt_file": "prompt.md",
+  "mechanical": {
+    "expected_exit_code": 0,
+    "required_paths": ["weather-brief/SKILL.md"],
+    "forbidden_changed_paths": [".agents/skills/**"]
+  },
+  "judge": {
+    "enabled": true,
+    "criteria": [
+      "The executor explicitly loads skill-creator before creating or editing the new skill.",
+      "The new skill is initialized with the official scaffold mechanism rather than manually recreated."
+    ],
+    "no_action_acceptable": false
+  }
+}

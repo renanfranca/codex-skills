@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Skill evaluation result",
+  "type": "object",
+  "required": ["operation", "status", "skill", "model", "results"],
+  "properties": {
+    "operation": {"enum": ["run", "verify-change", "stability"]},
+    "status": {
+      "enum": ["PASS", "FAIL", "ERROR", "INCONCLUSIVE", "INVALID_RED", "UNSTABLE"]
+    },
+    "skill": {"type": "string"},
+    "model": {"type": "string"},
+    "results": {"type": "array", "items": {"type": "object"}},
+    "artifacts": {"type": ["string", "null"]}
+  },
+  "additionalProperties": true
+}

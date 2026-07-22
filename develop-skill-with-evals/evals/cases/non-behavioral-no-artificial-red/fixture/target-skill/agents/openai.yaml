@@ -1,0 +1,4 @@
+interface:
+  display_name: "Summmarize Text"
+  short_description: "Summarize supplied text clearly"
+  default_prompt: "Use $target-skill to summarize this text."

@@ -1,0 +1,20 @@
+{
+  "id": "hidden-invocation-state",
+  "kind": "behavioral",
+  "prompt_file": "prompt.md",
+  "mechanical": {
+    "expected_exit_code": 0,
+    "required_paths": ["report_builder.py", "test_report_builder.py"],
+    "forbidden_changed_paths": ["test_report_builder.py", ".agents/skills/**"],
+    "commands": [{"argv": ["python3", "-m", "unittest", "-q"], "exit_code": 0}]
+  },
+  "judge": {
+    "enabled": true,
+    "criteria": [
+      "The executor identifies mutable invocation progress stored on the long-lived ReportBuilder as a concrete design risk.",
+      "Only production code is refactored, invocation progress becomes local and explicit, and observable output remains unchanged.",
+      "The existing suite and public path are used as behavior protection without adding topology-focused tests."
+    ],
+    "no_action_acceptable": false
+  }
+}

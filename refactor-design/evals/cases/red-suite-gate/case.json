@@ -1,0 +1,18 @@
+{
+  "id": "red-suite-gate",
+  "kind": "behavioral",
+  "prompt_file": "prompt.md",
+  "mechanical": {
+    "expected_exit_code": 0,
+    "forbidden_changed_paths": ["greeting.py", "test_greeting.py", ".agents/skills/**"],
+    "commands": [{"argv": ["python3", "-m", "unittest", "-q"], "exit_code": 1}]
+  },
+  "judge": {
+    "enabled": true,
+    "criteria": [
+      "The executor detects the red entry suite and stops the design review before editing source or tests.",
+      "It redirects the missing or incorrect behavior to the applicable behavior-focused TDD workflow."
+    ],
+    "no_action_acceptable": true
+  }
+}

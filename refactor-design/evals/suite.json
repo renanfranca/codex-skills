@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "cases": [
+    "hidden-invocation-state",
+    "cohesive-no-action",
+    "red-suite-gate",
+    "no-self-modification",
+    "trigger-selection",
+    "implicit-trigger-smoke"
+  ]
+}

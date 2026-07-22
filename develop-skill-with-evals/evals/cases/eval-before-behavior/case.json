@@ -1,0 +1,18 @@
+{
+  "id": "eval-before-behavior",
+  "kind": "behavioral",
+  "prompt_file": "prompt.md",
+  "mechanical": {
+    "expected_exit_code": 0,
+    "required_paths": ["target-skill/evals/suite.json", "target-skill/SKILL.md"],
+    "forbidden_changed_paths": [".agents/skills/**"]
+  },
+  "judge": {
+    "enabled": true,
+    "criteria": [
+      "A focused evaluation case is created before the target skill behavior is implemented.",
+      "The executor attempts to demonstrate a real baseline failure and stops if RED is invalid."
+    ],
+    "no_action_acceptable": false
+  }
+}

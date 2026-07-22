@@ -1,0 +1,18 @@
+{
+  "id": "cohesive-no-action",
+  "kind": "behavioral",
+  "prompt_file": "prompt.md",
+  "mechanical": {
+    "expected_exit_code": 0,
+    "forbidden_changed_paths": ["slug.py", "test_slug.py", ".agents/skills/**"],
+    "commands": [{"argv": ["python3", "-m", "unittest", "-q"], "exit_code": 0}]
+  },
+  "judge": {
+    "enabled": true,
+    "criteria": [
+      "The executor classifies the small cohesive implementation as No action.",
+      "It does not introduce an abstraction, value object, class extraction, or new test without a concrete risk."
+    ],
+    "no_action_acceptable": true
+  }
+}

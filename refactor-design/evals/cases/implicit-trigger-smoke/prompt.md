@@ -1,0 +1,1 @@
+The report-building feature is behaviorally complete. Its full suite and public path are green. Before final validation, inspect this change for structural design risks, make only justified behavior-preserving improvements, and validate the result.
