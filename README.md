@@ -55,9 +55,15 @@ A skill always contains `SKILL.md` and may include:
 
 Evaluation fixtures and oracles belong under `evals/`, not in normal skill references. The local `.system` and `_temporary` directories are not part of the public skill catalog.
 
+## Skill evaluations
+
+See [Evaluating Codex Skills](EVALUATIONS.md) for the complete guide to evaluation suites, isolated fixtures, mechanical and semantic judging, baseline comparison, stability checks, and running the real `refactor-design` examples.
+
 ## Developing a skill
 
 Use `$develop-skill-with-evals` for new skills and behavioral revisions. It composes the system `skill-creator` workflow with baseline RED, candidate GREEN, three-run stability, and full regression gates.
+
+Follow the [evaluation guide](EVALUATIONS.md) when adding a suite to another skill or interpreting runner reports and blocking statuses.
 
 Typical validation commands include:
 
