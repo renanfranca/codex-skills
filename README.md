@@ -62,7 +62,7 @@ Use `$develop-skill-with-evals` for new skills and behavioral revisions. It comp
 Typical validation commands include:
 
 ```bash
-python3 -m unittest develop-skill-with-evals/scripts/tests
+python3 -m unittest discover -s develop-skill-with-evals/scripts/tests -v
 python3 "${CODEX_HOME:-$HOME/.codex}/skills/.system/skill-creator/scripts/quick_validate.py" ./skill-name
 python3 develop-skill-with-evals/scripts/run_skill_evals.py run --skill ./skill-name --all --source working-tree
 git diff --check
