@@ -2,7 +2,7 @@
 
 Personal [Codex](https://openai.com/codex/) skills for test-driven development, design review, execution planning, Git workflows, and Seed4J CLI maintenance.
 
-Each top-level skill directory is self-contained. Install the skills you need under `$CODEX_HOME/skills` (or `~/.codex/skills` when `CODEX_HOME` is unset), then invoke one explicitly with `$skill-name`. Skills may also support implicit activation, but explicit invocation is the most reliable entry point.
+Each top-level skill directory is self-contained. For portable Codex CLI discovery, copy or symlink the skills you need into `$HOME/.agents/skills` for personal use or `<repository>/.agents/skills` for repository-scoped use. Then invoke one explicitly with `$skill-name`. Skills may also support implicit activation, but explicit invocation is the most reliable entry point.
 
 ## Skill catalog
 
@@ -32,7 +32,7 @@ Each top-level skill directory is self-contained. Install the skills you need un
 
 ## Installation and usage
 
-Copy or symlink an individual skill directory into your Codex skills directory. Avoid replacing `.system`, which is managed by Codex.
+Copy or symlink an individual skill directory into a documented Codex skill-discovery location. This source repository can remain at `/home/renanfranca/.codex/skills`; it does not need to be moved. Avoid replacing `.system`, which is managed by Codex, and avoid installing duplicate skills with the same `name`.
 
 Invoke a skill by name in your request:
 
@@ -43,6 +43,10 @@ Use $seed4j-worktree-flow to create a feature worktree.
 ```
 
 Codex loads the selected `SKILL.md` and follows its progressive-disclosure links only when they are relevant to the task.
+
+## Using Codex CLI
+
+See [Using Skills with Codex CLI](CODEX_CLI.md) for the human-oriented cookbook: verify installation, run one or every eval suite, create and improve skills through prompts, automate safe one-shot runs, and invoke every skill in this repository.
 
 ## Repository conventions
 

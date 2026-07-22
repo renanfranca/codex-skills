@@ -4,6 +4,8 @@ Skill evaluations, or evals, test what a fresh Codex agent actually does when gi
 
 This repository provides an evaluation runner in [`develop-skill-with-evals`](develop-skill-with-evals/scripts/run_skill_evals.py). The runner uses disposable workspaces, structured Codex responses, deterministic checks, and an independent semantic judge. The detailed machine-facing rules live in the [evaluation contract](develop-skill-with-evals/references/eval-contract.md), and runner reports follow the [result schema](develop-skill-with-evals/references/eval-result.schema.json).
 
+If you want commands and copy-ready prompts rather than runner internals, start with [Using Skills with Codex CLI](CODEX_CLI.md).
+
 ## Mental model
 
 An evaluation has four main actors:
