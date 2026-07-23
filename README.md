@@ -19,16 +19,21 @@ Each top-level skill directory is self-contained. For portable Codex CLI discove
 
 ### Test-driven development
 
-- [`tdd`](tdd/SKILL.md) — Run strict RED–GREEN–REFACTOR cycles with confirmation at each checkpoint.
-- [`tdd-strict-cycle-confirmation`](tdd-strict-cycle-confirmation/SKILL.md) — Pause for explicit approval after every completed TDD cycle.
-- [`tdd-strict-autonomous`](tdd-strict-autonomous/SKILL.md) — Preserve strict TDD while continuing automatically between exception gates.
-- [`tdd-strict-autonomous-quiet`](tdd-strict-autonomous-quiet/SKILL.md) — Run autonomous TDD with deliberately sparse progress output.
 - [`tdd-behavior-autonomous-quiet`](tdd-behavior-autonomous-quiet/SKILL.md) — Drive quiet autonomous TDD through observable behavior and stable public contracts.
 
 ### Git commits
 
 - [`commit-staged-change`](commit-staged-change/SKILL.md) — Inspect and commit changes that are already staged using Conventional Commits.
 - [`commit-the-changes`](commit-the-changes/SKILL.md) — Infer the repository’s commit convention, stage the intended changes, and create the commit.
+
+### Disabled skills
+
+These source directories remain available to preserve historical references and links from published articles, but the skills are disabled in the local Codex configuration and are unavailable for explicit or implicit invocation:
+
+- [`tdd`](tdd/SKILL.md)
+- [`tdd-strict-cycle-confirmation`](tdd-strict-cycle-confirmation/SKILL.md)
+- [`tdd-strict-autonomous`](tdd-strict-autonomous/SKILL.md)
+- [`tdd-strict-autonomous-quiet`](tdd-strict-autonomous-quiet/SKILL.md)
 
 ## Installation and usage
 

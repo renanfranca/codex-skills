@@ -350,41 +350,7 @@ Use $seed4j-execplan-tdd to plan and implement this substantial seed4j-cli chang
 Use $seed4j-worktree-flow to audit the current seed4j-cli worktrees, keep /home/renanfranca/projects/seed4j-cli as the main worktree, and create a feature worktree under /home/renanfranca/projects/seed4j-cli-worktree for branch feat/example. Do not remove any existing worktree unless it is safely merged and I explicitly authorize cleanup.
 ```
 
-### TDD workflows
-
-Choose one TDD interaction model; do not stack several variants in the same prompt.
-
-#### `$tdd`
-
-Best for a guided session with explicit confirmation at TDD checkpoints:
-
-```text
-Use $tdd to implement this behavior with strict RED-GREEN-REFACTOR. Predict the RED failure, run one small cycle at a time, and wait for my confirmation at the required checkpoints.
-```
-
-#### `$tdd-strict-cycle-confirmation`
-
-Best when every completed cycle requires explicit approval:
-
-```text
-Use $tdd-strict-cycle-confirmation to fix this bug with strict RED-GREEN-REFACTOR. Complete exactly one behavior cycle, show the evidence, and wait for my confirmation before starting the next cycle.
-```
-
-#### `$tdd-strict-autonomous`
-
-Best when Codex should continue without per-cycle confirmation:
-
-```text
-Use $tdd-strict-autonomous to implement this feature through strict RED-GREEN-REFACTOR cycles. Continue automatically and pause only at documented exception gates or when a material user decision is required.
-```
-
-#### `$tdd-strict-autonomous-quiet`
-
-Best for autonomous work with essential-only progress updates:
-
-```text
-Use $tdd-strict-autonomous-quiet to implement this behavior through strict autonomous RED-GREEN-REFACTOR. Keep output quiet and communicate only risks, blockers, meaningful refactors, validation failures, and the final summary.
-```
+### TDD workflow
 
 #### `$tdd-behavior-autonomous-quiet`
 
