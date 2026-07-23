@@ -51,6 +51,14 @@ For each run, the runner creates a fresh directory under `/tmp`, copies the fixt
 
 The runner snapshots files before and after execution, verifies commands and paths, and separately asks a judge to evaluate the case criteria when enabled. The judge receives the expected criteria, executor response, mechanical evidence, and diff summary; the executor never receives the criteria.
 
+## Progress output
+
+The runner reserves standard output for the JSON report. Progress goes only to standard error and is flushed immediately without colors, spinners, timestamps, or captured subprocess output.
+
+Without an explicit option, progress is enabled when standard error is a TTY and disabled otherwise. `--progress` forces it for monitored runs with captured standard error; `--quiet` suppresses it in a terminal. The options are mutually exclusive. TTY detection controls output only: every operation remains autonomous and never requests input or confirmation.
+
+Progress covers operation and case preparation, executor invocation, mechanical checks, semantic judgment, each case result, and the final result. `verify-change` labels baseline and candidate phases, while `stability` labels the current repetition and total.
+
 ## Status policy
 
 - `PASS`: all mechanical checks and the semantic judge pass.

@@ -122,6 +122,8 @@ The direct runner is authoritative and itself launches isolated `codex exec` ses
 
 Run all commands in this section from `/home/renanfranca/.codex/skills`.
 
+The runner normally shows progress when its standard error is attached to a terminal and stays silent when that stream is captured. When Codex CLI launches the runner as a monitored subprocess, pass `--progress` so preparation, executor, mechanical checks, judge, case results, and the final result are visible immediately on standard error. This does not make the run interactive: the runner never waits for input, approval, or confirmation. Its final JSON remains pure on standard output. Use `--quiet` to suppress progress explicitly; `--progress` and `--quiet` are mutually exclusive.
+
 ### Run one case
 
 Ask Codex interactively:
@@ -136,7 +138,8 @@ Or run the case directly:
 python3 develop-skill-with-evals/scripts/run_skill_evals.py run \
   --skill refactor-design \
   --case hidden-invocation-state \
-  --source working-tree
+  --source working-tree \
+  --progress
 ```
 
 ### Run every case for one skill
@@ -153,7 +156,8 @@ Or run it directly:
 python3 develop-skill-with-evals/scripts/run_skill_evals.py run \
   --skill refactor-design \
   --all \
-  --source working-tree
+  --source working-tree \
+  --progress
 ```
 
 `--all` means all cases in that skill's `evals/suite.json`; it does not mean all skills in the repository.
@@ -176,7 +180,8 @@ From a trusted terminal, run the same policy explicitly:
     python3 develop-skill-with-evals/scripts/run_skill_evals.py run \
       --skill "$skill_dir" \
       --all \
-      --source working-tree || eval_status=1
+      --source working-tree \
+      --progress || eval_status=1
   done
   exit "$eval_status"
 )
@@ -198,7 +203,8 @@ After adding or changing a case and implementing its candidate behavior, replace
 python3 develop-skill-with-evals/scripts/run_skill_evals.py verify-change \
   --skill refactor-design \
   --case changed-case-id \
-  --baseline git:HEAD
+  --baseline git:HEAD \
+  --progress
 ```
 
 Do not use an unchanged skill as both baseline and candidate: a valid existing case is expected to pass both and therefore produce `INVALID_RED`. For a new untracked skill, point `--baseline` to a frozen scaffold directory under `/tmp` instead of `git:HEAD`.
@@ -217,7 +223,8 @@ Direct command:
 python3 develop-skill-with-evals/scripts/run_skill_evals.py stability \
   --skill refactor-design \
   --case hidden-invocation-state \
-  --runs 3
+  --runs 3 \
+  --progress
 ```
 
 ### Understand the result

@@ -19,6 +19,15 @@ PASS = "PASS"
 BLOCKING = {"FAIL", "ERROR", "INCONCLUSIVE", "INVALID_RED", "UNSTABLE"}
 
 
+class ProgressReporter:
+  def __init__(self, enabled: bool):
+    self.enabled = enabled
+
+  def emit(self, message: str) -> None:
+    if self.enabled:
+      print(message, file=sys.stderr, flush=True)
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
   parser = argparse.ArgumentParser(description=__doc__)
   subparsers = parser.add_subparsers(dest="operation", required=True)
@@ -58,6 +67,18 @@ def add_runtime_arguments(parser: argparse.ArgumentParser) -> None:
   parser.add_argument("--model")
   parser.add_argument("--codex-command", default="codex")
   parser.add_argument("--artifacts-dir", type=Path, default=Path("/tmp/skill-eval-artifacts"))
+  progress = parser.add_mutually_exclusive_group()
+  progress.add_argument("--progress", action="store_true", help="Show progress on stderr even without a TTY")
+  progress.add_argument("--quiet", action="store_true", help="Suppress progress on stderr")
+
+
+def progress_enabled(args: argparse.Namespace, stream: Any | None = None) -> bool:
+  if args.quiet:
+    return False
+  if args.progress:
+    return True
+  output = sys.stderr if stream is None else stream
+  return output.isatty()
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -244,7 +265,11 @@ def evaluate_case(
   case_source_skill: Path,
   case_id: str,
   operation_root: Path,
+  progress: ProgressReporter,
+  context: str | None = None,
 ) -> dict[str, Any]:
+  label = f"Case {case_id}" + (f" [{context}]" if context else "")
+  progress.emit(f"{label}: preparing workspace")
   case_dir = case_source_skill / "evals" / "cases" / case_id
   case = read_json(case_dir / "case.json")
   if case.get("id") != case_id:
@@ -268,12 +293,14 @@ def evaluate_case(
     prompt = raw_prompt
   else:
     prompt = f"Use ${installed_source.name} from the repository-scoped skill installation to complete this task.\n\n{raw_prompt}"
+  progress.emit(f"{label}: running executor")
   completed = run_process(codex_command(args, workspace, schema, output), workspace, prompt)
   try:
     response = read_json(output) if output.exists() else None
   except (OSError, ValueError, json.JSONDecodeError):
     response = None
 
+  progress.emit(f"{label}: running mechanical checks")
   mechanical_contract = case.get("mechanical", {})
   checks = []
   expected_exit = mechanical_contract.get("expected_exit_code", 0)
@@ -316,6 +343,7 @@ def evaluate_case(
     )
 
   mechanical = {"passed": all(item["passed"] for item in checks), "checks": checks, "commands": command_results}
+  progress.emit(f"{label}: running judge")
   judge = run_judge(args, workspace, case, response, mechanical)
   if judge["verdict"] == "INCONCLUSIVE":
     status = "INCONCLUSIVE"
@@ -338,6 +366,7 @@ def evaluate_case(
     "workspace": str(workspace),
   }
   (workspace / ".eval-result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
+  progress.emit(f"{label}: {status}")
   return result
 
 
@@ -379,7 +408,9 @@ def resolve_model(args: argparse.Namespace) -> str:
   return args.model or os.environ.get("CODEX_MODEL") or "configured-default"
 
 
-def execute(args: argparse.Namespace) -> dict[str, Any]:
+def execute(args: argparse.Namespace, progress: ProgressReporter | None = None) -> dict[str, Any]:
+  progress = progress or ProgressReporter(False)
+  progress.emit(f"Preparing {args.operation}")
   skill = args.skill.resolve()
   operation_root = make_operation_root(args)
   source_root = operation_root / "source"
@@ -389,7 +420,10 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
   if args.operation == "run":
     installed_source = materialize_skill_source(skill, args.source, source_root)
     case_ids = suite_cases(skill) if args.all else [args.case]
-    results = [evaluate_case(args, installed_source, skill, case_id, operation_root) for case_id in case_ids]
+    results = [
+      evaluate_case(args, installed_source, skill, case_id, operation_root, progress)
+      for case_id in case_ids
+    ]
     status = aggregate_status(results)
   elif args.operation == "verify-change":
     baseline_spec = args.baseline or "git:HEAD"
@@ -398,9 +432,13 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
     else:
       baseline = Path(baseline_spec).resolve()
     candidate = skill
-    baseline_result = evaluate_case(args, baseline, skill, args.case, operation_root)
+    baseline_result = evaluate_case(
+      args, baseline, skill, args.case, operation_root, progress, "baseline"
+    )
     baseline_result["role"] = "baseline"
-    candidate_result = evaluate_case(args, candidate, skill, args.case, operation_root)
+    candidate_result = evaluate_case(
+      args, candidate, skill, args.case, operation_root, progress, "candidate"
+    )
     candidate_result["role"] = "candidate"
     results = [baseline_result, candidate_result]
     if baseline_result["status"] == PASS:
@@ -411,7 +449,18 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
       status = aggregate_status(results)
   else:
     installed_source = materialize_skill_source(skill, args.source, source_root)
-    results = [evaluate_case(args, installed_source, skill, args.case, operation_root) for _ in range(args.runs)]
+    results = [
+      evaluate_case(
+        args,
+        installed_source,
+        skill,
+        args.case,
+        operation_root,
+        progress,
+        f"repetition {run_number}/{args.runs}",
+      )
+      for run_number in range(1, args.runs + 1)
+    ]
     signatures = {verdict_signature(result) for result in results}
     status = aggregate_status(results) if len(signatures) == 1 else "UNSTABLE"
 
@@ -431,9 +480,11 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
+  progress = ProgressReporter(False)
   try:
     args = parse_args(argv)
-    report = execute(args)
+    progress = ProgressReporter(progress_enabled(args))
+    report = execute(args, progress)
   except (OSError, ValueError, subprocess.SubprocessError) as error:
     operation = argv[0] if argv else "run"
     report = {
@@ -444,6 +495,7 @@ def main(argv: list[str] | None = None) -> int:
       "results": [{"status": "ERROR", "error": str(error)}],
       "artifacts": None,
     }
+  progress.emit(f"Final result: {report['status']}")
   print(json.dumps(report, indent=2))
   return 0 if report["status"] == PASS else 1
 

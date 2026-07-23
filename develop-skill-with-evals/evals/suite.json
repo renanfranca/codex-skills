@@ -6,6 +6,7 @@
     "reject-passing-baseline",
     "non-behavioral-no-artificial-red",
     "full-regression-gate",
-    "self-evolution-candidate"
+    "self-evolution-candidate",
+    "runner-progress-output"
   ]
 }

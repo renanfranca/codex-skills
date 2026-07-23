@@ -5,9 +5,10 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 
-SCRIPT = Path(__file__).parents[1] / "run_skill_evals.py"
+SCRIPT = Path(os.environ.get("RUN_SKILL_EVALS_SCRIPT", Path(__file__).parents[1] / "run_skill_evals.py"))
 
 
 def load_runner():
@@ -15,6 +16,21 @@ def load_runner():
   module = importlib.util.module_from_spec(spec)
   spec.loader.exec_module(module)
   return module
+
+
+class TtyBuffer:
+  def __init__(self):
+    self.value = ""
+
+  def isatty(self):
+    return True
+
+  def write(self, value):
+    self.value += value
+    return len(value)
+
+  def flush(self):
+    return None
 
 
 class SkillEvalRunnerTest(unittest.TestCase):
@@ -45,10 +61,12 @@ class SkillEvalRunnerTest(unittest.TestCase):
     self.fake = self.root / "fake-codex"
     self.fake.write_text(
       "#!/usr/bin/env python3\n"
-      "import json, os, pathlib, sys\n"
+      "import json, os, pathlib, sys, time\n"
       "out = pathlib.Path(sys.argv[sys.argv.index('-o') + 1])\n"
       "cwd = pathlib.Path(sys.argv[sys.argv.index('-C') + 1])\n"
       "mode = os.environ.get('FAKE_CODEX_MODE', 'pass')\n"
+      "time.sleep(float(os.environ.get('FAKE_CODEX_DELAY', '0')))\n"
+      "if os.environ.get('FAKE_CODEX_STDERR'): print(os.environ['FAKE_CODEX_STDERR'], file=sys.stderr)\n"
       "if mode == 'pass': (cwd / 'result.txt').write_text('ok')\n"
       "if mode == 'mutate-skill': (cwd / '.agents/skills/sample-skill/SKILL.md').write_text('changed')\n"
       "response = {'summary': mode, 'classification': 'Design risk', 'evidence': ['fixture'], 'files_changed': ['result.txt']}\n"
@@ -60,8 +78,11 @@ class SkillEvalRunnerTest(unittest.TestCase):
   def tearDown(self):
     self.temp.cleanup()
 
+  def command(self, *args):
+    return ["python3", str(SCRIPT), *args, "--codex-command", str(self.fake), "--artifacts-dir", str(self.root / "artifacts")]
+
   def invoke(self, *args, env=None):
-    command = ["python3", str(SCRIPT), *args, "--codex-command", str(self.fake), "--artifacts-dir", str(self.root / "artifacts")]
+    command = self.command(*args)
     return subprocess.run(command, text=True, capture_output=True, env={**os.environ, **(env or {})}, check=False)
 
   def test_parser_requires_exactly_case_or_all(self):
@@ -80,6 +101,163 @@ class SkillEvalRunnerTest(unittest.TestCase):
     self.assertEqual(["write-result"], [result["case_id"] for result in report["results"]])
     self.assertFalse((self.root / "result.txt").exists())
     self.assertIsNone(report["artifacts"])
+    self.assertEqual("", completed.stderr)
+
+  def test_progress_is_automatic_when_stderr_is_a_tty(self):
+    runner = load_runner()
+    stderr = TtyBuffer()
+    stdout = tempfile.SpooledTemporaryFile(mode="w+")
+    argv = self.command(
+      "run", "--skill", str(self.skill), "--case", "write-result", "--source", "working-tree"
+    )[2:]
+
+    with mock.patch.object(runner.sys, "stderr", stderr), mock.patch.object(runner.sys, "stdout", stdout):
+      exit_code = runner.main(argv)
+
+    stdout.seek(0)
+    report = json.load(stdout)
+    self.assertEqual(0, exit_code)
+    self.assertEqual("PASS", report["status"])
+    self.assertIn("Preparing run", stderr.value)
+    self.assertIn("Case write-result: running executor", stderr.value)
+    self.assertIn("Final result: PASS", stderr.value)
+
+  def test_progress_is_silent_when_stderr_is_a_pipe(self):
+    completed = self.invoke(
+      "run", "--skill", str(self.skill), "--case", "write-result", "--source", "working-tree"
+    )
+
+    json.loads(completed.stdout)
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    self.assertEqual("", completed.stderr)
+
+  def test_forced_progress_is_flushed_before_a_delayed_executor_finishes(self):
+    process = subprocess.Popen(
+      self.command(
+        "run",
+        "--skill",
+        str(self.skill),
+        "--case",
+        "write-result",
+        "--source",
+        "working-tree",
+        "--progress",
+      ),
+      text=True,
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE,
+      env={**os.environ, "FAKE_CODEX_DELAY": "1"},
+    )
+
+    first_line = process.stderr.readline()
+    still_running = process.poll() is None
+    stdout, remaining_stderr = process.communicate(timeout=5)
+
+    self.assertTrue(still_running)
+    self.assertEqual("Preparing run\n", first_line)
+    self.assertEqual(0, process.returncode, remaining_stderr)
+    self.assertEqual("PASS", json.loads(stdout)["status"])
+
+  def test_quiet_suppresses_progress_even_when_stderr_is_a_tty(self):
+    runner = load_runner()
+    stderr = TtyBuffer()
+    stdout = tempfile.SpooledTemporaryFile(mode="w+")
+    argv = self.command(
+      "run",
+      "--skill",
+      str(self.skill),
+      "--case",
+      "write-result",
+      "--source",
+      "working-tree",
+      "--quiet",
+    )[2:]
+
+    with mock.patch.object(runner.sys, "stderr", stderr), mock.patch.object(runner.sys, "stdout", stdout):
+      exit_code = runner.main(argv)
+
+    stdout.seek(0)
+    self.assertEqual(0, exit_code)
+    self.assertEqual("PASS", json.load(stdout)["status"])
+    self.assertEqual("", stderr.value)
+
+  def test_progress_and_quiet_are_mutually_exclusive(self):
+    completed = self.invoke(
+      "run",
+      "--skill",
+      str(self.skill),
+      "--case",
+      "write-result",
+      "--source",
+      "working-tree",
+      "--progress",
+      "--quiet",
+    )
+
+    self.assertEqual(2, completed.returncode)
+    self.assertEqual("", completed.stdout)
+    self.assertIn("not allowed with argument", completed.stderr)
+
+  def test_progress_reports_phases_in_order(self):
+    completed = self.invoke(
+      "run",
+      "--skill",
+      str(self.skill),
+      "--case",
+      "write-result",
+      "--source",
+      "working-tree",
+      "--progress",
+      env={"FAKE_CODEX_STDERR": "executor-internal-output"},
+    )
+
+    expected = [
+      "Preparing run",
+      "Case write-result: preparing workspace",
+      "Case write-result: running executor",
+      "Case write-result: running mechanical checks",
+      "Case write-result: running judge",
+      "Case write-result: PASS",
+      "Final result: PASS",
+    ]
+    self.assertEqual(expected, completed.stderr.splitlines())
+    report = json.loads(completed.stdout)
+    self.assertEqual("PASS", report["status"])
+    self.assertNotIn("executor-internal-output", completed.stderr)
+    self.assertIn("executor-internal-output", report["results"][0]["executor"]["stderr"])
+
+  def test_verify_change_and_stability_progress_include_context(self):
+    baseline = self.root / "baseline-progress"
+    subprocess.run(["cp", "-a", str(self.skill), str(baseline)], check=True)
+
+    verified = self.invoke(
+      "verify-change",
+      "--skill",
+      str(self.skill),
+      "--case",
+      "write-result",
+      "--baseline",
+      str(baseline),
+      "--progress",
+    )
+    stable = self.invoke(
+      "stability",
+      "--skill",
+      str(self.skill),
+      "--case",
+      "write-result",
+      "--runs",
+      "3",
+      "--progress",
+    )
+
+    self.assertIn("Case write-result [baseline]: running executor", verified.stderr)
+    self.assertIn("Case write-result [candidate]: running executor", verified.stderr)
+    self.assertIn("Case write-result [repetition 1/3]: running executor", stable.stderr)
+    self.assertIn("Case write-result [repetition 2/3]: running executor", stable.stderr)
+    self.assertIn("Case write-result [repetition 3/3]: running executor", stable.stderr)
+    json.loads(verified.stdout)
+    self.assertEqual("PASS", json.loads(stable.stdout)["status"])
 
   def test_run_all_aggregates_blocking_results_and_keeps_artifacts(self):
     second = self.skill / "evals" / "cases" / "missing"

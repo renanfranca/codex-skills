@@ -154,6 +154,8 @@ For every case, the runner:
 10. Aggregates the case or suite report and writes JSON to standard output.
 11. Deletes successful operation workspaces or retains blocking artifacts for diagnosis.
 
+While those phases run, the runner reports progress to standard error when that stream is connected to a terminal. The JSON report remains the only content on standard output.
+
 The executor response must have this shape:
 
 ```json
@@ -264,6 +266,10 @@ Stability compares overall status, mechanical check names and outcomes, judge ve
 
 ### Optional runtime controls
 
+- Progress is automatic when standard error is a TTY and silent for a pipe or redirection.
+- `--progress` forces immediate progress on standard error for monitored processes such as Codex CLI runs.
+- `--quiet` suppresses progress even in a terminal; it cannot be combined with `--progress`.
+- Progress never requests input, approval, or confirmation. TTY detection changes output only, so autonomous runs remain autonomous.
 - `--model <model>` uses the same explicit model selection throughout an operation.
 - Without `--model`, the report records `CODEX_MODEL` when set or `configured-default`; Codex still resolves its normal configured model.
 - `--source working-tree` evaluates current files; `--source git:<revision>` materializes a tracked Git snapshot.
