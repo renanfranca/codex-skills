@@ -1,6 +1,4 @@
 interface:
   display_name: "Develop Skill with Evals"
-  short_description: "Develop skills with evaluation-driven gates"
-  default_prompt: "Use $develop-skill-with-evals to create or improve a skill through RED, GREEN, stability, and regression evaluations."
-policy:
-  allow_implicit_invocation: true
+  short_description: "Plan proportional skill evaluation gates"
+  default_prompt: "Use $develop-skill-with-evals to classify change impact, plan model session cost, and run proportional evaluation gates."

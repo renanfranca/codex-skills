@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 import json
+import os
 from pathlib import Path
 import sys
+import time
 
 
 output = Path(sys.argv[sys.argv.index("-o") + 1])
 workspace = Path(sys.argv[sys.argv.index("-C") + 1])
+time.sleep(float(os.environ.get("FAKE_CODEX_DELAY", "0")))
 (workspace / "result.txt").write_text("ok", encoding="utf-8")
 print("executor-internal-output", file=sys.stderr)
 output.write_text(

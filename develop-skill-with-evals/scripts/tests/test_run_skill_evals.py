@@ -85,11 +85,431 @@ class SkillEvalRunnerTest(unittest.TestCase):
     command = self.command(*args)
     return subprocess.run(command, text=True, capture_output=True, env={**os.environ, **(env or {})}, check=False)
 
+  def add_case(self, skill, case_id, manifest, prompt="Test request"):
+    case_dir = skill / "evals" / "cases" / case_id
+    (case_dir / "fixture").mkdir(parents=True)
+    (case_dir / "case.json").write_text(json.dumps({"id": case_id, **manifest}), encoding="utf-8")
+    if prompt is not None:
+      (case_dir / "prompt.md").write_text(prompt, encoding="utf-8")
+    suite_path = skill / "evals" / "suite.json"
+    suite = json.loads(suite_path.read_text(encoding="utf-8"))
+    suite["cases"].append(case_id)
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+    return case_dir
+
   def test_parser_requires_exactly_case_or_all(self):
     runner = load_runner()
 
     with self.assertRaises(SystemExit):
       runner.parse_args(["run", "--skill", str(self.skill), "--source", "working-tree"])
+
+  def test_plan_is_side_effect_free_and_reports_static_zero_session_gate(self):
+    baseline = self.root / "baseline-plan"
+    subprocess.run(["cp", "-a", str(self.skill), str(baseline)], check=True)
+    artifacts = self.root / "plan-artifacts"
+
+    completed = subprocess.run(
+      [
+        "python3",
+        str(SCRIPT),
+        "plan",
+        "--skill",
+        str(self.skill),
+        "--baseline",
+        str(baseline),
+        "--impact",
+        "static",
+      ],
+      text=True,
+      capture_output=True,
+      check=False,
+    )
+
+    plan = json.loads(completed.stdout)
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    self.assertEqual("plan", plan["operation"])
+    self.assertEqual("static", plan["impact"])
+    self.assertEqual([], plan["selected_cases"])
+    self.assertEqual(0, plan["sessions"]["total"])
+    self.assertFalse(plan["approval_required"])
+    self.assertFalse(artifacts.exists())
+
+  def test_static_plan_does_not_require_an_evaluation_suite(self):
+    skill = self.root / "docs-only-skill"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+      "---\nname: docs-only-skill\ndescription: Test.\n---\n", encoding="utf-8"
+    )
+    baseline = self.root / "docs-only-baseline"
+    subprocess.run(["cp", "-a", str(skill), str(baseline)], check=True)
+
+    completed = subprocess.run(
+      [
+        "python3", str(SCRIPT), "plan", "--skill", str(skill),
+        "--baseline", str(baseline), "--impact", "static",
+      ],
+      text=True, capture_output=True, check=False,
+    )
+
+    plan = json.loads(completed.stdout)
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    self.assertEqual(0, plan["sessions"]["total"])
+    self.assertEqual(["structural-validation"], plan["steps"])
+
+  def test_plan_counts_exact_sessions_for_scoped_and_cross_cutting_impacts(self):
+    self.add_case(
+      self.skill,
+      "semantic-judge",
+      {
+        "kind": "behavioral",
+        "prompt_file": "prompt.md",
+        "mechanical": {"expected_exit_code": 0},
+        "judge": {"enabled": True, "criteria": ["The request is complete."]},
+      },
+    )
+    baseline = self.root / "baseline-counts"
+    subprocess.run(["cp", "-a", str(self.skill), str(baseline)], check=True)
+
+    scoped = subprocess.run(
+      [
+        "python3", str(SCRIPT), "plan", "--skill", str(self.skill),
+        "--baseline", str(baseline), "--impact", "scoped", "--case", "semantic-judge",
+      ],
+      text=True, capture_output=True, check=False,
+    )
+    cross_cutting = subprocess.run(
+      [
+        "python3", str(SCRIPT), "plan", "--skill", str(self.skill),
+        "--baseline", str(baseline), "--impact", "cross-cutting", "--case", "semantic-judge",
+      ],
+      text=True, capture_output=True, check=False,
+    )
+
+    scoped_plan = json.loads(scoped.stdout)
+    cross_plan = json.loads(cross_cutting.stdout)
+    self.assertEqual(0, scoped.returncode, scoped.stderr)
+    self.assertEqual({"executor": 4, "judge": 4, "total": 8}, {
+      key: scoped_plan["sessions"][key] for key in ("executor", "judge", "total")
+    })
+    self.assertFalse(scoped_plan["approval_required"])
+    self.assertEqual(["write-result"], cross_plan["regression_cases"])
+    self.assertEqual(9, cross_plan["sessions"]["total"])
+    self.assertTrue(cross_plan["approval_required"])
+
+  def test_plan_proposes_the_current_runner_for_target_skill_validation(self):
+    baseline = self.root / "baseline-command"
+    subprocess.run(["cp", "-a", str(self.skill), str(baseline)], check=True)
+
+    completed = subprocess.run(
+      [
+        "python3", str(SCRIPT), "plan", "--skill", str(self.skill),
+        "--baseline", str(baseline), "--impact", "scoped", "--case", "write-result",
+      ],
+      text=True, capture_output=True, check=False,
+    )
+
+    plan = json.loads(completed.stdout)
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    self.assertEqual(str(SCRIPT.resolve()), plan["commands"][0].split()[1])
+
+  def test_deterministic_case_runs_commands_without_model_sessions(self):
+    (self.skill / "marker.txt").write_text("good", encoding="utf-8")
+    self.add_case(
+      self.skill,
+      "check-marker",
+      {
+        "kind": "deterministic",
+        "mechanical": {
+          "commands": [{
+            "argv": [
+              "python3", "-c",
+              "import os; from pathlib import Path; assert (Path(os.environ['SKILL_EVAL_SKILL_DIR']) / 'marker.txt').read_text() == 'good'",
+            ],
+            "exit_code": 0,
+          }]
+        },
+        "judge": {"enabled": False, "criteria": []},
+      },
+      prompt=None,
+    )
+
+    completed = self.invoke(
+      "run", "--skill", str(self.skill), "--case", "check-marker", "--source", "working-tree"
+    )
+
+    report = json.loads(completed.stdout)
+    result = report["results"][0]
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    self.assertEqual("PASS", result["status"])
+    self.assertFalse(result["executor"]["enabled"])
+    self.assertFalse(result["judge"]["enabled"])
+    self.assertEqual(0, result["model_sessions"]["total"])
+
+  def test_deterministic_manifest_rejects_executor_or_enabled_judge(self):
+    self.add_case(
+      self.skill,
+      "invalid-deterministic",
+      {
+        "kind": "deterministic",
+        "prompt_file": "prompt.md",
+        "mechanical": {"commands": [{"argv": ["python3", "-c", "pass"]}]},
+        "judge": {"enabled": True, "criteria": []},
+      },
+    )
+    baseline = self.root / "baseline-invalid"
+    subprocess.run(["cp", "-a", str(self.skill), str(baseline)], check=True)
+
+    completed = subprocess.run(
+      [
+        "python3", str(SCRIPT), "plan", "--skill", str(self.skill),
+        "--baseline", str(baseline), "--impact", "deterministic",
+      ],
+      text=True, capture_output=True, check=False,
+    )
+
+    report = json.loads(completed.stdout)
+    self.assertEqual(1, completed.returncode)
+    self.assertEqual("ERROR", report["status"])
+    self.assertIn("forbids executor configuration", report["results"][0]["error"])
+
+  def test_validate_change_runs_deterministic_red_once_and_candidate_three_times(self):
+    (self.skill / "marker.txt").write_text("good", encoding="utf-8")
+    self.add_case(
+      self.skill,
+      "deterministic-red-green",
+      {
+        "kind": "deterministic",
+        "mechanical": {
+          "commands": [{
+            "argv": [
+              "python3", "-c",
+              "import os; from pathlib import Path; assert (Path(os.environ['SKILL_EVAL_SKILL_DIR']) / 'marker.txt').read_text() == 'good'",
+            ]
+          }]
+        },
+        "judge": {"enabled": False, "criteria": []},
+      },
+      prompt=None,
+    )
+    baseline = self.root / "baseline-deterministic"
+    subprocess.run(["cp", "-a", str(self.skill), str(baseline)], check=True)
+    (baseline / "marker.txt").write_text("bad", encoding="utf-8")
+
+    completed = self.invoke(
+      "validate-change", "--skill", str(self.skill), "--baseline", str(baseline),
+      "--impact", "deterministic", "--case", "deterministic-red-green",
+    )
+
+    report = json.loads(completed.stdout)
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    self.assertEqual("PASS", report["status"])
+    self.assertEqual(["baseline", "candidate", "candidate", "candidate"], [
+      result["role"] for result in report["results"]
+    ])
+    self.assertEqual(0, report["plan"]["sessions"]["total"])
+
+  def test_validate_change_allows_exactly_eight_semantic_sessions(self):
+    (self.skill / "marker.txt").write_text("candidate", encoding="utf-8")
+    manifest = json.loads(
+      (self.skill / "evals" / "cases" / "write-result" / "case.json").read_text(encoding="utf-8")
+    )
+    manifest["judge"] = {
+      "enabled": True,
+      "criteria": ["The requested result exists."],
+      "no_action_acceptable": False,
+    }
+    (self.skill / "evals" / "cases" / "write-result" / "case.json").write_text(
+      json.dumps(manifest), encoding="utf-8"
+    )
+    baseline = self.root / "baseline-eight"
+    subprocess.run(["cp", "-a", str(self.skill), str(baseline)], check=True)
+    (baseline / "marker.txt").write_text("baseline", encoding="utf-8")
+    self.fake.write_text(
+      "#!/usr/bin/env python3\n"
+      "import json, pathlib, sys\n"
+      "schema = pathlib.Path(sys.argv[sys.argv.index('--output-schema') + 1])\n"
+      "out = pathlib.Path(sys.argv[sys.argv.index('-o') + 1])\n"
+      "cwd = pathlib.Path(sys.argv[sys.argv.index('-C') + 1])\n"
+      "if 'judge' in schema.name:\n"
+      "  response = {'verdict': 'PASS', 'rationale': 'observable', 'evidence': ['result']}\n"
+      "else:\n"
+      "  marker = cwd / '.agents/skills/sample-skill/marker.txt'\n"
+      "  if marker.read_text() == 'candidate': (cwd / 'result.txt').write_text('ok')\n"
+      "  response = {'summary': 'done', 'classification': 'test', 'evidence': [], 'files_changed': ['result.txt']}\n"
+      "out.write_text(json.dumps(response))\n",
+      encoding="utf-8",
+    )
+    self.fake.chmod(0o755)
+
+    completed = self.invoke(
+      "validate-change", "--skill", str(self.skill), "--baseline", str(baseline),
+      "--impact", "scoped", "--case", "write-result",
+    )
+
+    report = json.loads(completed.stdout)
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    self.assertEqual("PASS", report["status"])
+    self.assertEqual(8, report["plan"]["sessions"]["total"])
+    self.assertFalse(report["plan"]["approval_required"])
+    self.assertEqual(8, sum(result["model_sessions"]["total"] for result in report["results"]))
+
+  def test_validate_change_refuses_unapproved_sessions_before_artifacts_or_models(self):
+    self.add_case(
+      self.skill,
+      "semantic-judge",
+      {
+        "kind": "behavioral",
+        "prompt_file": "prompt.md",
+        "mechanical": {"expected_exit_code": 0},
+        "judge": {"enabled": True, "criteria": ["The request is complete."]},
+      },
+    )
+    baseline = self.root / "baseline-budget"
+    subprocess.run(["cp", "-a", str(self.skill), str(baseline)], check=True)
+
+    completed = self.invoke(
+      "validate-change", "--skill", str(self.skill), "--baseline", str(baseline),
+      "--impact", "cross-cutting", "--case", "semantic-judge",
+    )
+
+    plan = json.loads(completed.stdout)
+    self.assertEqual(2, completed.returncode, completed.stderr)
+    self.assertEqual("plan", plan["operation"])
+    self.assertEqual(9, plan["sessions"]["total"])
+    self.assertTrue(plan["approval_required"])
+    self.assertFalse((self.root / "artifacts").exists())
+
+  def test_validate_change_accepts_explicit_larger_session_budget(self):
+    self.add_case(
+      self.skill,
+      "semantic-judge",
+      {
+        "kind": "behavioral",
+        "prompt_file": "prompt.md",
+        "mechanical": {"expected_exit_code": 0},
+        "judge": {"enabled": True, "criteria": ["The request is complete."]},
+      },
+    )
+    baseline = self.root / "baseline-approved"
+    subprocess.run(["cp", "-a", str(self.skill), str(baseline)], check=True)
+
+    completed = self.invoke(
+      "validate-change", "--skill", str(self.skill), "--baseline", str(baseline),
+      "--impact", "cross-cutting", "--case", "semantic-judge",
+      "--approved-model-sessions", "9",
+    )
+
+    report = json.loads(completed.stdout)
+    self.assertNotEqual(2, completed.returncode)
+    self.assertEqual("validate-change", report["operation"])
+    self.assertFalse(report["plan"]["approval_required"])
+
+  def test_cross_cutting_regression_excludes_affected_cases(self):
+    (self.skill / "marker.txt").write_text("good", encoding="utf-8")
+    self.add_case(
+      self.skill,
+      "affected-deterministic",
+      {
+        "kind": "deterministic",
+        "mechanical": {
+          "commands": [{
+            "argv": [
+              "python3", "-c",
+              "import os; from pathlib import Path; assert (Path(os.environ['SKILL_EVAL_SKILL_DIR']) / 'marker.txt').read_text() == 'good'",
+            ]
+          }]
+        },
+        "judge": {"enabled": False, "criteria": []},
+      },
+      prompt=None,
+    )
+    (self.skill / "evals" / "suite.json").write_text(
+      json.dumps({"version": 1, "cases": ["affected-deterministic", "write-result"]}),
+      encoding="utf-8",
+    )
+    baseline = self.root / "baseline-cross"
+    subprocess.run(["cp", "-a", str(self.skill), str(baseline)], check=True)
+    (baseline / "marker.txt").write_text("bad", encoding="utf-8")
+
+    completed = self.invoke(
+      "validate-change", "--skill", str(self.skill), "--baseline", str(baseline),
+      "--impact", "cross-cutting", "--case", "affected-deterministic",
+    )
+
+    report = json.loads(completed.stdout)
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    self.assertEqual(["write-result"], report["plan"]["regression_cases"])
+    self.assertEqual(4, [result["case_id"] for result in report["results"]].count("affected-deterministic"))
+    self.assertEqual(1, [result["case_id"] for result in report["results"]].count("write-result"))
+    self.assertEqual("regression", report["results"][-1]["role"])
+
+  def test_validate_change_reports_unstable_candidate_signatures(self):
+    counter = self.root / "validation-counter"
+    (self.skill / "marker.txt").write_text("good", encoding="utf-8")
+    command = (
+      "import os, pathlib, sys; "
+      "skill=pathlib.Path(os.environ['SKILL_EVAL_SKILL_DIR']); "
+      "sys.exit(1) if (skill/'marker.txt').read_text() != 'good' else None; "
+      f"counter=pathlib.Path({str(counter)!r}); "
+      "n=int(counter.read_text()) if counter.exists() else 0; "
+      "counter.write_text(str(n+1)); "
+      "pathlib.Path('even.txt' if n % 2 == 0 else 'odd.txt').write_text('ok')"
+    )
+    self.add_case(
+      self.skill,
+      "unstable-deterministic",
+      {
+        "kind": "deterministic",
+        "mechanical": {"commands": [{"argv": ["python3", "-c", command]}]},
+        "judge": {"enabled": False, "criteria": []},
+      },
+      prompt=None,
+    )
+    baseline = self.root / "baseline-unstable"
+    subprocess.run(["cp", "-a", str(self.skill), str(baseline)], check=True)
+    (baseline / "marker.txt").write_text("bad", encoding="utf-8")
+
+    completed = self.invoke(
+      "validate-change", "--skill", str(self.skill), "--baseline", str(baseline),
+      "--impact", "deterministic", "--case", "unstable-deterministic",
+    )
+
+    report = json.loads(completed.stdout)
+    self.assertEqual(1, completed.returncode)
+    self.assertEqual("UNSTABLE", report["status"])
+    self.assertEqual(4, len(report["results"]))
+
+  def test_validate_change_stops_after_first_candidate_failure_without_retry(self):
+    (self.skill / "marker.txt").write_text("bad", encoding="utf-8")
+    self.add_case(
+      self.skill,
+      "always-failing",
+      {
+        "kind": "deterministic",
+        "mechanical": {
+          "commands": [{
+            "argv": [
+              "python3", "-c",
+              "import os; from pathlib import Path; assert (Path(os.environ['SKILL_EVAL_SKILL_DIR']) / 'marker.txt').read_text() == 'good'",
+            ]
+          }]
+        },
+        "judge": {"enabled": False, "criteria": []},
+      },
+      prompt=None,
+    )
+    baseline = self.root / "baseline-failing"
+    subprocess.run(["cp", "-a", str(self.skill), str(baseline)], check=True)
+
+    completed = self.invoke(
+      "validate-change", "--skill", str(self.skill), "--baseline", str(baseline),
+      "--impact", "deterministic", "--case", "always-failing",
+    )
+
+    report = json.loads(completed.stdout)
+    self.assertEqual(1, completed.returncode)
+    self.assertEqual("FAIL", report["status"])
+    self.assertEqual(["baseline", "candidate"], [result["role"] for result in report["results"]])
 
   def test_run_uses_isolated_workspace_and_passes_mechanical_checks(self):
     completed = self.invoke("run", "--skill", str(self.skill), "--case", "write-result", "--source", "working-tree")
@@ -276,6 +696,22 @@ class SkillEvalRunnerTest(unittest.TestCase):
     self.assertEqual("FAIL", report["status"])
     self.assertEqual(["PASS", "FAIL"], [result["status"] for result in report["results"]])
     self.assertTrue(Path(report["artifacts"]).exists())
+
+  def test_mechanical_failure_remains_fail_when_judge_is_inconclusive(self):
+    manifest_path = self.skill / "evals" / "cases" / "write-result" / "case.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["mechanical"]["required_paths"] = ["missing.txt"]
+    manifest["judge"] = {"enabled": True, "criteria": ["The output is complete."]}
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    completed = self.invoke(
+      "run", "--skill", str(self.skill), "--case", "write-result", "--source", "working-tree"
+    )
+
+    report = json.loads(completed.stdout)
+    self.assertEqual(1, completed.returncode)
+    self.assertEqual("FAIL", report["status"])
+    self.assertEqual("INCONCLUSIVE", report["results"][0]["judge"]["verdict"])
 
   def test_mechanical_check_detects_skill_self_modification(self):
     completed = self.invoke(

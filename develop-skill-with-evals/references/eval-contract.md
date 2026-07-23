@@ -1,6 +1,6 @@
 # Evaluation contract
 
-Use this reference when adding cases or interpreting runner results. Do not load files under `evals/` into the executor prompt except the selected case's raw `prompt.md` and fixture tree.
+Use this reference when adding cases, planning gates, or interpreting results. Do not load files under `evals/` into an executor prompt except the selected semantic case's raw prompt and fixture.
 
 ## Suite layout
 
@@ -13,13 +13,11 @@ Store a suite at `<skill>/evals/suite.json`:
 }
 ```
 
-Store every case at `<skill>/evals/cases/<case-id>/` with:
+Each ID is unique and maps to `<skill>/evals/cases/<case-id>/case.json`. Semantic cases also have `prompt.md`; every case may have a minimal `fixture/`.
 
-- `case.json`: runner configuration and hidden expected contract;
-- `prompt.md`: raw user request sent to the executor;
-- `fixture/`: optional isolated starting workspace.
+## Semantic cases
 
-The case manifest supports:
+`behavioral`, `non_behavioral`, and `trigger` cases keep the existing executor contract:
 
 ```json
 {
@@ -35,43 +33,94 @@ The case manifest supports:
   },
   "judge": {
     "enabled": true,
-    "criteria": ["The response identifies the demonstrated design risk."],
+    "criteria": ["The response satisfies the expected semantic outcome."],
     "no_action_acceptable": false
   }
 }
 ```
 
-`kind` is `behavioral`, `non_behavioral`, or `trigger`. Behavioral changes require a real baseline failure. `implicit_skill` omits the explicit `$skill-name` instruction while still installing a repository-scoped copy for trigger smoke tests.
+The runner creates a disposable workspace, installs the evaluated skill under `.agents/skills/<name>` without `evals/`, invokes an ephemeral Codex executor, runs mechanical checks as direct argument arrays without a shell, and invokes the judge when enabled. The executor receives only the raw prompt plus the explicit skill instruction unless `implicit_skill` is true. It never receives judge criteria or answer keys.
 
-Paths are relative to the disposable workspace. Glob patterns use Python `fnmatch` semantics. Commands run without a shell after the executor returns. Never put credentials, proprietary source, full transcripts, or an answer key in fixtures.
+One executor invocation is one model session. An enabled judge adds one session.
 
-## Execution isolation
+## Deterministic cases
 
-For each run, the runner creates a fresh directory under `/tmp`, copies the fixture, initializes a Git repository for change detection, and installs the evaluated skill under `.agents/skills/<name>`. It invokes `codex exec` with `--ephemeral`, `--sandbox workspace-write`, a structured output schema, and the selected model. The executor receives only the raw prompt plus the explicit skill instruction when `implicit_skill` is false.
+Use `kind: "deterministic"` only when code can observe the complete contract:
 
-The runner snapshots files before and after execution, verifies commands and paths, and separately asks a judge to evaluate the case criteria when enabled. The judge receives the expected criteria, executor response, mechanical evidence, and diff summary; the executor never receives the criteria.
+```json
+{
+  "id": "runner-output",
+  "kind": "deterministic",
+  "mechanical": {
+    "commands": [
+      {"argv": ["python3", "check_output.py"], "exit_code": 0}
+    ]
+  },
+  "judge": {
+    "enabled": false,
+    "criteria": []
+  }
+}
+```
 
-## Progress output
+A deterministic case:
 
-The runner reserves standard output for the JSON report. Progress goes only to standard error and is flushed immediately without colors, spinners, timestamps, or captured subprocess output.
+- requires at least one required path, forbidden changed path, or command;
+- forbids `prompt_file`, `implicit_skill`, `executor`, `mechanical.expected_exit_code`, and an enabled judge;
+- does not require `prompt.md`;
+- does not create an executor response;
+- records executor and judge as disabled;
+- consumes zero model sessions;
+- runs commands as direct argv without a shell;
+- sets `SKILL_EVAL_SKILL_DIR` to the absolute, immutable snapshot being evaluated.
 
-Without an explicit option, progress is enabled when standard error is a TTY and disabled otherwise. `--progress` forces it for monitored runs with captured standard error; `--quiet` suppresses it in a terminal. The options are mutually exclusive. TTY detection controls output only: every operation remains autonomous and never requests input or confirmation.
+Commands run inside a fresh fixture workspace. The runner hashes the evaluated snapshot before and after every case and blocks any mutation.
 
-Progress covers operation and case preparation, executor invocation, mechanical checks, semantic judgment, each case result, and the final result. `verify-change` labels baseline and candidate phases, while `stability` labels the current repetition and total.
+## Impact planning
 
-## Status policy
+Classify each proposed change:
 
-- `PASS`: all mechanical checks and the semantic judge pass.
-- `FAIL`: an observable contract check fails.
-- `ERROR`: the runner, manifest, or process cannot execute reliably.
-- `INCONCLUSIVE`: the judge cannot establish the contract.
-- `INVALID_RED`: a behavioral case passes on the baseline.
-- `UNSTABLE`: repeated verdict signatures disagree.
+- `static`: text or formatting unable to affect behavior;
+- `deterministic`: behavior completely observable by code;
+- `scoped`: semantic behavior limited to enumerated cases;
+- `cross-cutting`: central or shared behavior, safety, selection, or uncertain reach.
 
-All statuses except `PASS` block promotion. Keep detailed artifacts for blocking results and remove successful workspaces. Reports conform to `eval-result.schema.json`.
+`plan` loads and validates all manifests, selects gates, and calculates sessions without creating workspaces or artifacts. With deterministic impact and no `--case`, it selects every deterministic suite case. Explicit deterministic selections must be deterministic. Scoped and cross cutting plans require at least one affected case. Cross cutting plans assign every remaining suite case to one regression execution.
 
-## Change verification
+The plan conforms to `eval-plan.schema.json` and includes a normalized manifest fingerprint. It reports one baseline and three candidate executions for each affected case. Remaining cross cutting regression cases run once on the candidate. Session totals derive from case kind and judge configuration, so deterministic cases add zero, semantic cases add one executor session, and enabled judges add one judge session per execution.
 
-`verify-change` evaluates the same case against baseline and candidate with the same resolved model and runner configuration. A valid behavioral change requires baseline `FAIL` and candidate `PASS`. A passing baseline yields `INVALID_RED`. For non-behavioral cases, skip the artificial RED and require structural validation plus the full candidate regression.
+Planning counts sessions, not tokens, elapsed time, or money. Treat uncertain reach as cross cutting; reducing the declared impact merely to avoid cost is invalid workflow.
 
-`stability --runs 3` compares normalized verdict signatures: overall status, mechanical check outcomes, judge verdict, and outcome-relevant changed-path set. Harness files named `.eval-*` and generated Python `__pycache__`/`.pyc` files are excluded; production-path differences remain significant. Any other difference yields `UNSTABLE`.
+## Integrated change validation
+
+`validate-change` builds the same plan before allocating an operation directory. The default approved limit is eight model sessions. If the estimate exceeds the limit, or an explicit `--approved-model-sessions` value is lower than the estimate, the runner prints the plan, creates no artifacts, invokes no model, and returns exit code 2.
+
+After approval, the runner snapshots both sources and verifies that the candidate manifest fingerprint and counts still match the approved plan. Validation then:
+
+1. snapshots baseline and candidate;
+2. runs every affected case once on baseline;
+3. returns `INVALID_RED` if a baseline passes and blocks on any baseline status other than `FAIL`;
+4. runs each affected case up to three times on candidate, stopping at the first non `PASS`;
+5. returns `UNSTABLE` when three passing normalized signatures diverge;
+6. for cross cutting impact, runs each remaining case once and stops at the first non `PASS`.
+
+There are no automatic retries after failures, inconclusive judgments, or instability. Repeating an unchanged evaluation to seek PASS is prohibited.
+
+## Progress and compatibility
+
+Standard output contains only the JSON plan or result. Progress goes only to standard error and flushes immediately without colors, spinners, timestamps, or captured subprocess output.
+
+Without an option, progress follows `stderr.isatty()`. `--progress` forces it and `--quiet` suppresses it; they are mutually exclusive. Existing `run`, `verify-change`, and `stability` behavior remains compatible. Deterministic cases omit executor and judge progress phases because neither runs.
+
+## Status and artifacts
+
+- `PASS`: every required gate passed.
+- `FAIL`: an observable contract check failed.
+- `ERROR`: a runner, manifest, or process could not execute reliably.
+- `INCONCLUSIVE`: a judge could not establish the contract.
+- `INVALID_RED`: an affected case passed on baseline.
+- `UNSTABLE`: candidate normalized signatures diverged.
+
+Only `PASS` permits promotion. Blocking operations retain artifacts; successful workspaces are removed. Plans conform to `eval-plan.schema.json`, and executed reports conform to `eval-result.schema.json`.
+
+Normalized stability signatures contain overall status, mechanical check outcomes, judge verdict, and outcome relevant changed paths. Harness files named `.eval-*` and generated `__pycache__` or `.pyc` files are excluded; production paths remain significant.

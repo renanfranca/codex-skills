@@ -4,13 +4,62 @@
   "type": "object",
   "required": ["operation", "status", "skill", "model", "results"],
   "properties": {
-    "operation": {"enum": ["run", "verify-change", "stability"]},
+    "operation": {"enum": ["run", "verify-change", "stability", "validate-change"]},
     "status": {
       "enum": ["PASS", "FAIL", "ERROR", "INCONCLUSIVE", "INVALID_RED", "UNSTABLE"]
     },
     "skill": {"type": "string"},
     "model": {"type": "string"},
-    "results": {"type": "array", "items": {"type": "object"}},
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "case_id": {"type": "string"},
+          "status": {
+            "enum": ["PASS", "FAIL", "ERROR", "INCONCLUSIVE", "INVALID_RED", "UNSTABLE"]
+          },
+          "kind": {
+            "enum": ["behavioral", "non_behavioral", "trigger", "deterministic"]
+          },
+          "executor": {
+            "type": "object",
+            "properties": {
+              "enabled": {"type": "boolean"},
+              "exit_code": {"type": ["integer", "null"]},
+              "response": {"type": ["object", "null"]},
+              "stderr": {"type": "string"}
+            },
+            "additionalProperties": true
+          },
+          "judge": {
+            "type": "object",
+            "properties": {
+              "enabled": {"type": "boolean"},
+              "verdict": {"enum": ["PASS", "FAIL", "INCONCLUSIVE"]},
+              "rationale": {"type": "string"},
+              "evidence": {
+                "type": "array",
+                "items": {"type": "string"}
+              }
+            },
+            "additionalProperties": true
+          },
+          "model_sessions": {
+            "type": "object",
+            "required": ["executor", "judge", "total"],
+            "properties": {
+              "executor": {"type": "integer", "minimum": 0},
+              "judge": {"type": "integer", "minimum": 0},
+              "total": {"type": "integer", "minimum": 0}
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "plan": {"type": "object"},
     "artifacts": {"type": ["string", "null"]}
   },
   "additionalProperties": true

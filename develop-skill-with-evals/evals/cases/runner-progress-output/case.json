@@ -1,32 +1,17 @@
 {
   "id": "runner-progress-output",
-  "kind": "behavioral",
-  "prompt_file": "prompt.md",
+  "kind": "deterministic",
   "mechanical": {
-    "expected_exit_code": 0,
-    "required_paths": [
-      "stdout.json",
-      "progress.log"
-    ],
     "forbidden_changed_paths": [
-      ".agents/skills/**",
       "sample-skill/**",
-      "fake-codex"
+      "fake-codex",
+      "check_progress.py"
     ],
     "commands": [
       {
         "argv": [
           "python3",
-          "-c",
-          "import json; report=json.load(open('stdout.json', encoding='utf-8')); assert report['operation']=='run'; assert report['status']=='PASS'; assert report['results'][0]['case_id']=='write-result'"
-        ],
-        "exit_code": 0
-      },
-      {
-        "argv": [
-          "python3",
-          "-c",
-          "from pathlib import Path; lines=Path('progress.log').read_text(encoding='utf-8').splitlines(); expected=['Preparing run','Case write-result: preparing workspace','Case write-result: running executor','Case write-result: running mechanical checks','Case write-result: running judge','Case write-result: PASS','Final result: PASS']; assert lines==expected, lines; assert all('executor-internal-output' not in line for line in lines)"
+          "check_progress.py"
         ],
         "exit_code": 0
       }
@@ -34,7 +19,6 @@
   },
   "judge": {
     "enabled": false,
-    "criteria": [],
-    "no_action_acceptable": false
+    "criteria": []
   }
 }

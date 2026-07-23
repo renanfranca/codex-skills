@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Skill evaluation plan",
+  "type": "object",
+  "required": [
+    "operation",
+    "skill",
+    "baseline",
+    "impact",
+    "selected_cases",
+    "regression_cases",
+    "steps",
+    "commands",
+    "executions",
+    "sessions",
+    "approved_model_sessions",
+    "approval_required",
+    "reasons",
+    "warnings",
+    "manifest_fingerprint"
+  ],
+  "properties": {
+    "operation": {"const": "plan"},
+    "requested_operation": {"const": "validate-change"},
+    "skill": {"type": "string"},
+    "baseline": {"type": "string"},
+    "impact": {
+      "enum": ["static", "deterministic", "scoped", "cross-cutting"]
+    },
+    "selected_cases": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "regression_cases": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "steps": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "commands": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "executions": {
+      "type": "object",
+      "required": ["baseline", "candidate"],
+      "properties": {
+        "baseline": {"$ref": "#/$defs/executionCount"},
+        "candidate": {"$ref": "#/$defs/executionCount"}
+      },
+      "additionalProperties": false
+    },
+    "sessions": {
+      "type": "object",
+      "required": ["baseline", "candidate", "executor", "judge", "total"],
+      "properties": {
+        "baseline": {"$ref": "#/$defs/sessionCount"},
+        "candidate": {"$ref": "#/$defs/sessionCount"},
+        "executor": {"type": "integer", "minimum": 0},
+        "judge": {"type": "integer", "minimum": 0},
+        "total": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "approved_model_sessions": {"type": "integer", "minimum": 0},
+    "approval_required": {"type": "boolean"},
+    "reasons": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "warnings": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "manifest_fingerprint": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "executionCount": {
+      "type": "object",
+      "required": ["total"],
+      "properties": {
+        "affected": {"type": "integer", "minimum": 0},
+        "regression": {"type": "integer", "minimum": 0},
+        "total": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "sessionCount": {
+      "type": "object",
+      "required": ["executor", "judge", "total"],
+      "properties": {
+        "executor": {"type": "integer", "minimum": 0},
+        "judge": {"type": "integer", "minimum": 0},
+        "total": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

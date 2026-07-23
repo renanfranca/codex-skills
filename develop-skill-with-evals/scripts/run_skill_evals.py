@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shlex
 import shutil
 import subprocess
 import sys
@@ -17,6 +18,8 @@ from typing import Any
 
 PASS = "PASS"
 BLOCKING = {"FAIL", "ERROR", "INCONCLUSIVE", "INVALID_RED", "UNSTABLE"}
+IMPACTS = ("static", "deterministic", "scoped", "cross-cutting")
+DEFAULT_APPROVED_MODEL_SESSIONS = 8
 
 
 class ProgressReporter:
@@ -53,9 +56,31 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
   stability_parser.add_argument("--source", default="working-tree")
   add_runtime_arguments(stability_parser)
 
+  plan_parser = subparsers.add_parser("plan", help="Plan proportional evaluation gates without running them")
+  add_skill_argument(plan_parser)
+  plan_parser.add_argument("--baseline", type=Path, required=True)
+  plan_parser.add_argument("--impact", choices=IMPACTS, required=True)
+  plan_parser.add_argument("--case", action="append", default=[])
+
+  validate_parser = subparsers.add_parser(
+    "validate-change", help="Run RED, GREEN, stability, and proportional regression gates"
+  )
+  add_skill_argument(validate_parser)
+  validate_parser.add_argument("--baseline", type=Path, required=True)
+  validate_parser.add_argument(
+    "--impact", choices=("deterministic", "scoped", "cross-cutting"), required=True
+  )
+  validate_parser.add_argument("--case", action="append", default=[])
+  validate_parser.add_argument(
+    "--approved-model-sessions", type=int, default=DEFAULT_APPROVED_MODEL_SESSIONS
+  )
+  add_runtime_arguments(validate_parser)
+
   args = parser.parse_args(argv)
   if hasattr(args, "runs") and args.runs < 2:
     parser.error("--runs must be at least 2")
+  if hasattr(args, "approved_model_sessions") and args.approved_model_sessions < 0:
+    parser.error("--approved-model-sessions must be non-negative")
   return args
 
 
@@ -73,9 +98,9 @@ def add_runtime_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def progress_enabled(args: argparse.Namespace, stream: Any | None = None) -> bool:
-  if args.quiet:
+  if getattr(args, "quiet", False):
     return False
-  if args.progress:
+  if getattr(args, "progress", False):
     return True
   output = sys.stderr if stream is None else stream
   return output.isatty()
@@ -194,8 +219,161 @@ def valid_executor_response(response: Any) -> bool:
   )
 
 
-def run_process(command: list[str], cwd: Path, prompt: str | None = None) -> subprocess.CompletedProcess[str]:
-  return subprocess.run(command, cwd=cwd, input=prompt, text=True, capture_output=True, check=False)
+def run_process(
+  command: list[str],
+  cwd: Path,
+  prompt: str | None = None,
+  env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+  return subprocess.run(
+    command,
+    cwd=cwd,
+    input=prompt,
+    text=True,
+    capture_output=True,
+    check=False,
+    env=env,
+  )
+
+
+def load_case_manifest(skill: Path, case_id: str) -> tuple[Path, dict[str, Any]]:
+  case_dir = skill / "evals" / "cases" / case_id
+  case = read_json(case_dir / "case.json")
+  validate_case_manifest(case_dir, case_id, case)
+  return case_dir, case
+
+
+def validate_case_manifest(case_dir: Path, case_id: str, case: dict[str, Any]) -> None:
+  if case.get("id") != case_id:
+    raise ValueError(f"Case id mismatch in {case_dir / 'case.json'}")
+  kind = case.get("kind", "behavioral")
+  if kind not in {"behavioral", "non_behavioral", "trigger", "deterministic"}:
+    raise ValueError(f"Unsupported case kind {kind!r} in {case_dir / 'case.json'}")
+  mechanical = case.get("mechanical", {})
+  if not isinstance(mechanical, dict):
+    raise ValueError(f"mechanical must be an object in {case_dir / 'case.json'}")
+  for field in ("required_paths", "forbidden_changed_paths"):
+    values = mechanical.get(field, [])
+    if not isinstance(values, list) or not all(isinstance(value, str) for value in values):
+      raise ValueError(f"mechanical.{field} must be an array of strings in {case_dir / 'case.json'}")
+  commands = mechanical.get("commands", [])
+  if not isinstance(commands, list):
+    raise ValueError(f"mechanical.commands must be an array in {case_dir / 'case.json'}")
+  for command in commands:
+    argv = command.get("argv") if isinstance(command, dict) else None
+    if not isinstance(argv, list) or not argv or not all(isinstance(item, str) for item in argv):
+      raise ValueError(f"Every mechanical command requires a non-empty argv array in {case_dir / 'case.json'}")
+  judge = case.get("judge", {})
+  if not isinstance(judge, dict):
+    raise ValueError(f"judge must be an object in {case_dir / 'case.json'}")
+  if kind == "deterministic":
+    observations = (
+      mechanical.get("required_paths", [])
+      or mechanical.get("forbidden_changed_paths", [])
+      or commands
+    )
+    if not observations:
+      raise ValueError(f"Deterministic case {case_id} requires at least one mechanical verification")
+    forbidden = {"prompt_file", "implicit_skill", "executor"} & case.keys()
+    if forbidden or "expected_exit_code" in mechanical:
+      names = sorted(forbidden | ({"mechanical.expected_exit_code"} if "expected_exit_code" in mechanical else set()))
+      raise ValueError(f"Deterministic case {case_id} forbids executor configuration: {', '.join(names)}")
+    if judge.get("enabled", False):
+      raise ValueError(f"Deterministic case {case_id} cannot enable a semantic judge")
+  else:
+    prompt_file = case.get("prompt_file", "prompt.md")
+    if not (case_dir / prompt_file).is_file():
+      raise ValueError(f"Missing prompt file for case {case_id}: {prompt_file}")
+
+
+def disabled_executor() -> dict[str, Any]:
+  return {
+    "enabled": False,
+    "exit_code": None,
+    "response": None,
+    "stderr": "",
+  }
+
+
+def disabled_judge(reason: str) -> dict[str, Any]:
+  return {
+    "enabled": False,
+    "verdict": PASS,
+    "rationale": reason,
+    "evidence": [],
+  }
+
+
+def evaluate_deterministic_case(
+  installed_source: Path,
+  case: dict[str, Any],
+  case_dir: Path,
+  case_id: str,
+  operation_root: Path,
+  progress: ProgressReporter,
+  label: str,
+) -> dict[str, Any]:
+  progress.emit(f"{label}: preparing workspace")
+  workspace = Path(tempfile.mkdtemp(prefix=f"{case_id}-", dir=operation_root))
+  fixture = case_dir / "fixture"
+  if fixture.exists():
+    shutil.copytree(fixture, workspace, dirs_exist_ok=True)
+  subprocess.run(["git", "init", "-q"], cwd=workspace, check=True)
+  before = snapshot(workspace)
+  skill_before = snapshot(installed_source)
+  progress.emit(f"{label}: running mechanical checks")
+  mechanical_contract = case.get("mechanical", {})
+  checks = []
+  command_results = []
+  command_env = {**os.environ, "SKILL_EVAL_SKILL_DIR": str(installed_source.resolve())}
+  for command_contract in mechanical_contract.get("commands", []):
+    completed = run_process(command_contract["argv"], workspace, env=command_env)
+    expected_exit = command_contract.get("exit_code", 0)
+    command_results.append(
+      {
+        "argv": command_contract["argv"],
+        "exit_code": completed.returncode,
+        "stdout": completed.stdout[-4000:],
+        "stderr": completed.stderr[-4000:],
+      }
+    )
+    checks.append(
+      check(
+        f"command: {' '.join(command_contract['argv'])}",
+        completed.returncode == expected_exit,
+        f"expected {expected_exit}, got {completed.returncode}",
+      )
+    )
+  for required in mechanical_contract.get("required_paths", []):
+    checks.append(check(f"required path: {required}", (workspace / required).exists(), required))
+  after = snapshot(workspace)
+  changed = changed_paths(before, after)
+  for pattern in mechanical_contract.get("forbidden_changed_paths", []):
+    matches = [path for path in changed if fnmatch.fnmatch(path, pattern)]
+    checks.append(check(f"forbidden changed path: {pattern}", not matches, ", ".join(matches) or "no matches"))
+  checks.append(
+    check(
+      "evaluated skill remained unchanged",
+      snapshot(installed_source) == skill_before,
+      "evaluated skill hash comparison",
+    )
+  )
+  mechanical = {"passed": all(item["passed"] for item in checks), "checks": checks, "commands": command_results}
+  status = PASS if mechanical["passed"] else "FAIL"
+  result = {
+    "case_id": case_id,
+    "status": status,
+    "kind": "deterministic",
+    "executor": disabled_executor(),
+    "mechanical": mechanical,
+    "judge": disabled_judge("Deterministic cases do not use a semantic judge."),
+    "changed_paths": changed,
+    "workspace": str(workspace),
+    "model_sessions": {"executor": 0, "judge": 0, "total": 0},
+  }
+  (workspace / ".eval-result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
+  progress.emit(f"{label}: {status}")
+  return result
 
 
 def run_judge(
@@ -269,11 +447,18 @@ def evaluate_case(
   context: str | None = None,
 ) -> dict[str, Any]:
   label = f"Case {case_id}" + (f" [{context}]" if context else "")
+  case_dir, case = load_case_manifest(case_source_skill, case_id)
+  if case.get("kind") == "deterministic":
+    return evaluate_deterministic_case(
+      installed_source,
+      case,
+      case_dir,
+      case_id,
+      operation_root,
+      progress,
+      label,
+    )
   progress.emit(f"{label}: preparing workspace")
-  case_dir = case_source_skill / "evals" / "cases" / case_id
-  case = read_json(case_dir / "case.json")
-  if case.get("id") != case_id:
-    raise ValueError(f"Case id mismatch in {case_dir / 'case.json'}")
   workspace = Path(tempfile.mkdtemp(prefix=f"{case_id}-", dir=operation_root))
   fixture = case_dir / "fixture"
   if fixture.exists():
@@ -345,9 +530,11 @@ def evaluate_case(
   mechanical = {"passed": all(item["passed"] for item in checks), "checks": checks, "commands": command_results}
   progress.emit(f"{label}: running judge")
   judge = run_judge(args, workspace, case, response, mechanical)
-  if judge["verdict"] == "INCONCLUSIVE":
+  if not mechanical["passed"]:
+    status = "FAIL"
+  elif judge["verdict"] == "INCONCLUSIVE":
     status = "INCONCLUSIVE"
-  elif mechanical["passed"] and judge["verdict"] == PASS:
+  elif judge["verdict"] == PASS:
     status = PASS
   else:
     status = "FAIL"
@@ -364,6 +551,11 @@ def evaluate_case(
     "judge": judge,
     "changed_paths": changed,
     "workspace": str(workspace),
+    "model_sessions": {
+      "executor": 1,
+      "judge": 1 if case.get("judge", {}).get("enabled", False) else 0,
+      "total": 1 + (1 if case.get("judge", {}).get("enabled", False) else 0),
+    },
   }
   (workspace / ".eval-result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
   progress.emit(f"{label}: {status}")
@@ -374,7 +566,231 @@ def suite_cases(skill: Path) -> list[str]:
   suite = read_json(skill / "evals" / "suite.json")
   if suite.get("version") != 1 or not isinstance(suite.get("cases"), list):
     raise ValueError("suite.json must declare version 1 and a cases array")
-  return suite["cases"]
+  cases = suite["cases"]
+  if not all(isinstance(case_id, str) for case_id in cases) or len(cases) != len(set(cases)):
+    raise ValueError("suite.json case ids must be unique strings")
+  return cases
+
+
+def case_manifests(skill: Path) -> dict[str, dict[str, Any]]:
+  return {
+    case_id: load_case_manifest(skill, case_id)[1]
+    for case_id in suite_cases(skill)
+  }
+
+
+def case_session_cost(case: dict[str, Any]) -> tuple[int, int]:
+  if case.get("kind") == "deterministic":
+    return 0, 0
+  return 1, 1 if case.get("judge", {}).get("enabled", False) else 0
+
+
+def select_plan_cases(
+  impact: str,
+  requested: list[str],
+  manifests: dict[str, dict[str, Any]],
+) -> tuple[list[str], list[str]]:
+  unknown = [case_id for case_id in requested if case_id not in manifests]
+  if unknown:
+    raise ValueError(f"Unknown evaluation case(s): {', '.join(unknown)}")
+  if len(requested) != len(set(requested)):
+    raise ValueError("--case values must be unique")
+  if impact == "static":
+    if requested:
+      raise ValueError("static impact does not run evaluation cases")
+    return [], []
+  if impact == "deterministic":
+    selected = requested or [
+      case_id for case_id, case in manifests.items() if case.get("kind") == "deterministic"
+    ]
+    non_deterministic = [
+      case_id for case_id in selected if manifests[case_id].get("kind") != "deterministic"
+    ]
+    if non_deterministic:
+      raise ValueError(
+        "deterministic impact accepts only deterministic cases: "
+        + ", ".join(non_deterministic)
+      )
+    return selected, []
+  if not requested:
+    raise ValueError(f"{impact} impact requires at least one --case")
+  remaining = [
+    case_id for case_id in manifests
+    if case_id not in requested
+  ] if impact == "cross-cutting" else []
+  return requested, remaining
+
+
+def plan_commands(
+  skill: Path,
+  baseline: Path,
+  impact: str,
+  selected: list[str],
+) -> list[str]:
+  commands = [
+    shlex.join([
+      "python3",
+      ".system/skill-creator/scripts/quick_validate.py",
+      str(skill),
+    ]),
+  ]
+  if impact == "static":
+    return commands
+  validate_argv = [
+    "python3",
+    str(Path(__file__).resolve()),
+    "validate-change",
+    "--skill",
+    str(skill),
+    "--baseline",
+    str(baseline),
+    "--impact",
+    impact,
+  ]
+  for case_id in selected:
+    validate_argv.extend(["--case", case_id])
+  commands.insert(
+    0,
+    shlex.join(validate_argv),
+  )
+  return commands
+
+
+def manifest_fingerprint(manifests: dict[str, dict[str, Any]]) -> str:
+  encoded = json.dumps(manifests, sort_keys=True, separators=(",", ":")).encode()
+  return hashlib.sha256(encoded).hexdigest()
+
+
+def build_eval_plan(
+  skill: Path,
+  baseline: Path,
+  impact: str,
+  requested_cases: list[str],
+  approved_model_sessions: int = DEFAULT_APPROVED_MODEL_SESSIONS,
+) -> dict[str, Any]:
+  skill = skill.resolve()
+  baseline = baseline.resolve()
+  if not (skill / "SKILL.md").is_file():
+    raise ValueError(f"Skill path has no SKILL.md: {skill}")
+  if not (baseline / "SKILL.md").is_file():
+    raise ValueError(f"Baseline path has no SKILL.md: {baseline}")
+  manifests = {} if impact == "static" else case_manifests(skill)
+  selected, remaining = select_plan_cases(impact, requested_cases, manifests)
+  baseline_executor = baseline_judge = 0
+  candidate_executor = candidate_judge = 0
+  for case_id in selected:
+    executor, judge = case_session_cost(manifests[case_id])
+    baseline_executor += executor
+    baseline_judge += judge
+    candidate_executor += executor * 3
+    candidate_judge += judge * 3
+  for case_id in remaining:
+    executor, judge = case_session_cost(manifests[case_id])
+    candidate_executor += executor
+    candidate_judge += judge
+  executor_sessions = baseline_executor + candidate_executor
+  judge_sessions = baseline_judge + candidate_judge
+  total_sessions = executor_sessions + judge_sessions
+  reasons = {
+    "static": ["Only structural gates are proposed because the change cannot affect skill behavior."],
+    "deterministic": ["Selected behavior is fully observable by direct mechanical checks."],
+    "scoped": ["RED, GREEN, and stability are limited to the explicitly affected cases."],
+    "cross-cutting": [
+      "Affected cases receive RED, GREEN, and stability gates.",
+      "Every remaining suite case runs once because the change has unbounded reach.",
+    ],
+  }[impact]
+  warnings = [
+    "Session counts exclude tokens, duration, and financial cost.",
+    "Sandbox or shell approval is not approval for model session consumption.",
+  ]
+  if impact != "cross-cutting":
+    warnings.append("Underclassifying an uncertain change is a workflow error; use cross-cutting when reach is unclear.")
+  plan = {
+    "operation": "plan",
+    "skill": str(skill),
+    "baseline": str(baseline),
+    "impact": impact,
+    "selected_cases": selected,
+    "regression_cases": remaining,
+    "steps": (
+      ["structural-validation"]
+      if impact == "static"
+      else ["baseline-red", "candidate-green-stability"]
+      + (["remaining-suite-regression"] if remaining else [])
+      + ["structural-validation"]
+    ),
+    "commands": plan_commands(skill, baseline, impact, selected),
+    "executions": {
+      "baseline": {"affected": len(selected), "total": len(selected)},
+      "candidate": {
+        "affected": len(selected) * 3,
+        "regression": len(remaining),
+        "total": len(selected) * 3 + len(remaining),
+      },
+    },
+    "sessions": {
+      "baseline": {
+        "executor": baseline_executor,
+        "judge": baseline_judge,
+        "total": baseline_executor + baseline_judge,
+      },
+      "candidate": {
+        "executor": candidate_executor,
+        "judge": candidate_judge,
+        "total": candidate_executor + candidate_judge,
+      },
+      "executor": executor_sessions,
+      "judge": judge_sessions,
+      "total": total_sessions,
+    },
+    "approved_model_sessions": approved_model_sessions,
+    "approval_required": total_sessions > approved_model_sessions,
+    "reasons": reasons,
+    "warnings": warnings,
+    "manifest_fingerprint": manifest_fingerprint(manifests),
+  }
+  validate_eval_plan(plan)
+  return plan
+
+
+def validate_eval_plan(plan: dict[str, Any]) -> None:
+  required = {
+    "operation",
+    "skill",
+    "baseline",
+    "impact",
+    "selected_cases",
+    "regression_cases",
+    "steps",
+    "commands",
+    "executions",
+    "sessions",
+    "approved_model_sessions",
+    "approval_required",
+    "reasons",
+    "warnings",
+    "manifest_fingerprint",
+  }
+  missing = sorted(required - plan.keys())
+  if missing:
+    raise ValueError(f"Evaluation plan is missing fields: {', '.join(missing)}")
+  if plan["operation"] != "plan" or plan["impact"] not in IMPACTS:
+    raise ValueError("Invalid evaluation plan operation or impact")
+  if not isinstance(plan["sessions"].get("total"), int) or plan["sessions"]["total"] < 0:
+    raise ValueError("Evaluation plan session total must be a non-negative integer")
+  sessions = plan["sessions"]
+  if sessions["total"] != sessions["executor"] + sessions["judge"]:
+    raise ValueError("Evaluation plan session total does not match executor and judge counts")
+  for phase in ("baseline", "candidate"):
+    phase_sessions = sessions[phase]
+    if phase_sessions["total"] != phase_sessions["executor"] + phase_sessions["judge"]:
+      raise ValueError(f"Evaluation plan {phase} session total is inconsistent")
+  if sessions["total"] != sessions["baseline"]["total"] + sessions["candidate"]["total"]:
+    raise ValueError("Evaluation plan phase session totals are inconsistent")
+  expected_approval = sessions["total"] > plan["approved_model_sessions"]
+  if plan["approval_required"] != expected_approval:
+    raise ValueError("Evaluation plan approval flag is inconsistent with its session limit")
 
 
 def aggregate_status(results: list[dict[str, Any]]) -> str:
@@ -408,10 +824,141 @@ def resolve_model(args: argparse.Namespace) -> str:
   return args.model or os.environ.get("CODEX_MODEL") or "configured-default"
 
 
+def validate_change(
+  args: argparse.Namespace,
+  plan: dict[str, Any],
+  progress: ProgressReporter,
+) -> dict[str, Any]:
+  skill = args.skill.resolve()
+  baseline = args.baseline.resolve()
+  operation_root = make_operation_root(args)
+  source_root = operation_root / "source"
+  source_root.mkdir()
+  baseline_snapshot = materialize_skill_source(
+    baseline, "working-tree", source_root / "baseline"
+  )
+  candidate_snapshot = materialize_skill_source(
+    skill, "working-tree", source_root / "candidate"
+  )
+  snapshot_plan = build_eval_plan(
+    candidate_snapshot,
+    baseline_snapshot,
+    args.impact,
+    args.case,
+    args.approved_model_sessions,
+  )
+  stable_plan_fields = (
+    "selected_cases",
+    "regression_cases",
+    "executions",
+    "sessions",
+    "approval_required",
+    "manifest_fingerprint",
+  )
+  if any(snapshot_plan[field] != plan[field] for field in stable_plan_fields):
+    shutil.rmtree(operation_root)
+    raise ValueError("Candidate evaluation manifests changed after cost planning")
+  results = []
+  status = PASS
+
+  for case_id in plan["selected_cases"]:
+    result = evaluate_case(
+      args,
+      baseline_snapshot,
+      candidate_snapshot,
+      case_id,
+      operation_root,
+      progress,
+      "baseline",
+    )
+    result["role"] = "baseline"
+    results.append(result)
+    if result["status"] == PASS:
+      status = "INVALID_RED"
+      break
+    if result["status"] != "FAIL":
+      status = result["status"]
+      break
+
+  if status == PASS:
+    for case_id in plan["selected_cases"]:
+      repetitions = []
+      for run_number in range(1, 4):
+        result = evaluate_case(
+          args,
+          candidate_snapshot,
+          candidate_snapshot,
+          case_id,
+          operation_root,
+          progress,
+          f"candidate repetition {run_number}/3",
+        )
+        result["role"] = "candidate"
+        result["repetition"] = run_number
+        results.append(result)
+        repetitions.append(result)
+        if result["status"] != PASS:
+          status = result["status"]
+          break
+      if status != PASS:
+        break
+      if len({verdict_signature(result) for result in repetitions}) != 1:
+        status = "UNSTABLE"
+        break
+
+  if status == PASS:
+    for case_id in plan["regression_cases"]:
+      result = evaluate_case(
+        args,
+        candidate_snapshot,
+        candidate_snapshot,
+        case_id,
+        operation_root,
+        progress,
+        "regression",
+      )
+      result["role"] = "regression"
+      results.append(result)
+      if result["status"] != PASS:
+        status = result["status"]
+        break
+
+  report = {
+    "operation": "validate-change",
+    "status": status,
+    "skill": str(skill),
+    "model": resolve_model(args),
+    "plan": plan,
+    "results": results,
+    "artifacts": str(operation_root) if status in BLOCKING else None,
+  }
+  if status == PASS:
+    shutil.rmtree(operation_root)
+    for result in results:
+      result["workspace"] = None
+  return report
+
+
 def execute(args: argparse.Namespace, progress: ProgressReporter | None = None) -> dict[str, Any]:
   progress = progress or ProgressReporter(False)
   progress.emit(f"Preparing {args.operation}")
   skill = args.skill.resolve()
+  if args.operation == "plan":
+    return build_eval_plan(skill, args.baseline, args.impact, args.case)
+  if args.operation == "validate-change":
+    plan = build_eval_plan(
+      skill,
+      args.baseline,
+      args.impact,
+      args.case,
+      args.approved_model_sessions,
+    )
+    if plan["approval_required"]:
+      plan["requested_operation"] = "validate-change"
+      plan["_exit_code"] = 2
+      return plan
+    return validate_change(args, plan, progress)
+
   operation_root = make_operation_root(args)
   source_root = operation_root / "source"
   source_root.mkdir()
@@ -495,8 +1042,14 @@ def main(argv: list[str] | None = None) -> int:
       "results": [{"status": "ERROR", "error": str(error)}],
       "artifacts": None,
     }
-  progress.emit(f"Final result: {report['status']}")
+  exit_code = report.pop("_exit_code", None)
+  final_label = report.get("status", "APPROVAL_REQUIRED" if report.get("approval_required") else "READY")
+  progress.emit(f"Final result: {final_label}")
   print(json.dumps(report, indent=2))
+  if exit_code is not None:
+    return exit_code
+  if report["operation"] == "plan":
+    return 0
   return 0 if report["status"] == PASS else 1
 
 

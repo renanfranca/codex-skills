@@ -124,6 +124,35 @@ Run all commands in this section from `/home/renanfranca/.codex/skills`.
 
 The runner normally shows progress when its standard error is attached to a terminal and stays silent when that stream is captured. When Codex CLI launches the runner as a monitored subprocess, pass `--progress` so preparation, executor, mechanical checks, judge, case results, and the final result are visible immediately on standard error. This does not make the run interactive: the runner never waits for input, approval, or confirmation. Its final JSON remains pure on standard output. Use `--quiet` to suppress progress explicitly; `--progress` and `--quiet` are mutually exclusive.
 
+### Plan proportional gates first
+
+Classify the proposed diff as `static`, `deterministic`, `scoped`, or `cross-cutting`. Use `cross-cutting` when the affected reach is uncertain. Planning creates no workspace or artifact and invokes no model:
+
+```bash
+python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
+  --skill ./candidate-skill \
+  --baseline /tmp/baseline-skill \
+  --impact scoped \
+  --case changed-behavior
+```
+
+The JSON plan lists affected and regression cases, commands, execution counts, executor sessions, judge sessions, total sessions, the approved limit, and warnings. A deterministic case consumes zero model sessions because it uses direct code checks with no executor or judge.
+
+### Validate the planned change
+
+`validate-change` runs one baseline and three candidate executions for every affected case. Cross cutting changes then run each remaining suite case once without repeating affected cases:
+
+```bash
+python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
+  --skill ./candidate-skill \
+  --baseline /tmp/baseline-skill \
+  --impact scoped \
+  --case changed-behavior \
+  --progress
+```
+
+Eight model sessions are approved by default. An estimate above eight prints the plan, returns exit code `2`, and stops before artifacts or model calls. Approve a known larger estimate explicitly with `--approved-model-sessions <n>`. Shell or sandbox approval is not approval for model session consumption. Do not rerun an unchanged failure, inconclusive judgment, or unstable result merely to seek `PASS`.
+
 ### Run one case
 
 Ask Codex interactively:
@@ -256,7 +285,7 @@ Use $develop-skill-with-evals to create a new skill named changelog-writer in th
 
 The skill should turn a supplied list of user-visible changes into one concise Markdown changelog section. It should trigger for requests to write release notes and changelogs, but not for committing, publishing, or inventing changes that were not supplied.
 
-Create the official scaffold first, freeze that untouched scaffold as the baseline, add minimal generic eval cases before implementing the behavior, demonstrate a real baseline RED, implement the skill, prove focused GREEN, run verify-change, run the changed cases three times, and run the complete candidate regression. Validate SKILL.md and agents/openai.yaml. Do not commit, push, or publish anything.
+Create the official scaffold first, freeze that untouched scaffold as the baseline, add minimal generic eval cases before implementing the behavior, classify impact, inspect a session plan, demonstrate a real baseline RED, and run proportional candidate stability and regression gates. Validate SKILL.md and agents/openai.yaml. Do not commit, push, or publish anything.
 ```
 
 The workflow should produce:
@@ -266,7 +295,7 @@ The workflow should produce:
 - `SKILL.md` and `agents/openai.yaml`;
 - `evals/suite.json` and focused cases;
 - isolated prompts, fixtures, and hidden criteria;
-- evidence from RED, GREEN, stability, regression, and structural validation.
+- evidence from RED, GREEN, stability, proportional regression, and structural validation.
 
 Form that runs from a single command:
 
@@ -274,7 +303,7 @@ Form that runs from a single command:
 codex exec --ephemeral \
   -C /home/renanfranca/.codex/skills \
   --sandbox workspace-write \
-  'Use $develop-skill-with-evals to create changelog-writer from an official scaffold. It must convert supplied user-visible changes into one concise Markdown changelog section, must not invent changes, and must not commit or publish. Create evals first, demonstrate baseline RED, implement GREEN, run verify-change, stability over three runs, full regression, and structural validation.'
+  'Use $develop-skill-with-evals to create changelog-writer from an official scaffold. It must convert supplied user-visible changes into one concise Markdown changelog section, must not invent changes, and must not commit or publish. Create evals first, classify impact, plan session usage, demonstrate baseline RED, implement GREEN, run proportional stability and regression gates, and finish structural validation.'
 ```
 
 Prefer the interactive form because forward evals may require approvals or human review of a blocking result.
@@ -283,20 +312,20 @@ Prefer the interactive form because forward evals may require approvals or human
 
 ### Behavioral change
 
-Use a behavioral workflow when triggering, decisions, actions, stopping conditions, or observable outputs change:
+Use `scoped` impact when triggering, decisions, actions, stopping conditions, or observable outputs change and every affected case can be named:
 
 ```text
 Use $develop-skill-with-evals to improve changelog-writer so it refuses to invent issue numbers when none are supplied.
 
-Add or update one focused behavioral case before editing SKILL.md. Prove the case fails against the frozen or Git baseline. If it already passes, stop with INVALID_RED. Then implement the smallest skill change, prove focused GREEN, compare baseline and candidate, run three stable repetitions, and run the complete regression. Do not commit or push.
+Add or update one focused behavioral case before editing SKILL.md. Plan the change and session count. Prove the case fails against the frozen or Git baseline. If it already passes, stop with INVALID_RED. Then implement the smallest skill change and run integrated scoped validation with three stable candidate results. Do not run unrelated cases. Do not commit or push.
 ```
 
 ### Change that does not affect behavior
 
-Do not manufacture a failing behavior test for metadata, spelling, formatting, or organization changes:
+Do not manufacture a failing behavior test for a `static` metadata, spelling, formatting, or organization change:
 
 ```text
-Use $develop-skill-with-evals to correct the display name typo “Chanelog Writer” to “Changelog Writer” in agents/openai.yaml. This affects metadata only and must not change triggering or behavior. Do not invent RED. Run structural validation, check metadata consistency, and run the complete existing regression. Do not commit or push.
+Use $develop-skill-with-evals to correct the display name typo “Chanelog Writer” to “Changelog Writer” in agents/openai.yaml. This affects metadata only and must not change triggering or behavior. Classify it as static, inspect the plan, do not invent RED, and run only structural and metadata validation. Do not commit or push.
 ```
 
 ### Trigger behavior
@@ -304,7 +333,7 @@ Use $develop-skill-with-evals to correct the display name typo “Chanelog Write
 Test both correct selection and excessive triggering:
 
 ```text
-Use $develop-skill-with-evals to improve changelog-writer trigger selection. Add positive cases for writing release notes from supplied facts, negative cases for Git commit and publishing requests, and one end-to-end implicit smoke case with no $changelog-writer mention. Demonstrate baseline RED before changing the description, then run GREEN, stability, and full regression.
+Use $develop-skill-with-evals to improve changelog-writer trigger selection. Treat selection as cross cutting. Add positive cases for writing release notes from supplied facts, negative cases for Git commit and publishing requests, and one end-to-end implicit smoke case with no $changelog-writer mention. Plan the exact session count before execution, then require baseline RED, three stable candidate results for affected cases, and one regression run for every remaining case.
 ```
 
 ### Safely evolve the skill for evaluation development
@@ -324,7 +353,7 @@ Paste these prompts into the interactive TUI. To run from a single command, plac
 #### `$develop-skill-with-evals`
 
 ```text
-Use $develop-skill-with-evals to add this behavioral capability to the target skill through baseline RED, focused GREEN, verify-change, stability over three runs, and full regression. Keep fixtures generic and do not commit or push.
+Use $develop-skill-with-evals to add this capability to the target skill. Classify its impact, inspect the model session plan, and use validate-change for baseline RED, three stable candidate results, and only the proportional regression required by that impact. Keep fixtures generic and do not commit or push.
 ```
 
 #### `$refactor-design`

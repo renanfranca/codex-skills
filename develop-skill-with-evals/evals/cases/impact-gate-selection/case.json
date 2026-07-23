@@ -1,0 +1,37 @@
+{
+  "id": "impact-gate-selection",
+  "kind": "behavioral",
+  "prompt_file": "prompt.md",
+  "mechanical": {
+    "expected_exit_code": 0,
+    "required_paths": [
+      "evaluation-plan.json",
+      "plan-stderr.log",
+      "plan-exit-code.txt"
+    ],
+    "forbidden_changed_paths": [
+      ".agents/skills/**",
+      "target-skill/**",
+      "target-baseline/**"
+    ],
+    "commands": [
+      {
+        "argv": [
+          "python3",
+          "-c",
+          "import json; from pathlib import Path; plan=json.load(open('evaluation-plan.json', encoding='utf-8')); assert Path('plan-exit-code.txt').read_text().strip() == '0'; assert Path('plan-stderr.log').read_text() == ''; assert plan['operation'] == 'plan'; assert plan['impact'] == 'deterministic'; assert plan['selected_cases'] == ['runner-output']; assert plan['sessions']['total'] == 0; assert plan['approval_required'] is False; print(json.dumps(plan, sort_keys=True))"
+        ],
+        "exit_code": 0
+      }
+    ]
+  },
+  "judge": {
+    "enabled": true,
+    "criteria": [
+      "The executor uses the installed runner's public plan operation before implementation and it exits successfully.",
+      "The generated plan classifies the output contract as deterministic, selects only runner-output, and estimates zero executor and judge sessions.",
+      "A missing or invalid generated plan, nonzero plan exit code, or unrelated semantic regression is a FAIL rather than missing evidence."
+    ],
+    "no_action_acceptable": false
+  }
+}
