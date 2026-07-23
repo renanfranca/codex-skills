@@ -2,7 +2,7 @@
 
 Personal [Codex](https://openai.com/codex/) skills for test-driven development, design review, execution planning, Git workflows, and Seed4J CLI maintenance.
 
-Each top-level skill directory is self-contained. For portable Codex CLI discovery, copy or symlink the skills you need into `$HOME/.agents/skills` for personal use or `<repository>/.agents/skills` for repository-scoped use. Then invoke one explicitly with `$skill-name`. Skills may also support implicit activation, but explicit invocation is the most reliable entry point.
+Each skill directory at the repository root is self-contained. For portable Codex CLI discovery, copy or symlink the skills you need into `$HOME/.agents/skills` for personal use or `<repository>/.agents/skills` for use within a repository. Then invoke one explicitly with `$skill-name`. Skills may also support implicit activation, but explicit invocation is the most reliable entry point.
 
 ## Skill catalog
 
@@ -10,11 +10,11 @@ Each top-level skill directory is self-contained. For portable Codex CLI discove
 
 - [`develop-skill-with-evals`](develop-skill-with-evals/SKILL.md) — Create or improve skills through isolated RED, GREEN, stability, and regression evaluations.
 - [`refactor-design`](refactor-design/SKILL.md) — Review completed green implementations for structural risks and apply behavior-preserving refactors.
-- [`implement-execplan`](implement-execplan/SKILL.md) — Create and execute self-contained, handoff-safe implementation plans for substantial work.
+- [`implement-execplan`](implement-execplan/SKILL.md) — Create and execute self-contained implementation plans that are safe for handoff during substantial work.
 
 ### Seed4J workflows
 
-- [`seed4j-execplan-tdd`](seed4j-execplan-tdd/SKILL.md) — Combine an ExecPlan, behavior-focused TDD, and post-green design review for substantial `seed4j-cli` changes.
+- [`seed4j-execplan-tdd`](seed4j-execplan-tdd/SKILL.md) — Combine an ExecPlan, TDD focused on behavior, and design review after GREEN for substantial `seed4j-cli` changes.
 - [`seed4j-worktree-flow`](seed4j-worktree-flow/SKILL.md) — Create, audit, and clean up Seed4J CLI Git worktrees safely.
 
 ### Test-driven development
@@ -37,7 +37,7 @@ These source directories remain available to preserve historical references and 
 
 ## Installation and usage
 
-Copy or symlink an individual skill directory into a documented Codex skill-discovery location. This source repository can remain at `/home/renanfranca/.codex/skills`; it does not need to be moved. Avoid replacing `.system`, which is managed by Codex, and avoid installing duplicate skills with the same `name`.
+Copy or symlink an individual skill directory into a documented Codex skill discovery location. This source repository can remain at `/home/renanfranca/.codex/skills`; it does not need to be moved. Avoid replacing `.system`, which is managed by Codex, and avoid installing duplicate skills with the same `name`.
 
 Invoke a skill by name in your request:
 
@@ -47,11 +47,11 @@ Use $refactor-design to review this completed green implementation.
 Use $seed4j-worktree-flow to create a feature worktree.
 ```
 
-Codex loads the selected `SKILL.md` and follows its progressive-disclosure links only when they are relevant to the task.
+Codex loads the selected `SKILL.md` and follows its links for progressive disclosure only when they are relevant to the task.
 
 ## Using Codex CLI
 
-See [Using Skills with Codex CLI](CODEX_CLI.md) for the human-oriented cookbook: verify installation, run one or every eval suite, create and improve skills through prompts, automate safe one-shot runs, and invoke every skill in this repository.
+See [Using Skills with Codex CLI](CODEX_CLI.md) for the practical cookbook: verify installation, run one or every eval suite, create and improve skills through prompts, automate safe runs from a single command, and invoke every skill in this repository.
 
 ## Repository conventions
 
@@ -70,7 +70,7 @@ See [Evaluating Codex Skills](EVALUATIONS.md) for the complete guide to evaluati
 
 ## Developing a skill
 
-Use `$develop-skill-with-evals` for new skills and behavioral revisions. It composes the system `skill-creator` workflow with baseline RED, candidate GREEN, three-run stability, and full regression gates.
+Use `$develop-skill-with-evals` for new skills and behavioral revisions. It composes the system `skill-creator` workflow with baseline RED, candidate GREEN, stability over three runs, and full regression gates.
 
 Follow the [evaluation guide](EVALUATIONS.md) when adding a suite to another skill or interpreting runner reports and blocking statuses.
 

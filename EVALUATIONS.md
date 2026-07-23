@@ -2,9 +2,9 @@
 
 Skill evaluations, or evals, test what a fresh Codex agent actually does when given a realistic task. They complement structural validation: `quick_validate.py` can prove that a skill is well formed, while an eval can prove that the skill selects the right workflow, changes the right files, preserves protected behavior, and stops at the right safety gate.
 
-This repository provides an evaluation runner in [`develop-skill-with-evals`](develop-skill-with-evals/scripts/run_skill_evals.py). The runner uses disposable workspaces, structured Codex responses, deterministic checks, and an independent semantic judge. The detailed machine-facing rules live in the [evaluation contract](develop-skill-with-evals/references/eval-contract.md), and runner reports follow the [result schema](develop-skill-with-evals/references/eval-result.schema.json).
+This repository provides an evaluation runner in [`develop-skill-with-evals`](develop-skill-with-evals/scripts/run_skill_evals.py). The runner uses disposable workspaces, structured Codex responses, deterministic checks, and an independent semantic judge. The detailed automation rules live in the [evaluation contract](develop-skill-with-evals/references/eval-contract.md), and runner reports follow the [result schema](develop-skill-with-evals/references/eval-result.schema.json).
 
-If you want commands and copy-ready prompts rather than runner internals, start with [Using Skills with Codex CLI](CODEX_CLI.md).
+If you want commands and prompts ready to copy rather than runner internals, start with [Using Skills with Codex CLI](CODEX_CLI.md).
 
 ## Mental model
 
@@ -30,7 +30,7 @@ flowchart TD
   H -->|Blocking status| J[Keep artifacts under /tmp]
 ```
 
-The executor never receives `case.json`, judge criteria, or other answer-key material. The evaluated skill is copied without its `evals/` directory, so the executor cannot discover the oracle through the repo-scoped installation.
+The executor never receives `case.json`, judge criteria, or other answer key material. The evaluated skill is copied without its `evals/` directory, so the executor cannot discover the oracle through the installation scoped to the repository.
 
 ## Requirements
 
@@ -84,7 +84,7 @@ For a normal case, the runner prepends an instruction to use the evaluated `$ski
 
 The fixture is copied into a fresh workspace before every run. Keep it minimal but behaviorally complete: include only the source, tests, and configuration needed to reproduce the scenario.
 
-Never include credentials, personal information, proprietary source, real customer data, full transcripts, or generated model responses. Replace project-specific names and values with generic equivalents.
+Never include credentials, personal information, proprietary source, real customer data, full transcripts, or generated model responses. Replace names and values specific to a project with generic equivalents.
 
 ### `case.json`
 
@@ -128,13 +128,13 @@ The fields mean:
 | `implicit_skill`                     | When `true`, omits the explicit `$skill-name` instruction.                     |
 | `mechanical.expected_exit_code`      | Expected exit code from the executor's `codex exec` process.                   |
 | `mechanical.required_paths`          | Paths that must exist after execution, relative to the workspace.              |
-| `mechanical.forbidden_changed_paths` | `fnmatch` patterns that must not appear in the changed-path set.               |
-| `mechanical.commands`                | Shell-free argument arrays executed after the agent, with expected exit codes. |
+| `mechanical.forbidden_changed_paths` | `fnmatch` patterns that must not appear in the set of changed paths.           |
+| `mechanical.commands`                | Argument arrays run after the agent without a shell, with expected exit codes. |
 | `judge.enabled`                      | Enables or disables the independent semantic judgment.                         |
 | `judge.criteria`                     | Expected semantic outcomes visible only to the judge.                          |
 | `judge.no_action_acceptable`         | Tells the judge that a justified refusal to edit may be correct.               |
 
-The runner always verifies that the repo-scoped copy of the evaluated skill remained unchanged, even when the case does not list `.agents/skills/**` explicitly.
+The runner always verifies that the copy of the evaluated skill scoped to the repository remained unchanged, even when the case does not list `.agents/skills/**` explicitly.
 
 `kind` documents intent and appears in reports; it does not automatically select a different runner algorithm. The `$develop-skill-with-evals` workflow decides when RED is required and which commands to run.
 
@@ -142,7 +142,7 @@ The runner always verifies that the repo-scoped copy of the evaluated skill rema
 
 For every case, the runner:
 
-1. Materializes the selected working-tree or Git-revision skill source.
+1. Materializes the selected working tree or Git revision skill source.
 2. Creates a new operation directory under `/tmp/skill-eval-artifacts` or `--artifacts-dir`.
 3. Copies the case fixture into a unique workspace.
 4. Copies the evaluated skill to `.agents/skills/<skill-name>`, excluding `evals/`, Python caches, and bytecode.
@@ -167,7 +167,7 @@ The executor response must have this shape:
 
 The judge returns `PASS`, `FAIL`, or `INCONCLUSIVE` with a rationale and evidence. A case passes only when every mechanical check passes and the judge returns `PASS`.
 
-The top-level report groups the operation and its case results:
+The overall report groups the operation and its case results:
 
 ```json
 {
@@ -260,7 +260,7 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py stability \
   --source working-tree
 ```
 
-Stability compares overall status, mechanical check names and outcomes, judge verdict, and outcome-relevant changed paths. It deliberately ignores runner-owned `.eval-*` files and generated `__pycache__`/`.pyc` files. It does not require identical prose from the model.
+Stability compares overall status, mechanical check names and outcomes, judge verdict, and changed paths relevant to the outcome. It deliberately ignores `.eval-*` files owned by the runner and generated `__pycache__`/`.pyc` files. It does not require identical prose from the model.
 
 ### Optional runtime controls
 
@@ -277,14 +277,14 @@ The [`refactor-design` suite](refactor-design/evals/suite.json) contains six com
 
 | Case                      | What it proves                                                                                   |
 | ------------------------- | ------------------------------------------------------------------------------------------------ |
-| `hidden-invocation-state` | Finds mutable per-invocation state, refactors only production, and keeps public behavior green.  |
+| `hidden-invocation-state` | Finds mutable state stored for each invocation, refactors only production, and keeps public behavior green.  |
 | `cohesive-no-action`      | Leaves a small cohesive implementation unchanged instead of inventing abstractions.              |
 | `red-suite-gate`          | Stops before editing when the entry test suite is already red.                                   |
 | `no-self-modification`    | Reports reusable learning without modifying the installed skill or its references.               |
-| `trigger-selection`       | Selects the skill for post-green design work but not missing behavior or initial implementation. |
+| `trigger-selection`       | Selects the skill for design work after GREEN but not missing behavior or initial implementation. |
 | `implicit-trigger-smoke`  | Exercises real implicit selection without mentioning `$refactor-design` in the prompt.           |
 
-Start with `hidden-invocation-state`. Its fixture contains a green public-path test and a `ReportBuilder` that stores invocation progress on the object. A successful executor identifies the reuse or reentrancy risk, moves progress to local state, changes no tests, and leaves the suite green. The mechanical checker then independently reruns `python3 -m unittest -q`, while the judge evaluates whether the refactor actually removed the demonstrated risk.
+Start with `hidden-invocation-state`. Its fixture contains a green test through the public interface and a `ReportBuilder` that stores invocation progress on the object. A successful executor identifies the reuse or reentrancy risk, moves progress to local state, changes no tests, and leaves the suite green. The mechanical checker then independently reruns `python3 -m unittest -q`, while the judge evaluates whether the refactor actually removed the demonstrated risk.
 
 After the focused case passes, run its three repetitions and then the full suite:
 
@@ -300,13 +300,13 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py run \
   --source working-tree
 ```
 
-Do not read success from the executor's prose alone. Check the top-level `status`, every mechanical check, the judge verdict, `changed_paths`, the recorded model selection, and whether `artifacts` is `null`.
+Do not read success from the executor's prose alone. Check the overall `status`, every mechanical check, the judge verdict, `changed_paths`, the recorded model selection, and whether `artifacts` is `null`.
 
 ## Adding evals to another skill
 
 ### 1. Classify the change
 
-A behavioral change affects triggering, decisions, actions, stopping conditions, or observable outcomes. It requires a demonstrated baseline RED. A non-behavioral typo, formatting correction, metadata-only update, or organization change does not require an artificial RED; it still requires structural validation and full regression.
+A behavioral change affects triggering, decisions, actions, stopping conditions, or observable outcomes. A typo, formatting correction, update limited to metadata, or organization change that does not affect behavior does not require an artificial RED; it still requires structural validation and full regression.
 
 When uncertain, treat the change as behavioral.
 
@@ -352,9 +352,9 @@ Do not commit, push, publish, or promote a candidate unless that separate action
 Trigger behavior needs two kinds of evidence:
 
 1. A routing case presents positive and negative requests and checks whether the skill description leads to the correct selection boundaries.
-2. An end-to-end smoke case sets `implicit_skill` to `true`, installs a repo-scoped skill copy, sends a realistic prompt without `$skill-name`, and verifies the resulting behavior.
+2. An end-to-end smoke case sets `implicit_skill` to `true`, installs a skill copy scoped to the repository, sends a realistic prompt without `$skill-name`, and verifies the resulting behavior.
 
-Keep positive prompts close to the skill's intended use. Negative prompts should be plausible neighboring tasks, such as missing behavior or a red suite for a post-green refactoring skill. Avoid obviously unrelated negatives that cannot reveal over-triggering.
+Keep positive prompts close to the skill's intended use. Negative prompts should be plausible neighboring tasks, such as missing behavior or a red suite for a refactoring skill used after GREEN. Avoid obviously unrelated negatives that cannot reveal excessive triggering.
 
 ## Troubleshooting
 
@@ -370,7 +370,7 @@ Inspect each retained `.eval-result.json`. Compare mechanical check outcomes, ju
 
 Check the judge stderr, authentication, structured response, and available evidence. A judge process failure is not a behavioral failure and must not be converted into `PASS`.
 
-### Read-only or app-server initialization errors
+### Read-only access or app server initialization errors
 
 An outer sandbox may prevent a nested Codex client from accessing required state even though the fixture workspace is writable. Run the evaluation from an authorized environment where `codex exec` can initialize normally. Do not bypass safeguards or broaden filesystem access beyond the disposable workspace merely to force a result.
 
@@ -380,14 +380,14 @@ An outer sandbox may prevent a nested Codex client from accessing required state
 
 ### Preserving failure evidence
 
-Use the top-level `artifacts` path from the JSON report. Blocking workspaces remain available for diagnosis; successful ones are intentionally removed. Never promote retained transcripts or complete model responses to golden files.
+Use the overall `artifacts` path from the JSON report. Blocking workspaces remain available for diagnosis; successful ones are intentionally removed. Never promote retained transcripts or complete model responses to golden files.
 
 ## Design principles
 
 - Test observable behavior and safe decisions, not wording or implementation topology.
 - Keep executor input separate from judge criteria and expected answers.
 - Combine deterministic checks with semantic judgment; neither replaces the other.
-- Treat every non-`PASS` status as promotion-blocking.
+- Treat every status other than `PASS` as a reason to block promotion.
 - Use the same model selection and operation configuration for baseline and candidate.
 - Keep fixtures minimal, generic, reproducible, and free of confidential data.
 - Preserve detailed artifacts only for failures and keep generated responses out of version control.

@@ -1,6 +1,6 @@
 # Using Skills with Codex CLI
 
-This is the human-oriented cookbook for the skills in this repository. It shows how to verify that Codex sees a skill, run its evaluations, create a new skill with evals, improve an existing skill, and invoke every available workflow from the terminal.
+This is the cookbook for people using the skills in this repository. It shows how to verify that Codex sees a skill, run its evaluations, create a new skill with evals, improve an existing skill, and invoke every available workflow from the terminal.
 
 For the evaluation architecture and manifest reference, see [Evaluating Codex Skills](EVALUATIONS.md). For current product behavior, see the official [Codex CLI](https://learn.chatgpt.com/docs/codex/cli), [CLI command reference](https://learn.chatgpt.com/docs/developer-commands?surface=cli), [non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode), and [Build skills](https://learn.chatgpt.com/docs/build-skills) documentation.
 
@@ -31,7 +31,7 @@ ln -s /home/renanfranca/.codex/skills/refactor-design \
   "$HOME/.agents/skills/refactor-design"
 ```
 
-Repeat the symlink for each skill you want available globally. For a repository-scoped installation:
+Repeat the symlink for each skill you want available globally. For an installation scoped to a repository:
 
 ```bash
 mkdir -p /path/to/project/.agents/skills
@@ -53,7 +53,7 @@ Codex normally detects skill changes automatically. Restart the CLI when an upda
 
 ### Interactive mode: recommended for skill work
 
-Use the terminal UI when creating or changing skills. It supports follow-up prompts, shows progress, and can ask for approval when an eval needs to start nested ephemeral Codex sessions:
+Use the terminal UI when creating or changing skills. It supports subsequent prompts, shows progress, and can ask for approval when an eval needs to start nested ephemeral Codex sessions:
 
 ```bash
 codex -C /home/renanfranca/.codex/skills \
@@ -66,7 +66,7 @@ Use the skills repository as the working directory when editing skill sources. U
 Inside the TUI, invoke a skill explicitly:
 
 ```text
-Use $develop-skill-with-evals to run the complete refactor-design evaluation suite. Do not modify either skill. Report the top-level status, failed checks, retained artifacts, and exit code.
+Use $develop-skill-with-evals to run the complete refactor-design evaluation suite. Do not modify either skill. Report the overall status, failed checks, retained artifacts, and exit code.
 ```
 
 Continue the most recent interactive session later with:
@@ -75,7 +75,7 @@ Continue the most recent interactive session later with:
 codex resume --last
 ```
 
-### Non-interactive mode: one-shot work and automation
+### Non-interactive mode: work from a single command and automation
 
 Use `codex exec` when the prompt and permissions are known in advance:
 
@@ -103,7 +103,7 @@ codex exec --ephemeral \
   'Use $develop-skill-with-evals to explain the latest blocking eval result. Do not modify files.'
 ```
 
-Non-interactive runs cannot stop and wait for a new human approval. Skill-development workflows can launch nested `codex exec` sessions, so use the interactive TUI when approval may be required. Use `danger-full-access` or approval bypass flags only inside an externally hardened disposable environment; they are not the default solution for an eval permission failure.
+Non-interactive runs cannot stop and wait for a new human approval. Skill development workflows can launch nested `codex exec` sessions, so use the interactive TUI when approval may be required. Use `danger-full-access` or approval bypass flags only inside an externally hardened disposable environment; they are not the default solution for an eval permission failure.
 
 Resume a saved non-interactive session with the following command. Omit `--ephemeral` from the original run when you intend to resume it:
 
@@ -127,7 +127,7 @@ Run all commands in this section from `/home/renanfranca/.codex/skills`.
 Ask Codex interactively:
 
 ```text
-Use $develop-skill-with-evals to run only the hidden-invocation-state case for refactor-design from the working tree. Do not modify the skill or fixture sources. Report the executor result, every mechanical check, the judge verdict, changed paths, top-level status, exit code, and artifact path.
+Use $develop-skill-with-evals to run only the hidden-invocation-state case for refactor-design from the working tree. Do not modify the skill or fixture sources. Report the executor result, every mechanical check, the judge verdict, changed paths, overall status, exit code, and artifact path.
 ```
 
 Or run the case directly:
@@ -144,7 +144,7 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py run \
 Ask Codex:
 
 ```text
-Use $develop-skill-with-evals to run the complete refactor-design eval suite from the working tree. Do not change source files. Treat every non-PASS status as blocking and summarize each case plus retained artifacts.
+Use $develop-skill-with-evals to run the complete refactor-design eval suite from the working tree. Do not change source files. Treat every status other than PASS as blocking and summarize each case plus retained artifacts.
 ```
 
 Or run it directly:
@@ -163,7 +163,7 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py run \
 Ask Codex to discover the suites rather than maintaining a duplicated list:
 
 ```text
-Use $develop-skill-with-evals to find every top-level skill in this repository that has evals/suite.json. Run each complete suite from its working tree, one skill at a time, and continue until every discovered suite has a result. Do not modify sources. Block promotion if any result is not PASS and return a table with skill, status, failed cases, exit code, and artifact path.
+Use $develop-skill-with-evals to find every skill at the repository root that has evals/suite.json. Run each complete suite from its working tree, one skill at a time, and continue until every discovered suite has a result. Do not modify sources. Block promotion if any result is not PASS and return a table with skill, status, failed cases, exit code, and artifact path.
 ```
 
 From a trusted terminal, run the same policy explicitly:
@@ -189,7 +189,7 @@ At the time of writing, `develop-skill-with-evals` and `refactor-design` contain
 Ask Codex:
 
 ```text
-Use $develop-skill-with-evals to verify the changed behavioral case in the target skill. Use git:HEAD as the pre-change baseline and the working tree as the candidate. Require baseline FAIL and candidate PASS under the same model and configuration. Stop with INVALID_RED if the baseline passes.
+Use $develop-skill-with-evals to verify the changed behavioral case in the target skill. Use git:HEAD as the baseline from before the change and the working tree as the candidate. Require baseline FAIL and candidate PASS under the same model and configuration. Stop with INVALID_RED if the baseline passes.
 ```
 
 After adding or changing a case and implementing its candidate behavior, replace `changed-case-id` with that case ID:
@@ -222,11 +222,11 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py stability \
 
 ### Understand the result
 
-Only top-level `PASS` returns exit code `0`. `FAIL`, `ERROR`, `INCONCLUSIVE`, `INVALID_RED`, and `UNSTABLE` return `1` and block promotion.
+Only an overall `PASS` returns exit code `0`. `FAIL`, `ERROR`, `INCONCLUSIVE`, `INVALID_RED`, and `UNSTABLE` return `1` and block promotion.
 
 For every report, inspect:
 
-- top-level `status` and recorded model selection;
+- overall `status` and recorded model selection;
 - every case status;
 - executor exit code and structured response;
 - each mechanical check and verification command;
@@ -236,18 +236,18 @@ For every report, inspect:
 
 Successful workspaces are removed. Blocking workspaces are kept under `/tmp/skill-eval-artifacts` by default.
 
-If a nested Codex process reports a read-only app-server initialization error, rerun from the interactive TUI and approve the narrowly scoped evaluation command, or invoke the runner directly from a trusted terminal. Do not reinterpret an environment error as a behavioral failure.
+If a nested Codex process reports an app server initialization error caused by read-only access, rerun from the interactive TUI and approve the narrowly scoped evaluation command, or invoke the runner directly from a trusted terminal. Do not reinterpret an environment error as a behavioral failure.
 
 ## Create a new skill with evals
 
-Explicitly invoke `$develop-skill-with-evals`. It composes the official `skill-creator` scaffold with eval-driven development, so the workflow creates tests even when the human prompt only describes desired behavior.
+Explicitly invoke `$develop-skill-with-evals`. It composes the official `skill-creator` scaffold with development driven by evaluations, so the workflow creates tests even when the human prompt only describes desired behavior.
 
 Start the interactive CLI in this repository and paste a concrete request:
 
 ```text
 Use $develop-skill-with-evals to create a new skill named changelog-writer in this repository.
 
-The skill should turn a supplied list of user-visible changes into one concise Markdown changelog section. It should trigger for release-note and changelog-writing requests, but not for committing, publishing, or inventing changes that were not supplied.
+The skill should turn a supplied list of user-visible changes into one concise Markdown changelog section. It should trigger for requests to write release notes and changelogs, but not for committing, publishing, or inventing changes that were not supplied.
 
 Create the official scaffold first, freeze that untouched scaffold as the baseline, add minimal generic eval cases before implementing the behavior, demonstrate a real baseline RED, implement the skill, prove focused GREEN, run verify-change, run the changed cases three times, and run the complete candidate regression. Validate SKILL.md and agents/openai.yaml. Do not commit, push, or publish anything.
 ```
@@ -259,15 +259,15 @@ The workflow should produce:
 - `SKILL.md` and `agents/openai.yaml`;
 - `evals/suite.json` and focused cases;
 - isolated prompts, fixtures, and hidden criteria;
-- RED, GREEN, stability, regression, and structural-validation evidence.
+- evidence from RED, GREEN, stability, regression, and structural validation.
 
-One-shot form:
+Form that runs from a single command:
 
 ```bash
 codex exec --ephemeral \
   -C /home/renanfranca/.codex/skills \
   --sandbox workspace-write \
-  'Use $develop-skill-with-evals to create changelog-writer from an official scaffold. It must convert supplied user-visible changes into one concise Markdown changelog section, must not invent changes, and must not commit or publish. Create evals first, demonstrate baseline RED, implement GREEN, run verify-change, three-run stability, full regression, and structural validation.'
+  'Use $develop-skill-with-evals to create changelog-writer from an official scaffold. It must convert supplied user-visible changes into one concise Markdown changelog section, must not invent changes, and must not commit or publish. Create evals first, demonstrate baseline RED, implement GREEN, run verify-change, stability over three runs, full regression, and structural validation.'
 ```
 
 Prefer the interactive form because forward evals may require approvals or human review of a blocking result.
@@ -284,45 +284,45 @@ Use $develop-skill-with-evals to improve changelog-writer so it refuses to inven
 Add or update one focused behavioral case before editing SKILL.md. Prove the case fails against the frozen or Git baseline. If it already passes, stop with INVALID_RED. Then implement the smallest skill change, prove focused GREEN, compare baseline and candidate, run three stable repetitions, and run the complete regression. Do not commit or push.
 ```
 
-### Non-behavioral change
+### Change that does not affect behavior
 
 Do not manufacture a failing behavior test for metadata, spelling, formatting, or organization changes:
 
 ```text
-Use $develop-skill-with-evals to correct the display name typo “Chanelog Writer” to “Changelog Writer” in agents/openai.yaml. This is metadata-only and must not change triggering or behavior. Do not invent RED. Run structural validation, check metadata consistency, and run the complete existing regression. Do not commit or push.
+Use $develop-skill-with-evals to correct the display name typo “Chanelog Writer” to “Changelog Writer” in agents/openai.yaml. This affects metadata only and must not change triggering or behavior. Do not invent RED. Run structural validation, check metadata consistency, and run the complete existing regression. Do not commit or push.
 ```
 
 ### Trigger behavior
 
-Test both correct selection and over-triggering:
+Test both correct selection and excessive triggering:
 
 ```text
 Use $develop-skill-with-evals to improve changelog-writer trigger selection. Add positive cases for writing release notes from supplied facts, negative cases for Git commit and publishing requests, and one end-to-end implicit smoke case with no $changelog-writer mention. Demonstrate baseline RED before changing the description, then run GREEN, stability, and full regression.
 ```
 
-### Safely evolve the eval-development skill
+### Safely evolve the skill for evaluation development
 
 The skill protects its own canonical source:
 
 ```text
-Use $develop-skill-with-evals to add a reusable rule that fixtures must replace personal email addresses with example.invalid addresses. Work only in an isolated candidate copy, preserve a baseline, add the self-evaluation first, and use fresh-agent forward tests. Do not update the canonical source until the candidate passes every gate. Do not commit or push.
+Use $develop-skill-with-evals to add a reusable rule that fixtures must replace personal email addresses with example.invalid addresses. Work only in an isolated candidate copy, preserve a baseline, add the evaluation of the skill itself first, and use forward tests with fresh agents. Do not update the canonical source until the candidate passes every gate. Do not commit or push.
 ```
 
 ## Prompt cookbook for every skill
 
-Paste these prompts into the interactive TUI. For a one-shot run, place the prompt in single quotes after `codex exec --ephemeral -C /path/to/project --sandbox workspace-write`.
+Paste these prompts into the interactive TUI. To run from a single command, place the prompt in single quotes after `codex exec --ephemeral -C /path/to/project --sandbox workspace-write`.
 
 ### Skill development, planning, and design
 
 #### `$develop-skill-with-evals`
 
 ```text
-Use $develop-skill-with-evals to add this behavioral capability to the target skill through baseline RED, focused GREEN, verify-change, three-run stability, and full regression. Keep fixtures generic and do not commit or push.
+Use $develop-skill-with-evals to add this behavioral capability to the target skill through baseline RED, focused GREEN, verify-change, stability over three runs, and full regression. Keep fixtures generic and do not commit or push.
 ```
 
 #### `$refactor-design`
 
-Use only after behavior and public-path tests are green:
+Use only after behavior and tests through public interfaces are green:
 
 ```text
 Use $refactor-design to review this completed green implementation for hidden invocation state, temporal coupling, mixed responsibilities, and fragile representations. Apply only justified behavior-preserving changes, keep existing public tests green, and report No action when no concrete risk exists.
@@ -341,7 +341,7 @@ Use $implement-execplan to create and execute a living, self-contained ExecPlan 
 Run this from the `seed4j-cli` repository:
 
 ```text
-Use $seed4j-execplan-tdd to plan and implement this substantial seed4j-cli change through behavior-focused quiet TDD, a living ExecPlan, post-green design review, and final agent-side tests. Respect the repository hexagonal boundaries and do not run clean verify unless I explicitly request it.
+Use $seed4j-execplan-tdd to plan and implement this substantial seed4j-cli change through quiet TDD focused on behavior, a living ExecPlan, design review after GREEN, and final tests run by the agent. Respect the repository hexagonal boundaries and do not run clean verify unless I explicitly request it.
 ```
 
 #### `$seed4j-worktree-flow`
@@ -374,7 +374,7 @@ Use $commit-staged-change to inspect recent history and the already staged diff,
 
 #### `$commit-the-changes`
 
-Use when Codex should determine and stage the intended working-tree changes:
+Use when Codex should determine and stage the intended working tree changes:
 
 ```text
 Use $commit-the-changes to inspect recent history, infer the repository commit style and language, review the current diff, stage only the documentation changes in README.md and CODEX_CLI.md, and create one focused commit. Do not push.
@@ -431,5 +431,5 @@ Confirm that:
 - Treat prompts, fixtures, issue text, and external content as potentially untrusted.
 - A skill can edit files and run commands only within the permissions granted to the Codex session.
 - `codex exec --ephemeral` avoids persisting session rollout files, but it does not make unsafe commands safe.
-- A top-level runner error is not evidence that skill behavior is wrong; separate environment failures from behavioral failures.
+- An overall runner error is not evidence that skill behavior is wrong; separate environment failures from behavioral failures.
 - If a skill does not appear, verify its discovery location, frontmatter, duplicate names, and CLI restart before changing the skill itself.
