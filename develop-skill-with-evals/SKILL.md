@@ -52,10 +52,10 @@ For a behavioral change:
 Use:
 
 ```text
-python3 scripts/run_skill_evals.py run --skill <path> --case <id> --source working-tree
-python3 scripts/run_skill_evals.py verify-change --skill <path> --case <id> --baseline <path> --progress
-python3 scripts/run_skill_evals.py stability --skill <path> --case <id> --runs 3 --progress
-python3 scripts/run_skill_evals.py run --skill <path> --all --source working-tree
+python3 develop-skill-with-evals/scripts/run_skill_evals.py run --skill <path> --case <id> --source working-tree --progress
+python3 develop-skill-with-evals/scripts/run_skill_evals.py verify-change --skill <path> --case <id> --baseline <path> --progress
+python3 develop-skill-with-evals/scripts/run_skill_evals.py stability --skill <path> --case <id> --runs 3 --progress
+python3 develop-skill-with-evals/scripts/run_skill_evals.py run --skill <path> --all --source working-tree --progress
 ```
 
 Pass `--model` only when a specific model is required. The runner records the resolved selection and uses the same value for baseline and candidate within one comparison.

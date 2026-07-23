@@ -154,7 +154,7 @@ For every case, the runner:
 10. Aggregates the case or suite report and writes JSON to standard output.
 11. Deletes successful operation workspaces or retains blocking artifacts for diagnosis.
 
-While those phases run, the runner reports progress to standard error when that stream is connected to a terminal. The JSON report remains the only content on standard output.
+While those phases run, the runner reports progress to standard error. With neither `--progress` nor `--quiet`, progress depends exclusively on `stderr.isatty()`: it is shown when standard error is connected to a terminal and suppressed otherwise. The JSON report remains the only content on standard output.
 
 The executor response must have this shape:
 
@@ -212,6 +212,8 @@ Successful reports set `artifacts` and each `workspace` to `null` after cleanup.
 
 ## Command reference
 
+The direct examples below may omit `--progress` because they are intended for a terminal, where the standard error TTY enables progress automatically. Pass `--progress` when a monitoring process such as Codex CLI captures standard error.
+
 ### Run one focused case
 
 ```bash
@@ -250,7 +252,7 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py verify-change \
   --baseline git:HEAD
 ```
 
-If `--baseline` is omitted, `verify-change` defaults to `git:HEAD`. The case definition always comes from the candidate named by `--skill`, so a newly added case does not need to exist in the baseline tree.
+If `--baseline` is omitted, `verify-change` defaults to `git:HEAD`. To select another tracked revision, use `--baseline git:<revision>`. The `verify-change` subcommand does not accept `--source`. The case definition always comes from the candidate named by `--skill`, so a newly added case does not need to exist in the baseline tree.
 
 ### Check stability
 
@@ -266,13 +268,14 @@ Stability compares overall status, mechanical check names and outcomes, judge ve
 
 ### Optional runtime controls
 
-- Progress is automatic when standard error is a TTY and silent for a pipe or redirection.
+- With neither progress option, output depends exclusively on `stderr.isatty()`: progress is automatic for a TTY and silent for a pipe or redirection.
 - `--progress` forces immediate progress on standard error for monitored processes such as Codex CLI runs.
 - `--quiet` suppresses progress even in a terminal; it cannot be combined with `--progress`.
 - Progress never requests input, approval, or confirmation. TTY detection changes output only, so autonomous runs remain autonomous.
 - `--model <model>` uses the same explicit model selection throughout an operation.
 - Without `--model`, the report records `CODEX_MODEL` when set or `configured-default`; Codex still resolves its normal configured model.
-- `--source working-tree` evaluates current files; `--source git:<revision>` materializes a tracked Git snapshot.
+- Only `run` and `stability` accept `--source`: `--source working-tree` evaluates current files, while `--source git:<revision>` materializes a tracked Git snapshot.
+- `verify-change` selects a Git baseline with `--baseline git:<revision>` instead of `--source`.
 - Cases are always read from the current skill directory named by `--skill`, even when the installed skill source comes from `git:<revision>`.
 - `--artifacts-dir <path>` changes the parent directory used for operation artifacts.
 - `--codex-command <path>` replaces the Codex executable, primarily for deterministic runner tests.
