@@ -66,11 +66,11 @@ Evaluation fixtures and oracles belong under `evals/`, not in normal skill refer
 
 ## Skill evaluations
 
-See [Evaluating Codex Skills](EVALUATIONS.md) for the complete guide to evaluation suites, isolated fixtures, mechanical and semantic judging, baseline comparison, stability checks, and running the real `refactor-design` examples.
+See [Evaluating Codex Skills](EVALUATIONS.md) for the complete guide to evaluation suites, isolated fixtures, hidden mechanical oracles, diagnostic probes, cumulative campaign budgets, token telemetry, promotion gates, and running the real `refactor-design` examples.
 
 ## Developing a skill
 
-Use `$develop-skill-with-evals` for new skills and behavioral revisions. It composes the system `skill-creator` workflow with baseline RED, three stable candidate GREEN results, and regression proportional to the classified impact. Model-backed promotion declares executor and judge runtimes explicitly and compares the planned maximum sessions with actual consumption.
+Use `$develop-skill-with-evals` for new skills and behavioral revisions. It composes the system `skill-creator` workflow with an optional one pass diagnostic, baseline RED, three stable candidate GREEN results, and regression proportional to the classified impact. Cross cutting promotion runs regressions after GREEN 1 so a defect blocks before GREEN 2 and 3. Model-backed workflows declare executor and judge runtimes explicitly, report structured token usage, and enforce both operation and cumulative campaign session limits.
 
 Follow the [evaluation guide](EVALUATIONS.md) when adding a suite to another skill or interpreting runner reports and blocking statuses.
 

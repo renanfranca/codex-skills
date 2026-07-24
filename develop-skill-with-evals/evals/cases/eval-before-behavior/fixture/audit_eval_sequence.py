@@ -77,48 +77,9 @@ def observe(phase):
   raise SystemExit(exit_code)
 
 
-def verify():
-  document = load_evidence()
-  observations = document.get("observations")
-  if not isinstance(observations, list) or len(observations) != 2:
-    raise SystemExit("expected exactly baseline and candidate observations")
-  baseline, candidate = observations
-  if (
-    baseline.get("phase"),
-    baseline.get("verdict"),
-    baseline.get("exit_code"),
-  ) != ("baseline", "FAIL", 1):
-    raise SystemExit("baseline observation is not a valid RED")
-  if (
-    candidate.get("phase"),
-    candidate.get("verdict"),
-    candidate.get("exit_code"),
-  ) != ("candidate", "PASS", 0):
-    raise SystemExit("candidate observation is not GREEN")
-  if baseline.get("skill_sha256") == candidate.get("skill_sha256"):
-    raise SystemExit("skill behavior did not change after RED")
-  if baseline.get("case_sha256") != candidate.get("case_sha256"):
-    raise SystemExit("focused evaluation changed after RED")
-  if candidate.get("skill_sha256") != sha256(SKILL):
-    raise SystemExit("candidate skill changed after GREEN evidence")
-  if candidate.get("case_sha256") != sha256(CASE):
-    raise SystemExit("focused evaluation changed after GREEN evidence")
-  if not implements_private_refusal(SKILL.read_text(encoding="utf-8")):
-    raise SystemExit("candidate behavior is not implemented")
-  print(json.dumps({
-    "sequence": ["evaluation", "baseline-fail", "behavior", "candidate-pass"],
-    "baseline": baseline,
-    "candidate": candidate,
-    "invalid_red_enforced": True,
-  }, sort_keys=True))
-
-
 def main():
   if len(sys.argv) != 2:
-    raise SystemExit("usage: audit_eval_sequence.py baseline|candidate|verify")
-  if sys.argv[1] == "verify":
-    verify()
-    return
+    raise SystemExit("usage: audit_eval_sequence.py baseline|candidate")
   observe(sys.argv[1])
 
 

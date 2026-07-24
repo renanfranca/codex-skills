@@ -134,17 +134,31 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
   --baseline /tmp/baseline-skill \
   --impact scoped \
   --case changed-behavior \
+  --workflow promotion \
   --model gpt-5.6-sol \
   --reasoning-effort medium \
   --judge-model gpt-5.6-terra \
   --judge-reasoning-effort medium
 ```
 
-The JSON plan lists affected and regression cases, commands, execution counts, executor sessions, judge sessions, total sessions, the approved limit, resolved runtime and sources, a runtime fingerprint, ordered execution blockers, and warnings. Planning always exits zero and never creates a workspace, artifact, or model subprocess. A deterministic case consumes zero model sessions because it uses direct code checks with no executor or judge.
+The JSON plan lists affected and regression cases, commands, execution counts, executor sessions, judge sessions, total sessions, the approved limit, campaign projection, resolved runtime and sources, case, source, runtime and evaluation fingerprints, ordered execution blockers, and warnings. Planning always exits zero and never creates a workspace, ledger, artifact, or model subprocess. A deterministic case consumes zero model sessions because it uses direct code checks with no executor or judge.
+
+### Probe once for a complete diagnosis
+
+Use `--workflow diagnostic` when one pass across affected baseline, affected candidate and proportional regressions will save repeated failed promotion gates. After inspecting and approving that plan, run its `probe-change` command. The diagnostic continues after contract failures, stops on infrastructure failures, and always reports `promotion_eligible: false`.
+
+To bind the diagnostic and later promotion to one cumulative budget, pass both:
+
+```text
+--campaign-ledger /tmp/my-skill-campaign.json
+--approved-cumulative-model-sessions 26
+```
+
+The ledger is locked and written atomically. A cumulative budget blocker is reported before any ledger, workspace, artifact or model side effect. Do not repeat an unchanged complete diagnostic.
 
 ### Validate the planned change
 
-`validate-change` runs one baseline and three candidate executions for every affected case. Cross cutting changes then run each remaining suite case once without repeating affected cases:
+`validate-change` runs baseline, candidate repetition one, every proportional regression, then candidate repetitions two and three. This preserves three stable GREEN results while allowing an early regression defect to block the last two repetitions:
 
 ```bash
 python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
@@ -156,12 +170,14 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   --reasoning-effort medium \
   --judge-model gpt-5.6-terra \
   --judge-reasoning-effort medium \
+  --campaign-ledger /tmp/my-skill-campaign.json \
+  --approved-cumulative-model-sessions 26 \
   --progress
 ```
 
 When model sessions are planned, `validate-change` requires executor model and reasoning effort from the CLI. A required judge may use its own CLI values or inherit that complete executor runtime. Missing runtime, unresolved judge runtime, or insufficient budget prints every blocker in the plan, returns exit code `2`, and stops before workspaces, artifacts, or model calls.
 
-Eight maximum model sessions are approved by default. Approve a known larger maximum explicitly with `--approved-model-sessions <n>`. `sessions.total` is the authorized maximum, while executed reports expose actual subprocess consumption in top-level `model_sessions.total`. Shell or sandbox approval is not approval for model session consumption. Do not rerun an unchanged failure, inconclusive judgment, or unstable result merely to seek `PASS`.
+Eight maximum model sessions are approved by default. Approve a known larger operation maximum explicitly with `--approved-model-sessions <n>`. `sessions.total` is the authorized maximum, while executed reports expose actual subprocess consumption in top-level `model_sessions.total`, JSONL token telemetry in `usage`, and cumulative state in `campaign`. Unknown token counts remain `null`; they are never reported as zero. Shell or sandbox approval is not approval for model session consumption. Do not rerun an unchanged failure, inconclusive judgment, or unstable result merely to seek `PASS`.
 
 ### Run one case
 
@@ -275,10 +291,13 @@ Only an overall `PASS` returns exit code `0`. `FAIL`, `ERROR`, `INCONCLUSIVE`, `
 For every report, inspect:
 
 - overall `status`, resolved `runtime`, and runtime sources;
+- `promotion_eligible` and `failure_category`;
 - planned `sessions.total` versus actual `model_sessions.total`;
+- token `usage` completeness and cumulative `campaign` consumption;
 - every case status;
 - executor exit code and structured response;
 - each mechanical check and verification command;
+- each hidden oracle outcome without exposing its source to the executor;
 - judge verdict and rationale;
 - production `changed_paths`;
 - `artifacts`, which points to retained failure evidence.

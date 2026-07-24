@@ -1,0 +1,19 @@
+{
+  "id": "cost-efficient-runtime-contract",
+  "kind": "deterministic",
+  "mechanical": {
+    "commands": [
+      {
+        "argv": [
+          "python3",
+          "check_cost_efficient_runtime.py"
+        ],
+        "exit_code": 0
+      }
+    ]
+  },
+  "judge": {
+    "enabled": false,
+    "criteria": []
+  }
+}

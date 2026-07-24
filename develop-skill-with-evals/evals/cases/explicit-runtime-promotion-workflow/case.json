@@ -6,33 +6,34 @@
   "mechanical": {
     "expected_exit_code": 0,
     "required_paths": [
-      "plan.json",
+      "diagnostic-plan.json",
+      "diagnostic.json",
+      "promotion-plan.json",
       "validation.json"
     ],
-    "forbidden_changed_paths": [
-      ".agents/skills/**",
-      "sample-baseline/**",
+        "forbidden_changed_paths": [
+            ".agents/skills/**",
+            "sample-skill/SKILL.md",
+            "sample-baseline/**",
       "audit-runner",
       "fake-codex",
       "check_workflow.py"
-    ],
+    ]
+  },
+  "oracle": {
     "commands": [
       {
         "argv": [
           "python3",
-          "check_workflow.py"
+          "{oracle_dir}/check_workflow.py"
         ],
         "exit_code": 0
       }
     ]
   },
   "judge": {
-    "enabled": true,
-    "criteria": [
-      "The agent classifies the sample change as deterministic and uses plan followed by validate-change as the promotion workflow.",
-      "Both operations declare gpt-5.6-sol with medium reasoning for the executor and gpt-5.6-terra with medium reasoning for the judge.",
-      "The validation is proportional, passes with zero nested model sessions, and does not substitute run, verify-change, stability, or a full suite gate."
-    ],
+    "enabled": false,
+    "criteria": [],
     "no_action_acceptable": false
   }
 }

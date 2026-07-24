@@ -4,6 +4,8 @@
   "type": "object",
   "required": [
     "operation",
+    "workflow",
+    "promotion_eligible",
     "skill",
     "baseline",
     "impact",
@@ -18,13 +20,19 @@
     "reasons",
     "warnings",
     "manifest_fingerprint",
+    "case_fingerprints",
+    "source_fingerprints",
+    "evaluation_fingerprint",
     "runtime",
     "runtime_fingerprint",
+    "campaign",
     "execution_blockers"
   ],
   "properties": {
     "operation": {"const": "plan"},
-    "requested_operation": {"const": "validate-change"},
+    "requested_operation": {"enum": ["probe-change", "validate-change"]},
+    "workflow": {"enum": ["diagnostic", "promotion"]},
+    "promotion_eligible": {"type": "boolean"},
     "skill": {"type": "string"},
     "baseline": {"type": "string"},
     "impact": {
@@ -83,11 +91,23 @@
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
     },
+    "case_fingerprints": {"$ref": "#/$defs/fingerprintMap"},
+    "source_fingerprints": {
+      "type": "object",
+      "required": ["baseline", "candidate"],
+      "properties": {
+        "baseline": {"$ref": "#/$defs/fingerprint"},
+        "candidate": {"$ref": "#/$defs/fingerprint"}
+      },
+      "additionalProperties": false
+    },
+    "evaluation_fingerprint": {"$ref": "#/$defs/fingerprint"},
     "runtime": {"$ref": "#/$defs/runtime"},
     "runtime_fingerprint": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
     },
+    "campaign": {"$ref": "#/$defs/campaignPlan"},
     "execution_blockers": {
       "type": "array",
       "items": {
@@ -98,7 +118,8 @@
             "enum": [
               "executor-runtime-explicit-required",
               "judge-runtime-unresolved",
-              "insufficient-model-session-budget"
+              "insufficient-model-session-budget",
+              "insufficient-cumulative-model-session-budget"
             ]
           },
           "message": {"type": "string"}
@@ -108,6 +129,34 @@
     }
   },
   "$defs": {
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "fingerprintMap": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/fingerprint"}
+    },
+    "campaignPlan": {
+      "type": "object",
+      "required": [
+        "ledger",
+        "approved_cumulative_model_sessions",
+        "consumed_before",
+        "reserved_before",
+        "planned_maximum",
+        "projected_maximum"
+      ],
+      "properties": {
+        "ledger": {"type": ["string", "null"]},
+        "approved_cumulative_model_sessions": {"type": ["integer", "null"], "minimum": 0},
+        "consumed_before": {"type": "integer", "minimum": 0},
+        "reserved_before": {"type": "integer", "minimum": 0},
+        "planned_maximum": {"type": "integer", "minimum": 0},
+        "projected_maximum": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
     "executionCount": {
       "type": "object",
       "required": ["total"],

@@ -3,6 +3,7 @@
 
 import argparse
 from dataclasses import dataclass
+import fcntl
 import fnmatch
 import hashlib
 import json
@@ -15,11 +16,13 @@ import sys
 import tarfile
 import tempfile
 from typing import Any
+import uuid
 
 
 PASS = "PASS"
 BLOCKING = {"FAIL", "ERROR", "INCONCLUSIVE", "INVALID_RED", "UNSTABLE"}
 IMPACTS = ("static", "deterministic", "scoped", "cross-cutting")
+WORKFLOWS = ("diagnostic", "promotion")
 DEFAULT_APPROVED_MODEL_SESSIONS = 8
 
 
@@ -98,7 +101,26 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
   plan_parser.add_argument("--baseline", type=Path, required=True)
   plan_parser.add_argument("--impact", choices=IMPACTS, required=True)
   plan_parser.add_argument("--case", action="append", default=[])
+  plan_parser.add_argument("--workflow", choices=WORKFLOWS, default="promotion")
   add_runtime_selection_arguments(plan_parser)
+  add_campaign_arguments(plan_parser)
+
+  probe_parser = subparsers.add_parser(
+    "probe-change",
+    help="Observe RED, candidate, and regression contracts once without promotion eligibility",
+  )
+  add_skill_argument(probe_parser)
+  probe_parser.add_argument("--baseline", type=Path, required=True)
+  probe_parser.add_argument(
+    "--impact", choices=("deterministic", "scoped", "cross-cutting"), required=True
+  )
+  probe_parser.add_argument("--case", action="append", default=[])
+  probe_parser.add_argument(
+    "--approved-model-sessions", type=int, default=DEFAULT_APPROVED_MODEL_SESSIONS
+  )
+  probe_parser.set_defaults(workflow="diagnostic")
+  add_runtime_arguments(probe_parser)
+  add_campaign_arguments(probe_parser)
 
   validate_parser = subparsers.add_parser(
     "validate-change", help="Run RED, GREEN, stability, and proportional regression gates"
@@ -112,13 +134,28 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
   validate_parser.add_argument(
     "--approved-model-sessions", type=int, default=DEFAULT_APPROVED_MODEL_SESSIONS
   )
+  validate_parser.set_defaults(workflow="promotion")
   add_runtime_arguments(validate_parser)
+  add_campaign_arguments(validate_parser)
 
   args = parser.parse_args(argv)
   if hasattr(args, "runs") and args.runs < 2:
     parser.error("--runs must be at least 2")
   if hasattr(args, "approved_model_sessions") and args.approved_model_sessions < 0:
     parser.error("--approved-model-sessions must be non-negative")
+  if (
+    getattr(args, "approved_cumulative_model_sessions", None) is not None
+    and args.approved_cumulative_model_sessions < 0
+  ):
+    parser.error("--approved-cumulative-model-sessions must be non-negative")
+  campaign_values = (
+    getattr(args, "campaign_ledger", None),
+    getattr(args, "approved_cumulative_model_sessions", None),
+  )
+  if (campaign_values[0] is None) != (campaign_values[1] is None):
+    parser.error(
+      "--campaign-ledger and --approved-cumulative-model-sessions must be supplied together"
+    )
   return args
 
 
@@ -140,6 +177,11 @@ def add_runtime_arguments(parser: argparse.ArgumentParser) -> None:
   progress = parser.add_mutually_exclusive_group()
   progress.add_argument("--progress", action="store_true", help="Show progress on stderr even without a TTY")
   progress.add_argument("--quiet", action="store_true", help="Suppress progress on stderr")
+
+
+def add_campaign_arguments(parser: argparse.ArgumentParser) -> None:
+  parser.add_argument("--campaign-ledger", type=Path)
+  parser.add_argument("--approved-cumulative-model-sessions", type=int)
 
 
 def progress_enabled(args: argparse.Namespace, stream: Any | None = None) -> bool:
@@ -213,12 +255,89 @@ def snapshot(root: Path) -> dict[str, str]:
   return result
 
 
+def fingerprint_files(root: Path) -> dict[str, dict[str, Any]]:
+  result = {}
+  if not root.exists():
+    return result
+  for path in sorted(root.rglob("*")):
+    relative = path.relative_to(root)
+    if ".git" in relative.parts or "__pycache__" in relative.parts or path.suffix == ".pyc":
+      continue
+    if path.is_file():
+      result[relative.as_posix()] = {
+        "mode": path.stat().st_mode & 0o7777,
+        "sha256": file_hash(path),
+      }
+  return result
+
+
+def fingerprint_payload(value: Any) -> str:
+  encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+  return hashlib.sha256(encoded).hexdigest()
+
+
+def tree_fingerprint(root: Path) -> str:
+  return fingerprint_payload(fingerprint_files(root))
+
+
 def changed_paths(before: dict[str, str], after: dict[str, str]) -> list[str]:
   return sorted(path for path in before.keys() | after.keys() if before.get(path) != after.get(path))
 
 
 def check(name: str, passed: bool, detail: str) -> dict[str, Any]:
   return {"name": name, "passed": passed, "detail": detail}
+
+
+def empty_usage() -> dict[str, Any]:
+  return {
+    "input_tokens": None,
+    "cached_input_tokens": None,
+    "output_tokens": None,
+    "total_tokens": None,
+    "complete": False,
+  }
+
+
+def usage_from_jsonl(output: str) -> dict[str, Any]:
+  observations = []
+  for line in output.splitlines():
+    try:
+      event = json.loads(line)
+    except json.JSONDecodeError:
+      continue
+    usage = event.get("usage") if isinstance(event, dict) else None
+    if not isinstance(usage, dict):
+      continue
+    values = {
+      key: usage.get(key)
+      for key in ("input_tokens", "cached_input_tokens", "output_tokens")
+    }
+    if all(isinstance(value, int) and value >= 0 for value in values.values()):
+      observations.append(values)
+  if not observations:
+    return empty_usage()
+  input_tokens = sum(value["input_tokens"] for value in observations)
+  cached_input_tokens = sum(value["cached_input_tokens"] for value in observations)
+  output_tokens = sum(value["output_tokens"] for value in observations)
+  return {
+    "input_tokens": input_tokens,
+    "cached_input_tokens": cached_input_tokens,
+    "output_tokens": output_tokens,
+    "total_tokens": input_tokens + output_tokens,
+    "complete": True,
+  }
+
+
+def aggregate_usage(values: list[dict[str, Any]]) -> dict[str, Any]:
+  if not values or not all(value.get("complete", False) for value in values):
+    return empty_usage()
+  return {
+    "input_tokens": sum(value["input_tokens"] for value in values),
+    "cached_input_tokens": sum(value["cached_input_tokens"] for value in values),
+    "output_tokens": sum(value["output_tokens"] for value in values),
+    "total_tokens": sum(value["total_tokens"] for value in values),
+    "complete": True,
+  }
 
 
 def write_executor_schema(path: Path) -> None:
@@ -281,6 +400,25 @@ def run_process(
   )
 
 
+def model_process_failure(completed: subprocess.CompletedProcess[str], output_exists: bool) -> bool:
+  if completed.returncode == 0:
+    return False
+  diagnostic = f"{completed.stdout}\n{completed.stderr}".lower()
+  infrastructure_markers = (
+    "authentication",
+    "unauthorized",
+    "forbidden",
+    "quota",
+    "rate limit",
+    "capacity",
+    "connection",
+    "timed out",
+    "timeout",
+    "not found",
+  )
+  return not output_exists or any(marker in diagnostic for marker in infrastructure_markers)
+
+
 def load_case_manifest(skill: Path, case_id: str) -> tuple[Path, dict[str, Any]]:
   case_dir = skill / "evals" / "cases" / case_id
   case = read_json(case_dir / "case.json")
@@ -308,6 +446,18 @@ def validate_case_manifest(case_dir: Path, case_id: str, case: dict[str, Any]) -
     argv = command.get("argv") if isinstance(command, dict) else None
     if not isinstance(argv, list) or not argv or not all(isinstance(item, str) for item in argv):
       raise ValueError(f"Every mechanical command requires a non-empty argv array in {case_dir / 'case.json'}")
+  oracle = case.get("oracle", {})
+  if not isinstance(oracle, dict):
+    raise ValueError(f"oracle must be an object in {case_dir / 'case.json'}")
+  oracle_commands = oracle.get("commands", [])
+  if not isinstance(oracle_commands, list):
+    raise ValueError(f"oracle.commands must be an array in {case_dir / 'case.json'}")
+  for command in oracle_commands:
+    argv = command.get("argv") if isinstance(command, dict) else None
+    if not isinstance(argv, list) or not argv or not all(isinstance(item, str) for item in argv):
+      raise ValueError(f"Every oracle command requires a non-empty argv array in {case_dir / 'case.json'}")
+  if oracle_commands and not (case_dir / "oracle").is_dir():
+    raise ValueError(f"Case {case_id} declares oracle commands but has no oracle directory")
   judge = case.get("judge", {})
   if not isinstance(judge, dict):
     raise ValueError(f"judge must be an object in {case_dir / 'case.json'}")
@@ -338,6 +488,7 @@ def disabled_executor() -> dict[str, Any]:
     "exit_code": None,
     "response": None,
     "stderr": "",
+    "usage": empty_usage(),
   }
 
 
@@ -348,6 +499,52 @@ def disabled_judge(reason: str) -> dict[str, Any]:
     "verdict": PASS,
     "rationale": reason,
     "evidence": [],
+    "usage": empty_usage(),
+    "failure_category": None,
+  }
+
+
+def disabled_oracle() -> dict[str, Any]:
+  return {
+    "enabled": False,
+    "passed": True,
+    "commands": [],
+  }
+
+
+def run_oracle(
+  case: dict[str, Any],
+  case_dir: Path,
+  workspace: Path,
+) -> dict[str, Any]:
+  contracts = case.get("oracle", {}).get("commands", [])
+  if not contracts:
+    return disabled_oracle()
+  oracle_dir = (case_dir / "oracle").resolve()
+  results = []
+  for contract in contracts:
+    argv = [
+      item.replace("{oracle_dir}", str(oracle_dir))
+      for item in contract["argv"]
+    ]
+    completed = run_process(
+      argv,
+      workspace,
+      env={**os.environ, "SKILL_EVAL_ORACLE_DIR": str(oracle_dir)},
+    )
+    expected_exit = contract.get("exit_code", 0)
+    results.append({
+      "argv": contract["argv"],
+      "exit_code": completed.returncode,
+      "expected_exit_code": expected_exit,
+      "passed": completed.returncode == expected_exit,
+      "stdout": completed.stdout[-4000:],
+      "stderr": completed.stderr[-4000:],
+    })
+  return {
+    "enabled": True,
+    "passed": all(result["passed"] for result in results),
+    "commands": results,
   }
 
 
@@ -406,17 +603,21 @@ def evaluate_deterministic_case(
     )
   )
   mechanical = {"passed": all(item["passed"] for item in checks), "checks": checks, "commands": command_results}
-  status = PASS if mechanical["passed"] else "FAIL"
+  oracle = run_oracle(case, case_dir, workspace)
+  status = PASS if mechanical["passed"] and oracle["passed"] else "FAIL"
   result = {
     "case_id": case_id,
     "status": status,
     "kind": "deterministic",
     "executor": disabled_executor(),
     "mechanical": mechanical,
+    "oracle": oracle,
     "judge": disabled_judge("Deterministic cases do not use a semantic judge."),
     "changed_paths": changed,
     "workspace": str(workspace),
     "model_sessions": {"executor": 0, "judge": 0, "total": 0},
+    "usage": empty_usage(),
+    "failure_category": None if status == PASS else "contract",
   }
   (workspace / ".eval-result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
   progress.emit(f"{label}: {status}")
@@ -447,6 +648,7 @@ def run_judge(
   }
   command = codex_command(args, runtime, workspace, schema, output)
   completed = run_process(command, workspace, json.dumps(payload))
+  usage = usage_from_jsonl(completed.stdout)
   if completed.returncode != 0 or not output.exists():
     return {
       "enabled": True,
@@ -454,11 +656,25 @@ def run_judge(
       "verdict": "INCONCLUSIVE",
       "rationale": f"Judge process failed with exit code {completed.returncode}.",
       "evidence": [completed.stderr[-1000:]],
+      "usage": usage,
+      "failure_category": (
+        "infrastructure"
+        if model_process_failure(completed, output.exists())
+        else "contract"
+      ),
     }
   try:
     result = read_json(output)
   except (OSError, ValueError, json.JSONDecodeError) as error:
-    return {"enabled": True, "executed": True, "verdict": "INCONCLUSIVE", "rationale": str(error), "evidence": []}
+    return {
+      "enabled": True,
+      "executed": True,
+      "verdict": "INCONCLUSIVE",
+      "rationale": str(error),
+      "evidence": [],
+      "usage": usage,
+      "failure_category": "contract",
+    }
   verdict = result.get("verdict")
   if verdict not in {PASS, "FAIL", "INCONCLUSIVE"}:
     verdict = "INCONCLUSIVE"
@@ -468,6 +684,8 @@ def run_judge(
     "verdict": verdict,
     "rationale": result.get("rationale", ""),
     "evidence": result.get("evidence", []),
+    "usage": usage,
+    "failure_category": None if verdict == PASS else "contract",
   }
 
 
@@ -482,6 +700,7 @@ def codex_command(
     args.codex_command,
     "exec",
     "--ephemeral",
+    "--json",
     "--skip-git-repo-check",
     "--sandbox",
     "workspace-write",
@@ -553,6 +772,11 @@ def evaluate_case(
     workspace,
     prompt,
   )
+  executor_usage = usage_from_jsonl(completed.stdout)
+  executor_infrastructure_failure = model_process_failure(
+    completed,
+    output.exists(),
+  )
   try:
     response = read_json(output) if output.exists() else None
   except (OSError, ValueError, json.JSONDecodeError):
@@ -601,8 +825,23 @@ def evaluate_case(
     )
 
   mechanical = {"passed": all(item["passed"] for item in checks), "checks": checks, "commands": command_results}
+  oracle = disabled_oracle() if executor_infrastructure_failure else run_oracle(
+    case,
+    case_dir,
+    workspace,
+  )
   judge_enabled = case.get("judge", {}).get("enabled", False)
-  if mechanical["passed"]:
+  if executor_infrastructure_failure:
+    judge = {
+      "enabled": judge_enabled,
+      "executed": False,
+      "verdict": "SKIPPED" if judge_enabled else PASS,
+      "rationale": "Semantic judge skipped because executor infrastructure failed.",
+      "evidence": [],
+      "usage": empty_usage(),
+      "failure_category": "infrastructure",
+    }
+  elif mechanical["passed"] and oracle["passed"] and judge_enabled:
     progress.emit(f"{label}: running judge")
     judge = run_judge(args, runtime.judge, workspace, case, response, mechanical)
   elif judge_enabled:
@@ -612,10 +851,14 @@ def evaluate_case(
       "verdict": "SKIPPED",
       "rationale": "Semantic judge skipped because mechanical checks failed.",
       "evidence": [],
+      "usage": empty_usage(),
+      "failure_category": None,
     }
   else:
     judge = disabled_judge("Semantic judge disabled for this case.")
-  if not mechanical["passed"]:
+  if executor_infrastructure_failure or judge.get("failure_category") == "infrastructure":
+    status = "ERROR"
+  elif not mechanical["passed"] or not oracle["passed"]:
     status = "FAIL"
   elif judge["verdict"] == "INCONCLUSIVE":
     status = "INCONCLUSIVE"
@@ -633,8 +876,10 @@ def evaluate_case(
       "exit_code": completed.returncode,
       "response": response,
       "stderr": completed.stderr[-4000:],
+      "usage": executor_usage,
     },
     "mechanical": mechanical,
+    "oracle": oracle,
     "judge": judge,
     "changed_paths": changed,
     "workspace": str(workspace),
@@ -643,6 +888,17 @@ def evaluate_case(
       "judge": 1 if judge.get("executed", False) else 0,
       "total": 1 + (1 if judge.get("executed", False) else 0),
     },
+    "usage": aggregate_usage([
+      executor_usage,
+      judge["usage"],
+    ] if judge.get("executed", False) else [executor_usage]),
+    "failure_category": (
+      None
+      if status == PASS
+      else "infrastructure"
+      if status == "ERROR"
+      else "contract"
+    ),
   }
   (workspace / ".eval-result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
   progress.emit(f"{label}: {status}")
@@ -715,6 +971,8 @@ def plan_commands(
   selected: list[str],
   runtime: EvaluationRuntime,
   approved_model_sessions: int,
+  workflow: str,
+  args: argparse.Namespace,
 ) -> list[str]:
   commands = [
     shlex.join([
@@ -728,7 +986,7 @@ def plan_commands(
   validate_argv = [
     "python3",
     str(Path(__file__).resolve()),
-    "validate-change",
+    "probe-change" if workflow == "diagnostic" else "validate-change",
     "--skill",
     str(skill),
     "--baseline",
@@ -756,6 +1014,13 @@ def plan_commands(
     "--approved-model-sessions",
     str(approved_model_sessions),
   ])
+  if getattr(args, "campaign_ledger", None) is not None:
+    validate_argv.extend([
+      "--campaign-ledger",
+      str(args.campaign_ledger),
+      "--approved-cumulative-model-sessions",
+      str(args.approved_cumulative_model_sessions),
+    ])
   commands.insert(
     0,
     shlex.join(validate_argv),
@@ -764,8 +1029,189 @@ def plan_commands(
 
 
 def manifest_fingerprint(manifests: dict[str, dict[str, Any]]) -> str:
-  encoded = json.dumps(manifests, sort_keys=True, separators=(",", ":")).encode()
-  return hashlib.sha256(encoded).hexdigest()
+  return fingerprint_payload(manifests)
+
+
+def case_fingerprints(skill: Path, manifests: dict[str, dict[str, Any]]) -> dict[str, str]:
+  return {
+    case_id: tree_fingerprint(skill / "evals" / "cases" / case_id)
+    for case_id in manifests
+  }
+
+
+def empty_campaign(
+  args: argparse.Namespace,
+  planned_maximum: int,
+) -> dict[str, Any]:
+  ledger_path = getattr(args, "campaign_ledger", None)
+  approved = getattr(args, "approved_cumulative_model_sessions", None)
+  consumed = 0
+  reserved = 0
+  if ledger_path is not None and ledger_path.exists():
+    ledger = read_campaign_ledger(ledger_path)
+    consumed = ledger["consumed_model_sessions"]
+    reserved = sum(
+      reservation["remaining_model_sessions"]
+      for reservation in ledger["active_reservations"]
+    )
+  return {
+    "ledger": str(ledger_path.resolve()) if ledger_path is not None else None,
+    "approved_cumulative_model_sessions": approved,
+    "consumed_before": consumed,
+    "reserved_before": reserved,
+    "planned_maximum": planned_maximum,
+    "projected_maximum": consumed + reserved + planned_maximum,
+  }
+
+
+def new_campaign_ledger() -> dict[str, Any]:
+  return {
+    "version": 1,
+    "consumed_model_sessions": 0,
+    "active_reservations": [],
+    "history": [],
+  }
+
+
+def validate_campaign_ledger(ledger: dict[str, Any]) -> None:
+  if ledger.get("version") != 1:
+    raise ValueError("Campaign ledger must declare version 1")
+  consumed = ledger.get("consumed_model_sessions")
+  active = ledger.get("active_reservations")
+  history = ledger.get("history")
+  if not isinstance(consumed, int) or consumed < 0:
+    raise ValueError("Campaign ledger consumed_model_sessions must be non-negative")
+  if not isinstance(active, list) or not isinstance(history, list):
+    raise ValueError("Campaign ledger reservations and history must be arrays")
+  for reservation in active:
+    if (
+      not isinstance(reservation, dict)
+      or not isinstance(reservation.get("id"), str)
+      or not isinstance(reservation.get("remaining_model_sessions"), int)
+      or reservation["remaining_model_sessions"] < 0
+    ):
+      raise ValueError("Campaign ledger contains an invalid active reservation")
+
+
+def read_campaign_ledger(path: Path) -> dict[str, Any]:
+  ledger = read_json(path)
+  validate_campaign_ledger(ledger)
+  return ledger
+
+
+def write_campaign_ledger(path: Path, ledger: dict[str, Any]) -> None:
+  validate_campaign_ledger(ledger)
+  path.parent.mkdir(parents=True, exist_ok=True)
+  temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+  temporary.write_text(json.dumps(ledger, indent=2) + "\n", encoding="utf-8")
+  os.replace(temporary, path)
+
+
+def with_campaign_lock(path: Path, action: Any) -> Any:
+  lock_path = path.with_name(f"{path.name}.lock")
+  lock_path.parent.mkdir(parents=True, exist_ok=True)
+  with lock_path.open("a+", encoding="utf-8") as lock:
+    fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+    try:
+      return action()
+    finally:
+      fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+
+def reserve_campaign(
+  args: argparse.Namespace,
+  planned_maximum: int,
+) -> dict[str, Any] | None:
+  path = getattr(args, "campaign_ledger", None)
+  if path is None:
+    return None
+  path = path.resolve()
+  approved = args.approved_cumulative_model_sessions
+  reservation_id = uuid.uuid4().hex
+
+  def reserve():
+    ledger = read_campaign_ledger(path) if path.exists() else new_campaign_ledger()
+    reserved = sum(
+      item["remaining_model_sessions"]
+      for item in ledger["active_reservations"]
+    )
+    projected = ledger["consumed_model_sessions"] + reserved + planned_maximum
+    if projected > approved:
+      raise ValueError(
+        f"Campaign requires at most {projected} cumulative model sessions, "
+        f"but only {approved} are authorized."
+      )
+    ledger["active_reservations"].append({
+      "id": reservation_id,
+      "planned_model_sessions": planned_maximum,
+      "remaining_model_sessions": planned_maximum,
+    })
+    write_campaign_ledger(path, ledger)
+    return ledger["consumed_model_sessions"]
+
+  consumed_before = with_campaign_lock(path, reserve)
+  return {
+    "id": reservation_id,
+    "path": path,
+    "approved": approved,
+    "planned": planned_maximum,
+    "consumed_before": consumed_before,
+    "consumed_operation": 0,
+  }
+
+
+def record_campaign_consumption(reservation: dict[str, Any] | None, count: int) -> None:
+  if reservation is None or count == 0:
+    return
+
+  def record():
+    ledger = read_campaign_ledger(reservation["path"])
+    active = next(
+      (item for item in ledger["active_reservations"] if item["id"] == reservation["id"]),
+      None,
+    )
+    if active is None or active["remaining_model_sessions"] < count:
+      raise ValueError("Campaign reservation is missing or smaller than actual consumption")
+    active["remaining_model_sessions"] -= count
+    ledger["consumed_model_sessions"] += count
+    write_campaign_ledger(reservation["path"], ledger)
+
+  with_campaign_lock(reservation["path"], record)
+  reservation["consumed_operation"] += count
+
+
+def finish_campaign(
+  reservation: dict[str, Any] | None,
+  status: str,
+) -> dict[str, Any] | None:
+  if reservation is None:
+    return None
+
+  def finish():
+    ledger = read_campaign_ledger(reservation["path"])
+    ledger["active_reservations"] = [
+      item
+      for item in ledger["active_reservations"]
+      if item["id"] != reservation["id"]
+    ]
+    ledger["history"].append({
+      "id": reservation["id"],
+      "planned_model_sessions": reservation["planned"],
+      "consumed_model_sessions": reservation["consumed_operation"],
+      "status": status,
+    })
+    write_campaign_ledger(reservation["path"], ledger)
+    return ledger["consumed_model_sessions"]
+
+  consumed_after = with_campaign_lock(reservation["path"], finish)
+  return {
+    "ledger": str(reservation["path"]),
+    "approved_cumulative_model_sessions": reservation["approved"],
+    "planned_maximum": reservation["planned"],
+    "consumed_before": reservation["consumed_before"],
+    "consumed_operation": reservation["consumed_operation"],
+    "consumed_after": consumed_after,
+  }
 
 
 def resolve_runtime(
@@ -864,6 +1310,7 @@ def execution_blockers(
   runtime: EvaluationRuntime,
   total_sessions: int,
   approved_model_sessions: int,
+  campaign: dict[str, Any],
 ) -> list[dict[str, str]]:
   blockers = []
   if runtime.executor.required and (
@@ -891,6 +1338,18 @@ def execution_blockers(
         f"but only {approved_model_sessions} are authorized."
       ),
     })
+  approved_cumulative = campaign["approved_cumulative_model_sessions"]
+  if (
+    approved_cumulative is not None
+    and campaign["projected_maximum"] > approved_cumulative
+  ):
+    blockers.append({
+      "code": "insufficient-cumulative-model-session-budget",
+      "message": (
+        f"Campaign requires at most {campaign['projected_maximum']} cumulative "
+        f"model sessions, but only {approved_cumulative} are authorized."
+      ),
+    })
   return blockers
 
 
@@ -910,14 +1369,16 @@ def build_eval_plan(
     raise ValueError(f"Baseline path has no SKILL.md: {baseline}")
   manifests = {} if impact == "static" else case_manifests(skill)
   selected, remaining = select_plan_cases(impact, requested_cases, manifests)
+  workflow = getattr(args, "workflow", "promotion")
   baseline_executor = baseline_judge = 0
   candidate_executor = candidate_judge = 0
+  candidate_repetitions = 1 if workflow == "diagnostic" else 3
   for case_id in selected:
     executor, judge = case_session_cost(manifests[case_id])
     baseline_executor += executor
     baseline_judge += judge
-    candidate_executor += executor * 3
-    candidate_judge += judge * 3
+    candidate_executor += executor * candidate_repetitions
+    candidate_judge += judge * candidate_repetitions
   for case_id in remaining:
     executor, judge = case_session_cost(manifests[case_id])
     candidate_executor += executor
@@ -925,6 +1386,7 @@ def build_eval_plan(
   executor_sessions = baseline_executor + candidate_executor
   judge_sessions = baseline_judge + candidate_judge
   total_sessions = executor_sessions + judge_sessions
+  campaign = empty_campaign(args, total_sessions)
   runtime = resolve_runtime(
     args,
     executor_required=executor_sessions > 0,
@@ -947,6 +1409,8 @@ def build_eval_plan(
     warnings.append("Underclassifying an uncertain change is a workflow error; use cross-cutting when reach is unclear.")
   plan = {
     "operation": "plan",
+    "workflow": workflow,
+    "promotion_eligible": workflow == "promotion",
     "skill": str(skill),
     "baseline": str(baseline),
     "impact": impact,
@@ -955,9 +1419,15 @@ def build_eval_plan(
     "steps": (
       ["structural-validation"]
       if impact == "static"
-      else ["baseline-red", "candidate-green-stability"]
-      + (["remaining-suite-regression"] if remaining else [])
-      + ["structural-validation"]
+      else (
+        ["baseline-red", "candidate-observation"]
+        + (["remaining-suite-regression"] if remaining else [])
+        + ["structural-validation"]
+        if workflow == "diagnostic"
+        else ["baseline-red", "candidate-green-1"]
+        + (["remaining-suite-regression"] if remaining else [])
+        + ["candidate-green-2-and-3", "structural-validation"]
+      )
     ),
     "commands": plan_commands(
       skill,
@@ -966,13 +1436,15 @@ def build_eval_plan(
       selected,
       runtime,
       approved_model_sessions,
+      workflow,
+      args,
     ),
     "executions": {
       "baseline": {"affected": len(selected), "total": len(selected)},
       "candidate": {
-        "affected": len(selected) * 3,
+        "affected": len(selected) * candidate_repetitions,
         "regression": len(remaining),
-        "total": len(selected) * 3 + len(remaining),
+        "total": len(selected) * candidate_repetitions + len(remaining),
       },
     },
     "sessions": {
@@ -995,17 +1467,33 @@ def build_eval_plan(
     "reasons": reasons,
     "warnings": warnings,
     "manifest_fingerprint": manifest_fingerprint(manifests),
+    "case_fingerprints": case_fingerprints(skill, manifests),
+    "source_fingerprints": {
+      "baseline": tree_fingerprint(baseline),
+      "candidate": tree_fingerprint(skill),
+    },
     "runtime": runtime.as_dict(),
     "runtime_fingerprint": runtime_fingerprint(
       manifest_fingerprint(manifests),
       runtime,
     ),
+    "campaign": campaign,
     "execution_blockers": execution_blockers(
       runtime,
       total_sessions,
       approved_model_sessions,
+      campaign,
     ),
   }
+  plan["evaluation_fingerprint"] = fingerprint_payload({
+    "workflow": workflow,
+    "impact": impact,
+    "selected_cases": selected,
+    "regression_cases": remaining,
+    "case_fingerprints": plan["case_fingerprints"],
+    "source_fingerprints": plan["source_fingerprints"],
+    "runtime_fingerprint": plan["runtime_fingerprint"],
+  })
   validate_eval_plan(plan)
   return plan
 
@@ -1013,6 +1501,8 @@ def build_eval_plan(
 def validate_eval_plan(plan: dict[str, Any]) -> None:
   required = {
     "operation",
+    "workflow",
+    "promotion_eligible",
     "skill",
     "baseline",
     "impact",
@@ -1027,15 +1517,25 @@ def validate_eval_plan(plan: dict[str, Any]) -> None:
     "reasons",
     "warnings",
     "manifest_fingerprint",
+    "case_fingerprints",
+    "source_fingerprints",
+    "evaluation_fingerprint",
     "runtime",
     "runtime_fingerprint",
     "execution_blockers",
+    "campaign",
   }
   missing = sorted(required - plan.keys())
   if missing:
     raise ValueError(f"Evaluation plan is missing fields: {', '.join(missing)}")
-  if plan["operation"] != "plan" or plan["impact"] not in IMPACTS:
+  if (
+    plan["operation"] != "plan"
+    or plan["impact"] not in IMPACTS
+    or plan["workflow"] not in WORKFLOWS
+  ):
     raise ValueError("Invalid evaluation plan operation or impact")
+  if plan["promotion_eligible"] != (plan["workflow"] == "promotion"):
+    raise ValueError("Evaluation plan promotion eligibility is inconsistent")
   if not isinstance(plan["sessions"].get("total"), int) or plan["sessions"]["total"] < 0:
     raise ValueError("Evaluation plan session total must be a non-negative integer")
   sessions = plan["sessions"]
@@ -1091,10 +1591,30 @@ def aggregate_model_sessions(results: list[dict[str, Any]]) -> dict[str, int]:
   return {"executor": executor, "judge": judge, "total": executor + judge}
 
 
-def validate_change(
+def aggregate_result_usage(results: list[dict[str, Any]]) -> dict[str, Any]:
+  return aggregate_usage([
+    result["usage"]
+    for result in results
+    if result["model_sessions"]["total"] > 0
+  ])
+
+
+def workflow_failure_category(
+  status: str,
+  results: list[dict[str, Any]],
+) -> str | None:
+  if status == PASS:
+    return None
+  if any(result.get("failure_category") == "infrastructure" for result in results):
+    return "infrastructure"
+  return "contract"
+
+
+def run_change_workflow(
   args: argparse.Namespace,
   plan: dict[str, Any],
   progress: ProgressReporter,
+  reservation: dict[str, Any] | None,
 ) -> dict[str, Any]:
   skill = args.skill.resolve()
   baseline = args.baseline.resolve()
@@ -1103,110 +1623,187 @@ def validate_change(
     executor_required=plan["sessions"]["executor"] > 0,
     judge_required=plan["sessions"]["judge"] > 0,
   )
-  operation_root = make_operation_root(args)
-  source_root = operation_root / "source"
-  source_root.mkdir()
-  baseline_snapshot = materialize_skill_source(
-    baseline, "working-tree", source_root / "baseline"
-  )
-  candidate_snapshot = materialize_skill_source(
-    skill, "working-tree", source_root / "candidate"
-  )
-  snapshot_plan = build_eval_plan(
-    candidate_snapshot,
-    baseline_snapshot,
-    args.impact,
-    args.case,
-    args,
-    args.approved_model_sessions,
-  )
-  stable_plan_fields = (
-    "selected_cases",
-    "regression_cases",
-    "executions",
-    "sessions",
-    "approval_required",
-    "manifest_fingerprint",
-    "runtime_fingerprint",
-  )
-  if any(snapshot_plan[field] != plan[field] for field in stable_plan_fields):
-    shutil.rmtree(operation_root)
-    raise ValueError("Candidate evaluation manifests changed after cost planning")
+  operation_root: Path | None = None
   results = []
   status = PASS
+  invalid_red = False
 
-  for case_id in plan["selected_cases"]:
+  def observe(
+    installed_source: Path,
+    case_source: Path,
+    case_id: str,
+    role: str,
+    context: str,
+    repetition: int | None = None,
+  ) -> dict[str, Any]:
+    if operation_root is None:
+      raise ValueError("Operation workspace is not initialized")
     result = evaluate_case(
       args,
       runtime,
-      baseline_snapshot,
-      candidate_snapshot,
+      installed_source,
+      case_source,
       case_id,
       operation_root,
       progress,
-      "baseline",
+      context,
     )
-    result["role"] = "baseline"
+    result["role"] = role
+    if repetition is not None:
+      result["repetition"] = repetition
     results.append(result)
-    if result["status"] == PASS:
-      status = "INVALID_RED"
-      break
-    if result["status"] != "FAIL":
-      status = result["status"]
-      break
+    record_campaign_consumption(reservation, result["model_sessions"]["total"])
+    return result
 
-  if status == PASS:
+  try:
+    operation_root = make_operation_root(args)
+    source_root = operation_root / "source"
+    source_root.mkdir()
+    baseline_snapshot = materialize_skill_source(
+      baseline, "working-tree", source_root / "baseline"
+    )
+    candidate_snapshot = materialize_skill_source(
+      skill, "working-tree", source_root / "candidate"
+    )
+    snapshot_plan = build_eval_plan(
+      candidate_snapshot,
+      baseline_snapshot,
+      args.impact,
+      args.case,
+      args,
+      args.approved_model_sessions,
+    )
+    stable_plan_fields = (
+      "workflow",
+      "selected_cases",
+      "regression_cases",
+      "executions",
+      "sessions",
+      "approval_required",
+      "manifest_fingerprint",
+      "case_fingerprints",
+      "source_fingerprints",
+      "runtime_fingerprint",
+      "evaluation_fingerprint",
+    )
+    if any(snapshot_plan[field] != plan[field] for field in stable_plan_fields):
+      raise ValueError("Evaluation inputs changed after cost planning")
+
     for case_id in plan["selected_cases"]:
-      repetitions = []
-      for run_number in range(1, 4):
-        result = evaluate_case(
-          args,
-          runtime,
-          candidate_snapshot,
-          candidate_snapshot,
-          case_id,
-          operation_root,
-          progress,
-          f"candidate repetition {run_number}/3",
-        )
-        result["role"] = "candidate"
-        result["repetition"] = run_number
-        results.append(result)
-        repetitions.append(result)
-        if result["status"] != PASS:
-          status = result["status"]
-          break
-      if status != PASS:
-        break
-      if len({verdict_signature(result) for result in repetitions}) != 1:
-        status = "UNSTABLE"
-        break
-
-  if status == PASS:
-    for case_id in plan["regression_cases"]:
-      result = evaluate_case(
-        args,
-        runtime,
-        candidate_snapshot,
+      result = observe(
+        baseline_snapshot,
         candidate_snapshot,
         case_id,
-        operation_root,
-        progress,
-        "regression",
+        "baseline",
+        "baseline",
       )
-      result["role"] = "regression"
-      results.append(result)
-      if result["status"] != PASS:
+      if result["status"] == PASS:
+        invalid_red = True
+        if args.workflow == "promotion":
+          status = "INVALID_RED"
+          break
+      elif result["failure_category"] == "infrastructure":
+        status = result["status"]
+        break
+      elif result["status"] != "FAIL" and args.workflow == "promotion":
         status = result["status"]
         break
 
+    signatures: dict[str, list[str]] = {
+      case_id: [] for case_id in plan["selected_cases"]
+    }
+    if status == PASS:
+      for case_id in plan["selected_cases"]:
+        result = observe(
+          candidate_snapshot,
+          candidate_snapshot,
+          case_id,
+          "candidate",
+          (
+            "candidate observation"
+            if args.workflow == "diagnostic"
+            else "candidate repetition 1/3"
+          ),
+          1,
+        )
+        signatures[case_id].append(verdict_signature(result))
+        if result["failure_category"] == "infrastructure":
+          status = result["status"]
+          break
+        if result["status"] != PASS and args.workflow == "promotion":
+          status = result["status"]
+          break
+
+    if status == PASS:
+      for case_id in plan["regression_cases"]:
+        result = observe(
+          candidate_snapshot,
+          candidate_snapshot,
+          case_id,
+          "regression",
+          "regression",
+        )
+        if result["failure_category"] == "infrastructure":
+          status = result["status"]
+          break
+        if result["status"] != PASS and args.workflow == "promotion":
+          status = result["status"]
+          break
+
+    if status == PASS and args.workflow == "promotion":
+      for run_number in (2, 3):
+        for case_id in plan["selected_cases"]:
+          result = observe(
+            candidate_snapshot,
+            candidate_snapshot,
+            case_id,
+            "candidate",
+            f"candidate repetition {run_number}/3",
+            run_number,
+          )
+          signatures[case_id].append(verdict_signature(result))
+          if result["status"] != PASS:
+            status = result["status"]
+            break
+        if status != PASS:
+          break
+      if status == PASS and any(
+        len(set(case_signatures)) != 1
+        for case_signatures in signatures.values()
+      ):
+        status = "UNSTABLE"
+
+    if args.workflow == "diagnostic" and status == PASS:
+      if invalid_red:
+        status = "INVALID_RED"
+      else:
+        status = aggregate_status([
+          result for result in results if result["role"] != "baseline"
+        ])
+  except Exception:
+    finish_campaign(reservation, "ERROR")
+    raise
+
+  campaign = finish_campaign(reservation, status)
+  actual_sessions = aggregate_model_sessions(results)
+  if campaign is None:
+    campaign = {
+      **plan["campaign"],
+      "consumed_operation": actual_sessions["total"],
+      "consumed_after": None,
+    }
   report = {
-    "operation": "validate-change",
+    "operation": args.operation,
     "status": status,
+    "workflow": args.workflow,
+    "promotion_eligible": args.workflow == "promotion" and status == PASS,
+    "failure_category": workflow_failure_category(status, results),
     "skill": str(skill),
     "model": resolved_model_label(runtime),
     "runtime": runtime.as_dict(),
-    "model_sessions": aggregate_model_sessions(results),
+    "model_sessions": actual_sessions,
+    "usage": aggregate_result_usage(results),
+    "campaign": campaign,
     "plan": plan,
     "results": results,
     "artifacts": str(operation_root) if status in BLOCKING else None,
@@ -1224,7 +1821,7 @@ def execute(args: argparse.Namespace, progress: ProgressReporter | None = None) 
   skill = args.skill.resolve()
   if args.operation == "plan":
     return build_eval_plan(skill, args.baseline, args.impact, args.case, args)
-  if args.operation == "validate-change":
+  if args.operation in {"probe-change", "validate-change"}:
     plan = build_eval_plan(
       skill,
       args.baseline,
@@ -1234,10 +1831,11 @@ def execute(args: argparse.Namespace, progress: ProgressReporter | None = None) 
       args.approved_model_sessions,
     )
     if plan["execution_blockers"]:
-      plan["requested_operation"] = "validate-change"
+      plan["requested_operation"] = args.operation
       plan["_exit_code"] = 2
       return plan
-    return validate_change(args, plan, progress)
+    reservation = reserve_campaign(args, plan["sessions"]["total"])
+    return run_change_workflow(args, plan, progress, reservation)
 
   operation_root = make_operation_root(args)
   source_root = operation_root / "source"
@@ -1339,6 +1937,10 @@ def execute(args: argparse.Namespace, progress: ProgressReporter | None = None) 
     "model": resolved_model_label(runtime),
     "runtime": runtime.as_dict(),
     "model_sessions": aggregate_model_sessions(results),
+    "usage": aggregate_result_usage(results),
+    "promotion_eligible": False,
+    "failure_category": workflow_failure_category(status, results),
+    "campaign": None,
     "results": results,
     "artifacts": str(operation_root) if status in BLOCKING else None,
   }
@@ -1382,6 +1984,10 @@ def main(argv: list[str] | None = None) -> int:
         },
       },
       "model_sessions": {"executor": 0, "judge": 0, "total": 0},
+      "usage": empty_usage(),
+      "promotion_eligible": False,
+      "failure_category": "infrastructure",
+      "campaign": None,
       "results": [{"status": "ERROR", "error": str(error)}],
       "artifacts": None,
     }

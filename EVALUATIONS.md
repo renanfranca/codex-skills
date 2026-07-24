@@ -50,8 +50,9 @@ flowchart TD
   C -->|Semantic| D[Create fixture workspace]
   D --> E[Install skill without evals]
   E --> F[Run fresh Codex executor]
-  F --> G[Run mechanical checks]
-  G --> H[Run judge when enabled]
+  F --> G[Run public mechanical checks]
+  G --> O[Run hidden oracle]
+  O --> H[Run judge when enabled]
   C -->|Deterministic| I[Create fixture workspace]
   I --> J[Expose immutable skill snapshot]
   J --> K[Run mechanical checks only]
@@ -74,7 +75,7 @@ The executor never receives `case.json`, judge criteria, or other answer key mat
 
 Run the commands below from the repository root, `/home/renanfranca/.codex/skills`, unless a command says otherwise.
 
-`plan` and deterministic cases invoke no model. Semantic cases invoke one executor session and may invoke one judge session, so they consume time and model usage.
+`plan` and deterministic cases invoke no model. Semantic cases invoke one executor session and may invoke one judge session, so they consume time and model usage. Executed model sessions emit structured JSONL token telemetry.
 
 ## Suite structure
 
@@ -91,9 +92,11 @@ example-skill/
         ├── semantic-example/
         │   ├── case.json
         │   ├── prompt.md
-        │   └── fixture/
-        │       ├── source-file
-        │       └── test-file
+        │   ├── fixture/
+        │   │   ├── source-file
+        │   │   └── public-recorder.py
+        │   └── oracle/
+        │       └── check_contract.py
         └── deterministic-example/
             ├── case.json
             └── fixture/
@@ -132,6 +135,7 @@ The most common fields are:
 | `mechanical.required_paths` | Paths that must exist after execution, relative to the workspace. |
 | `mechanical.forbidden_changed_paths` | `fnmatch` patterns that must not appear among changed paths. |
 | `mechanical.commands` | Argument arrays run directly without a shell, with expected exit codes. |
+| `oracle.commands` | Hidden checker argv; `{oracle_dir}` resolves to the case oracle directory. |
 | `judge.enabled` | Enables or disables independent semantic judgment. |
 | `judge.criteria` | Expected semantic outcomes visible only to the judge. |
 | `judge.no_action_acceptable` | Allows the judge to accept a justified decision not to edit. |
@@ -229,7 +233,7 @@ Classify the proposed diff before selecting cases:
 | `static` | Documentation, comments, formatting, or display text cannot affect selection or behavior. | Structural validation only. |
 | `deterministic` | Code can observe the complete runner, schema, serialization, exit code, or artifact contract. | Baseline once and candidate three times using deterministic cases. |
 | `scoped` | Affected semantic cases can be enumerated confidently. | Baseline RED once and candidate GREEN three times for those cases only. |
-| `cross-cutting` | Selection, safety, central workflow, shared references, or reach is uncertain. | Scoped gates for affected cases, then every remaining suite case once. |
+| `cross-cutting` | Selection, safety, central workflow, shared references, or reach is uncertain. | Baseline and candidate GREEN 1 for affected cases, every remaining case once, then affected GREEN 2 and 3. |
 
 Classify the diff, not the file type or the desired cost. A shared reference can be cross cutting even though it is Markdown. Runner behavior can be deterministic when direct checks cover it completely.
 
@@ -254,7 +258,8 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
 - baseline and candidate execution counts;
 - executor, judge, and total model sessions;
 - the approved limit and whether approval is required;
-- classification reasons, warnings, and a normalized manifest fingerprint.
+- cumulative campaign projection when configured;
+- classification reasons, warnings, and manifest, case, source, runtime and evaluation fingerprints.
 
 `--case` is repeatable. Selection depends on impact:
 
@@ -265,7 +270,7 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
 | `scoped` | Requires at least one explicitly affected case and selects no unrelated cases. |
 | `cross-cutting` | Requires affected cases and assigns every remaining suite case to one candidate regression run. |
 
-A model session is one executor or judge invocation. One semantic case with an enabled judge costs two sessions per execution. A deterministic case costs zero. The count does not estimate tokens, duration, or financial cost.
+A model session is one executor or judge invocation. One semantic case with an enabled judge costs two sessions per execution. A deterministic case costs zero. The plan counts sessions, not tokens, duration or price; executed reports collect tokens when Codex supplies them.
 
 ## What happens during a run
 
@@ -286,10 +291,11 @@ The runner:
 For a semantic case, the runner:
 
 1. Installs the skill under `.agents/skills/<skill-name>`.
-2. Runs `codex exec` with an ephemeral session, a workspace write sandbox, and a structured JSON output schema.
+2. Runs `codex exec --json` with an ephemeral session, a workspace write sandbox, and a structured JSON output schema.
 3. Validates the executor response and configured mechanical checks.
 4. Runs verification commands directly, without a shell.
-5. Invokes a separate judge when enabled, using hidden criteria, executor evidence, mechanical outcomes, and a diff summary.
+5. Runs hidden `oracle.commands` from a directory never copied into the workspace.
+6. Invokes a separate judge when enabled, using hidden criteria, executor evidence, mechanical outcomes, and a diff summary.
 
 The executor response has this shape:
 
@@ -302,7 +308,7 @@ The executor response has this shape:
 }
 ```
 
-The judge returns `PASS`, `FAIL`, or `INCONCLUSIVE` with a rationale and evidence. A judged semantic case passes only when every mechanical check passes and the judge returns `PASS`.
+The judge returns `PASS`, `FAIL`, or `INCONCLUSIVE` with a rationale and evidence. A judged semantic case passes only when every mechanical and oracle check passes and the judge returns `PASS`.
 
 ### Deterministic path
 
@@ -318,17 +324,18 @@ No artificial response is created, and executor and judge phases are recorded as
 
 ### Integrated change validation
 
-`validate-change` first builds the same plan as `plan`. If the estimate exceeds the approved session limit, it prints the plan and stops before creating an operation directory.
+`validate-change` first builds the same promotion plan as `plan`. If the estimate exceeds the operation or cumulative campaign limit, it prints the plan and stops before creating a ledger or operation directory.
 
 When the budget permits execution, it:
 
 1. snapshots baseline and candidate;
-2. verifies that candidate manifests still match the planned fingerprint and counts;
+2. verifies that all evaluation fingerprints and counts still match the plan;
 3. runs every affected case once on baseline and requires `FAIL`;
-4. runs each affected case up to three times on the candidate and requires `PASS`;
-5. compares the three normalized candidate signatures;
-6. for cross cutting changes, runs every remaining case once without repeating affected cases;
-7. stops on the first blocking candidate or regression result.
+4. runs every affected case once on the candidate and requires `PASS`;
+5. for cross cutting changes, runs every remaining case once without repeating affected cases;
+6. runs affected candidate repetitions two and three;
+7. compares the three normalized candidate signatures;
+8. stops on the first blocking candidate or regression result.
 
 A passing baseline produces `INVALID_RED`. Divergent passing signatures produce `UNSTABLE`. There are no automatic retries after a failure, inconclusive judgment, or instability. Do not repeat an unchanged evaluation merely to seek PASS.
 
@@ -407,13 +414,20 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
   --baseline /tmp/baseline-skill \
   --impact scoped \
   --case changed-behavior \
+  --workflow promotion \
   --model gpt-5.6-sol \
   --reasoning-effort medium \
   --judge-model gpt-5.6-terra \
   --judge-reasoning-effort medium
 ```
 
-Planning is side effect free and always exits zero. It accepts `static`, `deterministic`, `scoped`, and `cross-cutting`, resolves the declared executor and judge runtimes, fingerprints them with the manifests, and reports every execution blocker without creating artifacts or subprocesses.
+Planning is side effect free and always exits zero. It accepts `static`, `deterministic`, `scoped`, and `cross-cutting`, plus `diagnostic` or `promotion` workflow. It resolves executor and judge runtimes, fingerprints manifests, prompts, fixtures, oracles, both sources and runtime, and reports every execution blocker without creating ledgers, artifacts or subprocesses.
+
+### Diagnose a change once
+
+Plan `--workflow diagnostic`, inspect its authoritative session maximum, then run `probe-change` with the same selection and runtime. It executes affected baseline, affected candidate and proportional regressions once each. Contract failures are collected; infrastructure, authentication, quota and subprocess failures stop immediately. A diagnostic can be `PASS`, but it always has `promotion_eligible: false`.
+
+Use `--campaign-ledger <path>` with `--approved-cumulative-model-sessions <n>` to reserve and record diagnostic plus promotion sessions under one cumulative approval. Do not repeat an unchanged complete diagnostic.
 
 ### Validate a change as one operation
 
@@ -427,6 +441,8 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   --reasoning-effort medium \
   --judge-model gpt-5.6-terra \
   --judge-reasoning-effort medium \
+  --campaign-ledger /tmp/my-skill-campaign.json \
+  --approved-cumulative-model-sessions 26 \
   --progress
 ```
 
@@ -446,7 +462,7 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   --progress
 ```
 
-This option approves up to the supplied session count. `sessions.total` is the planned maximum; top-level `model_sessions.total` in an executed report is actual consumption. Shell or sandbox approval is not model cost approval. `validate-change` rejects `static` because static changes require only the structural gates shown by `plan`.
+This option approves up to the supplied operation session count. `sessions.total` is the planned maximum; top-level `model_sessions.total` in an executed report is actual consumption. `usage` aggregates executor and judge token events from `codex exec --json`, preserving unknown values as `null` with `complete: false`. `campaign` reports cumulative consumption. Shell or sandbox approval is not model cost approval. `validate-change` rejects `static` because static changes require only the structural gates shown by `plan`.
 
 ### Run one focused case
 
@@ -508,8 +524,8 @@ Options are intentionally scoped to the commands that can use them:
 
 | Option | Commands | Default and effect |
 | --- | --- | --- |
-| `--progress` | `run`, `verify-change`, `stability`, `validate-change` | Forces immediate progress on standard error. |
-| `--quiet` | `run`, `verify-change`, `stability`, `validate-change` | Suppresses progress; cannot be combined with `--progress`. |
+| `--progress` | `run`, `verify-change`, `stability`, `probe-change`, `validate-change` | Forces immediate progress on standard error. |
+| `--quiet` | `run`, `verify-change`, `stability`, `probe-change`, `validate-change` | Suppresses progress; cannot be combined with `--progress`. |
 | `--model <model>` | All operations | Declares the executor model and is required from CLI for model-backed promotion. |
 | `--reasoning-effort <effort>` | All operations | Declares executor reasoning effort and is required from CLI for model-backed promotion. |
 | `--judge-model <model>` | All operations | Overrides the judge model; otherwise it inherits the executor. |
@@ -517,12 +533,15 @@ Options are intentionally scoped to the commands that can use them:
 | `CODEX_MODEL` | Commands with model execution | Resolves and propagates an exploratory executor model when `--model` is absent, but is not promotion quality. |
 | `--source working-tree` | `run`, `stability` | Evaluates current files and is the default. |
 | `--source git:<revision>` | `run`, `stability` | Materializes the tracked skill from a Git revision. |
-| `--baseline <directory>` | `plan`, `validate-change` | Required frozen baseline directory. |
+| `--baseline <directory>` | `plan`, `probe-change`, `validate-change` | Required frozen baseline directory. |
 | `--baseline <directory or git:revision>` | `verify-change` | Uses an explicit directory or Git snapshot; defaults to `git:HEAD`. |
-| `--case <id>` | All operations | Selects one case for legacy commands; repeatable for planning and integrated validation. |
+| `--case <id>` | All operations | Selects one case for legacy commands; repeatable for planning and integrated workflows. |
 | `--all` | `run` | Runs the complete ordered suite instead of one case. |
-| `--impact <level>` | `plan`, `validate-change` | Selects proportional gates; `validate-change` excludes `static`. |
-| `--approved-model-sessions <n>` | `validate-change` | Sets explicit approval for up to `n` sessions; defaults to `8`. |
+| `--impact <level>` | `plan`, `probe-change`, `validate-change` | Selects proportional gates; executed workflows exclude `static`. |
+| `--workflow <workflow>` | `plan` | Selects `diagnostic` or `promotion`; defaults to `promotion`. |
+| `--approved-model-sessions <n>` | `probe-change`, `validate-change` | Sets explicit operation approval for up to `n` sessions; defaults to `8`. |
+| `--campaign-ledger <path>` | `plan`, `probe-change`, `validate-change` | Selects a locked cumulative campaign ledger; requires cumulative approval. |
+| `--approved-cumulative-model-sessions <n>` | `plan`, `probe-change`, `validate-change` | Approves the cumulative campaign maximum; requires a ledger path. |
 | `--runs <n>` | `stability` | Sets repetitions; defaults to `3` and must be at least `2`. |
 | `--artifacts-dir <path>` | Executed operations | Changes the artifact parent from `/tmp/skill-eval-artifacts`. |
 | `--codex-command <path>` | Executed operations | Replaces `codex`, primarily for deterministic runner tests. |
@@ -593,25 +612,25 @@ Start from an observed task or failure, then remove everything unnecessary to re
 
 ### 4. Add the case before implementation
 
-For semantic behavior, create `case.json`, `prompt.md`, and the minimal fixture. For deterministic behavior, create a manifest and direct checker without a prompt or model configuration. Append the case ID to `evals/suite.json`.
+For semantic behavior, create `case.json`, `prompt.md`, and the minimal public fixture. Put a complete code observable expected contract under `oracle/` and declare `oracle.commands`; the executor never receives that directory. Keep a semantic judge when the contract still requires interpretation. For deterministic behavior, create a manifest and direct checker without a prompt or model configuration. Append the case ID to `evals/suite.json`.
 
 Keep assertions observable: files, command results, public outputs, explicit stopping behavior, and semantic evidence. Avoid assertions about private class topology, collaborator call order, or exact prose.
 
 ### 5. Inspect the plan
 
-Run `plan` before any model-backed evaluation. Check impact, selected and regression cases, baseline and candidate executions, session counts, resolved runtime sources, runtime fingerprint, execution blockers, warnings, and proposed commands.
+Run `plan` before any model-backed evaluation. Check impact, workflow, selected and regression cases, baseline and candidate executions, session counts, campaign projection, resolved runtime sources, all fingerprints, execution blockers, warnings, and proposed commands.
 
 If the estimate exceeds eight sessions, obtain explicit approval for the estimated count before running `validate-change`.
 
 ### 6. Demonstrate RED and GREEN
 
-Run `validate-change` once. Affected cases must fail on the baseline and pass three stable candidate executions. Deterministic cases use the same RED and GREEN logic with zero model sessions.
+When a diagnostic is justified, plan and run `probe-change` once. It is evidence for correction, never promotion. Then run `validate-change` once. Affected cases must fail on the baseline and pass three stable candidate executions. Deterministic cases use the same RED and GREEN logic with zero model sessions.
 
 If the baseline passes, `INVALID_RED` must stop implementation until the case is corrected. If candidate or regression evaluation blocks, diagnose the evidence and change the cause before evaluating again.
 
 ### 7. Apply proportional regression
 
-A scoped change stops after its affected cases and structural gates. A cross cutting change also runs every remaining case once. Affected cases are never duplicated in the regression phase.
+A scoped change stops after its affected cases and structural gates. A cross cutting change runs every remaining case once after affected GREEN 1 and before affected GREEN 2 and 3. Affected cases are never duplicated in the regression phase.
 
 ### 8. Finish structural validation and forward testing
 
@@ -634,7 +653,7 @@ Keep positive prompts close to the skill's intended use. Negative prompts should
 
 ### Approval required
 
-`validate-change` found at least one runtime or budget blocker. Inspect `execution_blockers`, `runtime`, `sessions`, selected cases, regression cases, and warnings in the returned plan. Supply the missing explicit runtime. If the classification and selection are correct but the maximum exceeds the limit, obtain explicit approval and pass that count through `--approved-model-sessions`.
+An executed workflow found at least one runtime, operation budget or cumulative campaign blocker. Inspect `execution_blockers`, `runtime`, `sessions`, `campaign`, selected cases, regression cases, fingerprints and warnings in the returned plan. Supply the missing explicit runtime. If classification and selection are correct but the maximum exceeds a limit, obtain explicit approval and pass the operation count through `--approved-model-sessions` and the cumulative count through the paired campaign options.
 
 Do not reduce the impact merely to fit the default limit. Shell or sandbox permission does not authorize model usage.
 
@@ -673,12 +692,12 @@ Use the overall `artifacts` path from the JSON report. Blocking workspaces remai
 - Test observable behavior and safe decisions, not wording or implementation topology.
 - Choose evidence that can observe the change, then apply gates proportional to its impact.
 - Treat uncertain reach as cross cutting; reducing declared impact merely to reduce cost is invalid.
-- Keep executor input separate from judge criteria and expected answers.
+- Keep executor input separate from judge criteria, expected answers and hidden oracles.
 - Use deterministic checks when they cover the complete contract; use semantic judgment when they do not.
 - Treat every executed status other than `PASS` as a reason to block promotion.
 - Use the same declared executor and judge runtime for baseline and candidate.
-- Treat planned sessions as a maximum and report actual executor and judge subprocess consumption separately.
-- Record runtime and manifest fingerprints for auditability without claiming deterministic model output.
+- Treat planned sessions as a maximum and report actual executor and judge subprocess consumption, token completeness and cumulative campaign consumption separately.
+- Record manifest, case, source, runtime and evaluation fingerprints for auditability without claiming deterministic model output.
 - Do not retry unchanged evaluations opportunistically after a blocking result.
 - Keep fixtures minimal, generic, reproducible, and free of confidential data.
 - Preserve detailed artifacts only for failures and keep generated responses out of version control.

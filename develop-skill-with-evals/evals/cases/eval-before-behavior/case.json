@@ -9,24 +9,22 @@
       "target-skill/SKILL.md",
       "evaluation-evidence.json"
     ],
-    "forbidden_changed_paths": [".agents/skills/**"],
+    "forbidden_changed_paths": [".agents/skills/**"]
+  },
+  "oracle": {
     "commands": [
       {
         "argv": [
           "python3",
-          "audit_eval_sequence.py",
-          "verify"
+          "{oracle_dir}/check_eval_sequence.py"
         ],
         "exit_code": 0
       }
     ]
   },
   "judge": {
-    "enabled": true,
-    "criteria": [
-      "A focused evaluation case is created before the target skill behavior is implemented.",
-      "The executor attempts to demonstrate a real baseline failure and stops if RED is invalid."
-    ],
+    "enabled": false,
+    "criteria": [],
     "no_action_acceptable": false
   }
 }

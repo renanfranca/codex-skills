@@ -118,6 +118,7 @@ class SkillEvalRunnerTest(unittest.TestCase):
       ["verify-change", "--skill", str(self.skill), "--case", "write-result"],
       ["stability", "--skill", str(self.skill), "--case", "write-result"],
       ["plan", "--skill", str(self.skill), "--baseline", str(self.skill), "--impact", "scoped", "--case", "write-result"],
+      ["probe-change", "--skill", str(self.skill), "--baseline", str(self.skill), "--impact", "scoped", "--case", "write-result"],
       ["validate-change", "--skill", str(self.skill), "--baseline", str(self.skill), "--impact", "scoped", "--case", "write-result"],
     ]
 
@@ -130,7 +131,7 @@ class SkillEvalRunnerTest(unittest.TestCase):
         self.assertEqual("high", args.judge_reasoning_effort)
 
   def test_all_command_help_lists_runtime_selection_options(self):
-    for operation in ("run", "verify-change", "stability", "plan", "validate-change"):
+    for operation in ("run", "verify-change", "stability", "plan", "probe-change", "validate-change"):
       with self.subTest(operation=operation):
         completed = subprocess.run(
           ["python3", str(SCRIPT), operation, "--help"],
@@ -509,7 +510,7 @@ class SkillEvalRunnerTest(unittest.TestCase):
       "if 'judge' in schema.name:\n"
       "  response = {'verdict': 'PASS', 'rationale': 'observable', 'evidence': ['result']}\n"
       "else:\n"
-      "  marker = cwd / '.agents/skills/sample-skill/marker.txt'\n"
+      "  marker = next((cwd / '.agents/skills').glob('*/marker.txt'))\n"
       "  if marker.read_text() == 'candidate': (cwd / 'result.txt').write_text('ok')\n"
       "  response = {'summary': 'done', 'classification': 'test', 'evidence': [], 'files_changed': ['result.txt']}\n"
       "out.write_text(json.dumps(response))\n",
@@ -622,7 +623,10 @@ class SkillEvalRunnerTest(unittest.TestCase):
     self.assertEqual(["write-result"], report["plan"]["regression_cases"])
     self.assertEqual(4, [result["case_id"] for result in report["results"]].count("affected-deterministic"))
     self.assertEqual(1, [result["case_id"] for result in report["results"]].count("write-result"))
-    self.assertEqual("regression", report["results"][-1]["role"])
+    self.assertEqual("regression", report["results"][2]["role"])
+    self.assertEqual(["candidate", "candidate"], [
+      result["role"] for result in report["results"][-2:]
+    ])
 
   def test_validate_change_reports_unstable_candidate_signatures(self):
     counter = self.root / "validation-counter"
@@ -817,7 +821,6 @@ class SkillEvalRunnerTest(unittest.TestCase):
       "Case write-result: preparing workspace",
       "Case write-result: running executor",
       "Case write-result: running mechanical checks",
-      "Case write-result: running judge",
       "Case write-result: PASS",
       "Final result: PASS",
     ]
@@ -826,6 +829,26 @@ class SkillEvalRunnerTest(unittest.TestCase):
     self.assertEqual("PASS", report["status"])
     self.assertNotIn("executor-internal-output", completed.stderr)
     self.assertIn("executor-internal-output", report["results"][0]["executor"]["stderr"])
+
+  def test_progress_does_not_announce_disabled_judge(self):
+    manifest_path = self.skill / "evals" / "cases" / "write-result" / "case.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["judge"]["enabled"] = False
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+    completed = self.invoke(
+      "run",
+      "--skill",
+      str(self.skill),
+      "--case",
+      "write-result",
+      "--source",
+      "working-tree",
+      "--progress",
+    )
+
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    self.assertNotIn("running judge", completed.stderr)
 
   def test_verify_change_and_stability_progress_include_context(self):
     baseline = self.root / "baseline-progress"

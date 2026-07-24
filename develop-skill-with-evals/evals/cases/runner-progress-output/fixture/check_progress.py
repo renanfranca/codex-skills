@@ -29,7 +29,6 @@ expected = [
   "Case write-result: preparing workspace",
   "Case write-result: running executor",
   "Case write-result: running mechanical checks",
-  "Case write-result: running judge",
   "Case write-result: PASS",
   "Final result: PASS",
 ]

@@ -8,23 +8,25 @@
       "weather-brief/SKILL.md",
       "creation-evidence.json"
     ],
-    "forbidden_changed_paths": [".agents/skills/**"],
+    "forbidden_changed_paths": [
+      ".agents/skills/**",
+      "weather-brief/creation-evidence.json"
+    ]
+  },
+  "oracle": {
     "commands": [
       {
         "argv": [
           "python3",
-          "check_creation_evidence.py"
+          "{oracle_dir}/check_creation_evidence.py"
         ],
         "exit_code": 0
       }
     ]
   },
   "judge": {
-    "enabled": true,
-    "criteria": [
-      "The executor explicitly loads skill-creator before creating or editing the new skill.",
-      "The new skill is initialized with the official scaffold mechanism rather than manually recreated."
-    ],
+    "enabled": false,
+    "criteria": [],
     "no_action_acceptable": false
   }
 }

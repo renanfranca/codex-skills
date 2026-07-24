@@ -10,6 +10,7 @@
     "runner-progress-output",
     "impact-gate-selection",
     "auditable-runtime-contract",
-    "explicit-runtime-promotion-workflow"
+    "explicit-runtime-promotion-workflow",
+    "cost-efficient-runtime-contract"
   ]
 }

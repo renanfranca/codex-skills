@@ -22,7 +22,7 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py plan --skill ./candi
 git diff --check
 ```
 
-The first command runs deterministic runner tests. `quick_validate.py` checks skill structure and frontmatter. Planning is side effect free and reports runtime blockers plus the maximum model sessions before execution.
+The first command runs deterministic runner tests. `quick_validate.py` checks skill structure and frontmatter. Planning is side effect free and reports full evaluation fingerprints, runtime blockers, campaign projection, and maximum model sessions before execution.
 
 ## Coding Style & Naming Conventions
 
@@ -30,7 +30,7 @@ Use kebab-case for skill directories and eval case IDs, such as `refactor-design
 
 ## Testing Guidelines
 
-Use Python `unittest` for runner behavior. Place tests in `scripts/tests/`. Eval cases belong under `<skill>/evals/cases/<case-id>/` with `case.json`, `prompt.md`, and only the minimal fixture needed. Behavioral skill changes require baseline RED and three stable candidate GREEN results for affected cases. Scoped changes stop there; cross cutting changes add every remaining suite case once as proportional regression. Model-backed promotion requires an explicit executor model and reasoning effort, with any required judge runtime declared separately or inherited. Never expose judge criteria in prompts or fixtures.
+Use Python `unittest` for runner behavior. Place tests in `scripts/tests/`. Eval cases belong under `<skill>/evals/cases/<case-id>/` with `case.json`, `prompt.md`, and only the minimal fixture needed. Put complete code observable contracts under `oracle/`, never in the public fixture. Behavioral skill changes require baseline RED and three stable candidate GREEN results for affected cases. Scoped changes stop there; cross cutting changes run every remaining suite case after GREEN 1 and before GREEN 2 and 3. Model-backed promotion requires an explicit executor model and reasoning effort, with any required judge runtime declared separately or inherited. Diagnostic and promotion operations may share a locked cumulative campaign ledger. Never expose judge criteria or hidden oracles in prompts or fixtures.
 
 ## Commit & Pull Request Guidelines
 

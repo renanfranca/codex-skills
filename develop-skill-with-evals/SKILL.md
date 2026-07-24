@@ -1,6 +1,6 @@
 ---
 name: develop-skill-with-evals
-description: Create or improve Codex skills through impact-aware evaluation development with isolated fixtures, proportional RED and GREEN gates, deterministic checks, model session planning, stability evidence, and fresh-agent validation. Use when Codex is asked to build or change a skill, add skill evals, forward-test behavior, validate trigger selection, modify an evaluation runner or contract, or safely evolve this skill itself.
+description: Create or improve Codex skills through impact-aware evaluation development with isolated fixtures, diagnostic probes, proportional RED and GREEN gates, hidden mechanical oracles, session and token telemetry, cumulative campaign budgets, stability evidence, and fresh-agent validation. Use when Codex is asked to build or change a skill, add skill evals, forward-test behavior, validate trigger selection, modify an evaluation runner or contract, or safely evolve this skill itself.
 ---
 
 # Develop Skill with Evals
@@ -43,11 +43,12 @@ Run `plan` before any model-backed evaluation:
 ```text
 python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
   --skill <candidate> --baseline <baseline> --impact <impact> [--case <id>]... \
+  --workflow promotion \
   --model <executor-model> --reasoning-effort <effort> \
   --judge-model <judge-model> --judge-reasoning-effort <effort>
 ```
 
-Planning is side effect free and uses no model. Inspect selected and regression cases, commands, executor and judge session counts, runtime, runtime fingerprint, execution blockers, reasons, and warnings before executing. Runtime declarations do not make model output deterministic; they make the intended execution auditable.
+Planning is side effect free and uses no model. Inspect selected and regression cases, commands, executor and judge session counts, runtime, case, source, runtime and evaluation fingerprints, campaign projection, execution blockers, reasons, and warnings before executing. Runtime declarations do not make model output deterministic; they make the intended execution auditable.
 
 ## Apply proportional gates
 
@@ -57,7 +58,7 @@ For `deterministic`, add or change a deterministic case first. It must use direc
 
 For `scoped`, add or change only the affected semantic cases first. Require baseline `FAIL`, three candidate `PASS` results with one stable normalized signature, and structural validity. Do not run unrelated suite cases.
 
-For `cross-cutting`, apply the scoped gates to explicitly affected cases, then run every remaining suite case once as regression. Affected cases must not run again in the regression phase.
+For `cross-cutting`, apply the first candidate gate to explicitly affected cases, run every remaining suite case once as regression, then complete candidate repetitions two and three. Affected cases must not run again in the regression phase. Stop before repetitions two and three when an early regression fails.
 
 Use the integrated command:
 
@@ -67,20 +68,30 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   [--case <id>]... \
   --model <executor-model> --reasoning-effort <effort> \
   --judge-model <judge-model> --judge-reasoning-effort <effort> \
-  [--approved-model-sessions <n>] --progress
+  [--approved-model-sessions <n>] \
+  [--campaign-ledger <path> --approved-cumulative-model-sessions <n>] \
+  --progress
 ```
 
 When the plan includes model sessions, `validate-change` requires the executor model and reasoning effort explicitly from CLI. A required judge may declare its own CLI values or inherit the complete executor runtime. The runner never reads `config.toml`. `CODEX_MODEL` remains compatible with exploratory commands but is not sufficient for promotion.
 
-The default approved limit is eight model sessions. Missing promotion runtime, unresolved required judge runtime, or an estimate above the limit returns the complete plan with exit code 2 before workspaces, artifacts, or model calls. `--approved-model-sessions` is explicit approval for that maximum. Shell, sandbox, or command approval is not cost approval.
+The default approved limit is eight model sessions. Missing promotion runtime, unresolved required judge runtime, an estimate above the operation limit, or a campaign projection above cumulative approval returns the complete plan with exit code 2 before workspaces, artifacts, ledger creation, or model calls. `--approved-model-sessions` approves one operation. The paired campaign options bind diagnostic and promotion consumption to one locked, atomically written ledger under an explicit cumulative maximum. Shell, sandbox, or command approval is not cost approval.
 
-A model session is one executor or judge invocation. `sessions.total` is the planned maximum; top-level `model_sessions.total` is actual consumption. A judge skipped after mechanical failure consumes no session and reports `executed: false` with `verdict: SKIPPED`. Counts do not estimate tokens, duration, or financial cost.
+A model session is one executor or judge invocation. `sessions.total` is the planned maximum; top-level `model_sessions.total` is actual consumption. A judge skipped after mechanical or oracle failure consumes no session and reports `executed: false` with `verdict: SKIPPED`. `usage` aggregates JSONL token events from `codex exec --json`. Missing token fields remain `null` with `complete: false`.
+
+## Diagnose before promotion when useful
+
+Plan with `--workflow diagnostic`, then run the proposed `probe-change` command once. It observes affected baseline, affected candidate and every proportional regression one time, continues after contract failures, and stops immediately on infrastructure, authentication, quota or subprocess failure. Its report always has `promotion_eligible: false`.
+
+Use the diagnostic to collect problems, not as promotion evidence. After fixing mechanically reproducible defects, plan `--workflow promotion` and run one `validate-change`. Do not repeat an unchanged full diagnostic.
+
+Keep mechanical expected contracts under each case's `oracle/` directory when code can cover the complete semantic criterion. Declare them through `oracle.commands`; the runner fingerprints them and executes them outside the executor workspace. Never copy or expose the oracle directory to the executor. Keep a judge only when interpretation remains genuinely semantic.
 
 ## Treat every blocking result as evidence
 
 `PASS` is the only promotable status. Stop on `FAIL`, `ERROR`, `INCONCLUSIVE`, `INVALID_RED`, or `UNSTABLE`. Diagnose and correct the cause, but never repeat an unchanged evaluation merely to obtain a favorable result. The three planned candidate executions are stability evidence, not automatic retries after failure.
 
-Existing `run`, `verify-change`, and `stability` commands remain available for exploration and compatibility. They accept the same four runtime selection options and propagate every known value. Prefer `plan` plus `validate-change` for promotion because only that workflow integrates selection, complete runtime, fingerprint, blockers, and budget.
+Existing `run`, `verify-change`, and `stability` commands remain available for exploration and compatibility. They accept the same four runtime selection options and propagate every known value. Prefer diagnostic `plan` plus `probe-change` for one pass investigation and promotion `plan` plus `validate-change` for promotion because these workflows integrate selection, complete runtime, full fingerprints, blockers and budget.
 
 The runner writes only JSON to standard output. Progress goes to standard error, is automatic for a TTY, can be forced with `--progress`, and can be suppressed with `--quiet`.
 
@@ -95,8 +106,10 @@ When changing `develop-skill-with-evals`, keep canonical source untouched:
 1. Preserve immutable baseline and isolated candidate copies.
 2. Add the focused self evaluation before implementation.
 3. Run development and validation with the candidate runner.
-4. Forward-test with a fresh agent that receives only a realistic task and candidate path, never the expected answer or diagnosis.
-5. Promote only the reviewed candidate patch after every required gate passes.
+4. Run an approved diagnostic at most once when it adds evidence.
+5. Run one approved promotion gate.
+6. Forward-test with a fresh agent that receives only a realistic task and candidate path, never the expected answer or diagnosis.
+7. Promote only the reviewed candidate patch after every required gate passes.
 
 If fresh-agent validation is unavailable, report the missing gate and do not claim promotion readiness.
 
