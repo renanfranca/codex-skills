@@ -8,7 +8,7 @@ Each skill directory at the repository root is self-contained. For portable Code
 
 ### Skill development and design
 
-- [`develop-skill-with-evals`](develop-skill-with-evals/SKILL.md) — Create or improve skills through isolated RED, GREEN, stability, and regression evaluations.
+- [`develop-skill-with-evals`](develop-skill-with-evals/SKILL.md) — Create or improve skills through auditable runtime declarations and proportional RED, GREEN, stability, and regression gates.
 - [`refactor-design`](refactor-design/SKILL.md) — Review completed green implementations for structural risks and apply behavior-preserving refactors.
 - [`implement-execplan`](implement-execplan/SKILL.md) — Create and execute self-contained implementation plans that are safe for handoff during substantial work.
 
@@ -70,7 +70,7 @@ See [Evaluating Codex Skills](EVALUATIONS.md) for the complete guide to evaluati
 
 ## Developing a skill
 
-Use `$develop-skill-with-evals` for new skills and behavioral revisions. It composes the system `skill-creator` workflow with baseline RED, candidate GREEN, stability over three runs, and full regression gates.
+Use `$develop-skill-with-evals` for new skills and behavioral revisions. It composes the system `skill-creator` workflow with baseline RED, three stable candidate GREEN results, and regression proportional to the classified impact. Model-backed promotion declares executor and judge runtimes explicitly and compares the planned maximum sessions with actual consumption.
 
 Follow the [evaluation guide](EVALUATIONS.md) when adding a suite to another skill or interpreting runner reports and blocking statuses.
 
@@ -79,7 +79,7 @@ Typical validation commands include:
 ```bash
 python3 -m unittest discover -s develop-skill-with-evals/scripts/tests -v
 python3 "${CODEX_HOME:-$HOME/.codex}/skills/.system/skill-creator/scripts/quick_validate.py" ./skill-name
-python3 develop-skill-with-evals/scripts/run_skill_evals.py run --skill ./skill-name --all --source working-tree
+python3 develop-skill-with-evals/scripts/run_skill_evals.py plan --skill ./candidate-skill --baseline /tmp/baseline-skill --impact scoped --case changed-case --model <executor-model> --reasoning-effort <effort> --judge-model <judge-model> --judge-reasoning-effort <effort>
 git diff --check
 ```
 

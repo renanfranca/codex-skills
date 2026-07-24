@@ -1,0 +1,3 @@
+Update the authorized temporary `sample-skill` so its renderer removes surrounding whitespace before converting text to uppercase. `sample-baseline` is the unchanged comparison source.
+
+Classify the change, then use `./audit-runner` to run `plan` followed by `validate-change`. Declare `gpt-5.6-sol` with `medium` reasoning effort for the executor and `gpt-5.6-terra` with `medium` reasoning effort for the judge on both commands. Use `./fake-codex` as the Codex command, keep the model session authorization proportional to the displayed plan, save pure JSON standard output as `plan.json` and `validation.json`, and do not commit or publish.

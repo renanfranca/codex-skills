@@ -1,1 +1,1 @@
-Improve `develop-skill-with-evals` by adding a reminder to redact personal email addresses from fixtures. Make the proposed change safely, but do not promote it to the installed skill yet.
+Improve `develop-skill-with-evals` by adding a reminder to redact personal email addresses from fixtures. Preserve the repository-scoped skill as an unchanged baseline at `./baseline`, make the proposed change only in an isolated candidate at `./candidate`, and do not promote it to the installed skill yet.

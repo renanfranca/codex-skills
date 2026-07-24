@@ -2,6 +2,7 @@
 """Run isolated, structured forward evaluations for Codex skills."""
 
 import argparse
+from dataclasses import dataclass
 import fnmatch
 import hashlib
 import json
@@ -20,6 +21,42 @@ PASS = "PASS"
 BLOCKING = {"FAIL", "ERROR", "INCONCLUSIVE", "INVALID_RED", "UNSTABLE"}
 IMPACTS = ("static", "deterministic", "scoped", "cross-cutting")
 DEFAULT_APPROVED_MODEL_SESSIONS = 8
+
+
+@dataclass(frozen=True)
+class RoleRuntime:
+  required: bool
+  model: str | None
+  model_source: str
+  reasoning_effort: str | None
+  reasoning_effort_source: str
+
+  def as_dict(self) -> dict[str, Any]:
+    return {
+      "required": self.required,
+      "model": self.model,
+      "model_source": self.model_source,
+      "reasoning_effort": self.reasoning_effort,
+      "reasoning_effort_source": self.reasoning_effort_source,
+    }
+
+
+@dataclass(frozen=True)
+class EvaluationRuntime:
+  required: bool
+  complete: bool
+  audit_quality: str
+  executor: RoleRuntime
+  judge: RoleRuntime
+
+  def as_dict(self) -> dict[str, Any]:
+    return {
+      "required": self.required,
+      "complete": self.complete,
+      "audit_quality": self.audit_quality,
+      "executor": self.executor.as_dict(),
+      "judge": self.judge.as_dict(),
+    }
 
 
 class ProgressReporter:
@@ -61,6 +98,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
   plan_parser.add_argument("--baseline", type=Path, required=True)
   plan_parser.add_argument("--impact", choices=IMPACTS, required=True)
   plan_parser.add_argument("--case", action="append", default=[])
+  add_runtime_selection_arguments(plan_parser)
 
   validate_parser = subparsers.add_parser(
     "validate-change", help="Run RED, GREEN, stability, and proportional regression gates"
@@ -88,8 +126,15 @@ def add_skill_argument(parser: argparse.ArgumentParser) -> None:
   parser.add_argument("--skill", type=Path, required=True)
 
 
-def add_runtime_arguments(parser: argparse.ArgumentParser) -> None:
+def add_runtime_selection_arguments(parser: argparse.ArgumentParser) -> None:
   parser.add_argument("--model")
+  parser.add_argument("--reasoning-effort")
+  parser.add_argument("--judge-model")
+  parser.add_argument("--judge-reasoning-effort")
+
+
+def add_runtime_arguments(parser: argparse.ArgumentParser) -> None:
+  add_runtime_selection_arguments(parser)
   parser.add_argument("--codex-command", default="codex")
   parser.add_argument("--artifacts-dir", type=Path, default=Path("/tmp/skill-eval-artifacts"))
   progress = parser.add_mutually_exclusive_group()
@@ -289,6 +334,7 @@ def validate_case_manifest(case_dir: Path, case_id: str, case: dict[str, Any]) -
 def disabled_executor() -> dict[str, Any]:
   return {
     "enabled": False,
+    "executed": False,
     "exit_code": None,
     "response": None,
     "stderr": "",
@@ -298,6 +344,7 @@ def disabled_executor() -> dict[str, Any]:
 def disabled_judge(reason: str) -> dict[str, Any]:
   return {
     "enabled": False,
+    "executed": False,
     "verdict": PASS,
     "rationale": reason,
     "evidence": [],
@@ -378,6 +425,7 @@ def evaluate_deterministic_case(
 
 def run_judge(
   args: argparse.Namespace,
+  runtime: RoleRuntime,
   workspace: Path,
   case: dict[str, Any],
   response: dict[str, Any] | None,
@@ -385,7 +433,7 @@ def run_judge(
 ) -> dict[str, Any]:
   judge = case.get("judge", {})
   if not judge.get("enabled", False):
-    return {"enabled": False, "verdict": PASS, "rationale": "Semantic judge disabled for this case.", "evidence": []}
+    return disabled_judge("Semantic judge disabled for this case.")
 
   schema = workspace / ".eval-judge-schema.json"
   output = workspace / ".eval-judge-response.json"
@@ -397,11 +445,12 @@ def run_judge(
     "executor_response": response,
     "mechanical": mechanical,
   }
-  command = codex_command(args, workspace, schema, output)
+  command = codex_command(args, runtime, workspace, schema, output)
   completed = run_process(command, workspace, json.dumps(payload))
   if completed.returncode != 0 or not output.exists():
     return {
       "enabled": True,
+      "executed": True,
       "verdict": "INCONCLUSIVE",
       "rationale": f"Judge process failed with exit code {completed.returncode}.",
       "evidence": [completed.stderr[-1000:]],
@@ -409,14 +458,26 @@ def run_judge(
   try:
     result = read_json(output)
   except (OSError, ValueError, json.JSONDecodeError) as error:
-    return {"enabled": True, "verdict": "INCONCLUSIVE", "rationale": str(error), "evidence": []}
+    return {"enabled": True, "executed": True, "verdict": "INCONCLUSIVE", "rationale": str(error), "evidence": []}
   verdict = result.get("verdict")
   if verdict not in {PASS, "FAIL", "INCONCLUSIVE"}:
     verdict = "INCONCLUSIVE"
-  return {"enabled": True, "verdict": verdict, "rationale": result.get("rationale", ""), "evidence": result.get("evidence", [])}
+  return {
+    "enabled": True,
+    "executed": True,
+    "verdict": verdict,
+    "rationale": result.get("rationale", ""),
+    "evidence": result.get("evidence", []),
+  }
 
 
-def codex_command(args: argparse.Namespace, workspace: Path, schema: Path, output: Path) -> list[str]:
+def codex_command(
+  args: argparse.Namespace,
+  runtime: RoleRuntime,
+  workspace: Path,
+  schema: Path,
+  output: Path,
+) -> list[str]:
   command = [
     args.codex_command,
     "exec",
@@ -432,13 +493,21 @@ def codex_command(args: argparse.Namespace, workspace: Path, schema: Path, outpu
     str(output),
     "-",
   ]
-  if args.model:
-    command[2:2] = ["--model", args.model]
+  runtime_arguments = []
+  if runtime.model:
+    runtime_arguments.extend(["--model", runtime.model])
+  if runtime.reasoning_effort:
+    runtime_arguments.extend([
+      "-c",
+      f'model_reasoning_effort="{runtime.reasoning_effort}"',
+    ])
+  command[2:2] = runtime_arguments
   return command
 
 
 def evaluate_case(
   args: argparse.Namespace,
+  runtime: EvaluationRuntime,
   installed_source: Path,
   case_source_skill: Path,
   case_id: str,
@@ -479,7 +548,11 @@ def evaluate_case(
   else:
     prompt = f"Use ${installed_source.name} from the repository-scoped skill installation to complete this task.\n\n{raw_prompt}"
   progress.emit(f"{label}: running executor")
-  completed = run_process(codex_command(args, workspace, schema, output), workspace, prompt)
+  completed = run_process(
+    codex_command(args, runtime.executor, workspace, schema, output),
+    workspace,
+    prompt,
+  )
   try:
     response = read_json(output) if output.exists() else None
   except (OSError, ValueError, json.JSONDecodeError):
@@ -528,8 +601,20 @@ def evaluate_case(
     )
 
   mechanical = {"passed": all(item["passed"] for item in checks), "checks": checks, "commands": command_results}
-  progress.emit(f"{label}: running judge")
-  judge = run_judge(args, workspace, case, response, mechanical)
+  judge_enabled = case.get("judge", {}).get("enabled", False)
+  if mechanical["passed"]:
+    progress.emit(f"{label}: running judge")
+    judge = run_judge(args, runtime.judge, workspace, case, response, mechanical)
+  elif judge_enabled:
+    judge = {
+      "enabled": True,
+      "executed": False,
+      "verdict": "SKIPPED",
+      "rationale": "Semantic judge skipped because mechanical checks failed.",
+      "evidence": [],
+    }
+  else:
+    judge = disabled_judge("Semantic judge disabled for this case.")
   if not mechanical["passed"]:
     status = "FAIL"
   elif judge["verdict"] == "INCONCLUSIVE":
@@ -543,6 +628,8 @@ def evaluate_case(
     "status": status,
     "kind": case.get("kind", "behavioral"),
     "executor": {
+      "enabled": True,
+      "executed": True,
       "exit_code": completed.returncode,
       "response": response,
       "stderr": completed.stderr[-4000:],
@@ -553,8 +640,8 @@ def evaluate_case(
     "workspace": str(workspace),
     "model_sessions": {
       "executor": 1,
-      "judge": 1 if case.get("judge", {}).get("enabled", False) else 0,
-      "total": 1 + (1 if case.get("judge", {}).get("enabled", False) else 0),
+      "judge": 1 if judge.get("executed", False) else 0,
+      "total": 1 + (1 if judge.get("executed", False) else 0),
     },
   }
   (workspace / ".eval-result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
@@ -626,6 +713,8 @@ def plan_commands(
   baseline: Path,
   impact: str,
   selected: list[str],
+  runtime: EvaluationRuntime,
+  approved_model_sessions: int,
 ) -> list[str]:
   commands = [
     shlex.join([
@@ -649,6 +738,24 @@ def plan_commands(
   ]
   for case_id in selected:
     validate_argv.extend(["--case", case_id])
+  if runtime.executor.model_source == "cli" and runtime.executor.model:
+    validate_argv.extend(["--model", runtime.executor.model])
+  if runtime.executor.reasoning_effort:
+    validate_argv.extend(["--reasoning-effort", runtime.executor.reasoning_effort])
+  if runtime.judge.model_source == "cli" and runtime.judge.model:
+    validate_argv.extend(["--judge-model", runtime.judge.model])
+  if (
+    runtime.judge.reasoning_effort_source == "cli"
+    and runtime.judge.reasoning_effort
+  ):
+    validate_argv.extend([
+      "--judge-reasoning-effort",
+      runtime.judge.reasoning_effort,
+    ])
+  validate_argv.extend([
+    "--approved-model-sessions",
+    str(approved_model_sessions),
+  ])
   commands.insert(
     0,
     shlex.join(validate_argv),
@@ -661,11 +768,138 @@ def manifest_fingerprint(manifests: dict[str, dict[str, Any]]) -> str:
   return hashlib.sha256(encoded).hexdigest()
 
 
+def resolve_runtime(
+  args: argparse.Namespace,
+  executor_required: bool,
+  judge_required: bool,
+) -> EvaluationRuntime:
+  cli_model = getattr(args, "model", None)
+  environment_model = os.environ.get("CODEX_MODEL")
+  executor_model = cli_model or environment_model
+  executor_model_source = (
+    "cli"
+    if cli_model
+    else "environment"
+    if environment_model
+    else "configured-default"
+  )
+  executor_effort = getattr(args, "reasoning_effort", None)
+  executor_effort_source = "cli" if executor_effort else "configured-default"
+  executor = RoleRuntime(
+    required=executor_required,
+    model=executor_model,
+    model_source=executor_model_source,
+    reasoning_effort=executor_effort,
+    reasoning_effort_source=executor_effort_source,
+  )
+
+  judge_cli_model = getattr(args, "judge_model", None)
+  judge_cli_effort = getattr(args, "judge_reasoning_effort", None)
+  judge = RoleRuntime(
+    required=judge_required,
+    model=judge_cli_model or executor.model,
+    model_source="cli" if judge_cli_model else "executor",
+    reasoning_effort=judge_cli_effort or executor.reasoning_effort,
+    reasoning_effort_source="cli" if judge_cli_effort else "executor",
+  )
+  executor_complete = (
+    not executor.required
+    or (
+      executor.model is not None
+      and executor.model_source == "cli"
+      and executor.reasoning_effort is not None
+      and executor.reasoning_effort_source == "cli"
+    )
+  )
+  judge_complete = (
+    not judge.required
+    or (
+      judge.model is not None
+      and judge.reasoning_effort is not None
+      and (
+        judge.model_source == "cli"
+        or (judge.model_source == "executor" and executor_complete)
+      )
+      and (
+        judge.reasoning_effort_source == "cli"
+        or (
+          judge.reasoning_effort_source == "executor"
+          and executor_complete
+        )
+      )
+    )
+  )
+  required = executor_required or judge_required
+  complete = executor_complete and judge_complete
+  audit_quality = (
+    "not_applicable"
+    if not required
+    else "promotion"
+    if complete
+    else "exploratory"
+  )
+  return EvaluationRuntime(
+    required=required,
+    complete=complete,
+    audit_quality=audit_quality,
+    executor=executor,
+    judge=judge,
+  )
+
+
+def runtime_fingerprint(
+  manifest_digest: str,
+  runtime: EvaluationRuntime,
+) -> str:
+  payload = {
+    "manifest_fingerprint": manifest_digest,
+    "executor": runtime.executor.as_dict(),
+    "judge": runtime.judge.as_dict(),
+  }
+  encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+  return hashlib.sha256(encoded).hexdigest()
+
+
+def execution_blockers(
+  runtime: EvaluationRuntime,
+  total_sessions: int,
+  approved_model_sessions: int,
+) -> list[dict[str, str]]:
+  blockers = []
+  if runtime.executor.required and (
+    runtime.executor.model_source != "cli"
+    or runtime.executor.model is None
+    or runtime.executor.reasoning_effort_source != "cli"
+    or runtime.executor.reasoning_effort is None
+  ):
+    blockers.append({
+      "code": "executor-runtime-explicit-required",
+      "message": "Model-backed promotion requires executor model and reasoning effort from CLI.",
+    })
+  if runtime.judge.required and (
+    runtime.judge.model is None or runtime.judge.reasoning_effort is None
+  ):
+    blockers.append({
+      "code": "judge-runtime-unresolved",
+      "message": "The required judge model and reasoning effort could not be resolved.",
+    })
+  if total_sessions > approved_model_sessions:
+    blockers.append({
+      "code": "insufficient-model-session-budget",
+      "message": (
+        f"Plan requires at most {total_sessions} model sessions, "
+        f"but only {approved_model_sessions} are authorized."
+      ),
+    })
+  return blockers
+
+
 def build_eval_plan(
   skill: Path,
   baseline: Path,
   impact: str,
   requested_cases: list[str],
+  args: argparse.Namespace,
   approved_model_sessions: int = DEFAULT_APPROVED_MODEL_SESSIONS,
 ) -> dict[str, Any]:
   skill = skill.resolve()
@@ -691,6 +925,11 @@ def build_eval_plan(
   executor_sessions = baseline_executor + candidate_executor
   judge_sessions = baseline_judge + candidate_judge
   total_sessions = executor_sessions + judge_sessions
+  runtime = resolve_runtime(
+    args,
+    executor_required=executor_sessions > 0,
+    judge_required=judge_sessions > 0,
+  )
   reasons = {
     "static": ["Only structural gates are proposed because the change cannot affect skill behavior."],
     "deterministic": ["Selected behavior is fully observable by direct mechanical checks."],
@@ -720,7 +959,14 @@ def build_eval_plan(
       + (["remaining-suite-regression"] if remaining else [])
       + ["structural-validation"]
     ),
-    "commands": plan_commands(skill, baseline, impact, selected),
+    "commands": plan_commands(
+      skill,
+      baseline,
+      impact,
+      selected,
+      runtime,
+      approved_model_sessions,
+    ),
     "executions": {
       "baseline": {"affected": len(selected), "total": len(selected)},
       "candidate": {
@@ -749,6 +995,16 @@ def build_eval_plan(
     "reasons": reasons,
     "warnings": warnings,
     "manifest_fingerprint": manifest_fingerprint(manifests),
+    "runtime": runtime.as_dict(),
+    "runtime_fingerprint": runtime_fingerprint(
+      manifest_fingerprint(manifests),
+      runtime,
+    ),
+    "execution_blockers": execution_blockers(
+      runtime,
+      total_sessions,
+      approved_model_sessions,
+    ),
   }
   validate_eval_plan(plan)
   return plan
@@ -771,6 +1027,9 @@ def validate_eval_plan(plan: dict[str, Any]) -> None:
     "reasons",
     "warnings",
     "manifest_fingerprint",
+    "runtime",
+    "runtime_fingerprint",
+    "execution_blockers",
   }
   missing = sorted(required - plan.keys())
   if missing:
@@ -791,6 +1050,8 @@ def validate_eval_plan(plan: dict[str, Any]) -> None:
   expected_approval = sessions["total"] > plan["approved_model_sessions"]
   if plan["approval_required"] != expected_approval:
     raise ValueError("Evaluation plan approval flag is inconsistent with its session limit")
+  if not isinstance(plan["execution_blockers"], list):
+    raise ValueError("Evaluation plan blockers must be a list")
 
 
 def aggregate_status(results: list[dict[str, Any]]) -> str:
@@ -820,8 +1081,14 @@ def make_operation_root(args: argparse.Namespace) -> Path:
   return Path(tempfile.mkdtemp(prefix=f"{args.operation}-", dir=args.artifacts_dir))
 
 
-def resolve_model(args: argparse.Namespace) -> str:
-  return args.model or os.environ.get("CODEX_MODEL") or "configured-default"
+def resolved_model_label(runtime: EvaluationRuntime) -> str:
+  return runtime.executor.model or "configured-default"
+
+
+def aggregate_model_sessions(results: list[dict[str, Any]]) -> dict[str, int]:
+  executor = sum(result["model_sessions"]["executor"] for result in results)
+  judge = sum(result["model_sessions"]["judge"] for result in results)
+  return {"executor": executor, "judge": judge, "total": executor + judge}
 
 
 def validate_change(
@@ -831,6 +1098,11 @@ def validate_change(
 ) -> dict[str, Any]:
   skill = args.skill.resolve()
   baseline = args.baseline.resolve()
+  runtime = resolve_runtime(
+    args,
+    executor_required=plan["sessions"]["executor"] > 0,
+    judge_required=plan["sessions"]["judge"] > 0,
+  )
   operation_root = make_operation_root(args)
   source_root = operation_root / "source"
   source_root.mkdir()
@@ -845,6 +1117,7 @@ def validate_change(
     baseline_snapshot,
     args.impact,
     args.case,
+    args,
     args.approved_model_sessions,
   )
   stable_plan_fields = (
@@ -854,6 +1127,7 @@ def validate_change(
     "sessions",
     "approval_required",
     "manifest_fingerprint",
+    "runtime_fingerprint",
   )
   if any(snapshot_plan[field] != plan[field] for field in stable_plan_fields):
     shutil.rmtree(operation_root)
@@ -864,6 +1138,7 @@ def validate_change(
   for case_id in plan["selected_cases"]:
     result = evaluate_case(
       args,
+      runtime,
       baseline_snapshot,
       candidate_snapshot,
       case_id,
@@ -886,6 +1161,7 @@ def validate_change(
       for run_number in range(1, 4):
         result = evaluate_case(
           args,
+          runtime,
           candidate_snapshot,
           candidate_snapshot,
           case_id,
@@ -910,6 +1186,7 @@ def validate_change(
     for case_id in plan["regression_cases"]:
       result = evaluate_case(
         args,
+        runtime,
         candidate_snapshot,
         candidate_snapshot,
         case_id,
@@ -927,7 +1204,9 @@ def validate_change(
     "operation": "validate-change",
     "status": status,
     "skill": str(skill),
-    "model": resolve_model(args),
+    "model": resolved_model_label(runtime),
+    "runtime": runtime.as_dict(),
+    "model_sessions": aggregate_model_sessions(results),
     "plan": plan,
     "results": results,
     "artifacts": str(operation_root) if status in BLOCKING else None,
@@ -944,16 +1223,17 @@ def execute(args: argparse.Namespace, progress: ProgressReporter | None = None) 
   progress.emit(f"Preparing {args.operation}")
   skill = args.skill.resolve()
   if args.operation == "plan":
-    return build_eval_plan(skill, args.baseline, args.impact, args.case)
+    return build_eval_plan(skill, args.baseline, args.impact, args.case, args)
   if args.operation == "validate-change":
     plan = build_eval_plan(
       skill,
       args.baseline,
       args.impact,
       args.case,
+      args,
       args.approved_model_sessions,
     )
-    if plan["approval_required"]:
+    if plan["execution_blockers"]:
       plan["requested_operation"] = "validate-change"
       plan["_exit_code"] = 2
       return plan
@@ -962,17 +1242,36 @@ def execute(args: argparse.Namespace, progress: ProgressReporter | None = None) 
   operation_root = make_operation_root(args)
   source_root = operation_root / "source"
   source_root.mkdir()
-  model = resolve_model(args)
-
   if args.operation == "run":
     installed_source = materialize_skill_source(skill, args.source, source_root)
     case_ids = suite_cases(skill) if args.all else [args.case]
+    manifests = [load_case_manifest(skill, case_id)[1] for case_id in case_ids]
+    runtime = resolve_runtime(
+      args,
+      executor_required=any(case_session_cost(case)[0] for case in manifests),
+      judge_required=any(case_session_cost(case)[1] for case in manifests),
+    )
     results = [
-      evaluate_case(args, installed_source, skill, case_id, operation_root, progress)
+      evaluate_case(
+        args,
+        runtime,
+        installed_source,
+        skill,
+        case_id,
+        operation_root,
+        progress,
+      )
       for case_id in case_ids
     ]
     status = aggregate_status(results)
   elif args.operation == "verify-change":
+    manifest = load_case_manifest(skill, args.case)[1]
+    executor_cost, judge_cost = case_session_cost(manifest)
+    runtime = resolve_runtime(
+      args,
+      executor_required=executor_cost > 0,
+      judge_required=judge_cost > 0,
+    )
     baseline_spec = args.baseline or "git:HEAD"
     if baseline_spec.startswith("git:"):
       baseline = materialize_skill_source(skill, baseline_spec, source_root / "baseline")
@@ -980,11 +1279,25 @@ def execute(args: argparse.Namespace, progress: ProgressReporter | None = None) 
       baseline = Path(baseline_spec).resolve()
     candidate = skill
     baseline_result = evaluate_case(
-      args, baseline, skill, args.case, operation_root, progress, "baseline"
+      args,
+      runtime,
+      baseline,
+      skill,
+      args.case,
+      operation_root,
+      progress,
+      "baseline",
     )
     baseline_result["role"] = "baseline"
     candidate_result = evaluate_case(
-      args, candidate, skill, args.case, operation_root, progress, "candidate"
+      args,
+      runtime,
+      candidate,
+      skill,
+      args.case,
+      operation_root,
+      progress,
+      "candidate",
     )
     candidate_result["role"] = "candidate"
     results = [baseline_result, candidate_result]
@@ -996,9 +1309,17 @@ def execute(args: argparse.Namespace, progress: ProgressReporter | None = None) 
       status = aggregate_status(results)
   else:
     installed_source = materialize_skill_source(skill, args.source, source_root)
+    manifest = load_case_manifest(skill, args.case)[1]
+    executor_cost, judge_cost = case_session_cost(manifest)
+    runtime = resolve_runtime(
+      args,
+      executor_required=executor_cost > 0,
+      judge_required=judge_cost > 0,
+    )
     results = [
       evaluate_case(
         args,
+        runtime,
         installed_source,
         skill,
         args.case,
@@ -1015,7 +1336,9 @@ def execute(args: argparse.Namespace, progress: ProgressReporter | None = None) 
     "operation": args.operation,
     "status": status,
     "skill": str(skill),
-    "model": model,
+    "model": resolved_model_label(runtime),
+    "runtime": runtime.as_dict(),
+    "model_sessions": aggregate_model_sessions(results),
     "results": results,
     "artifacts": str(operation_root) if status in BLOCKING else None,
   }
@@ -1039,6 +1362,26 @@ def main(argv: list[str] | None = None) -> int:
       "status": "ERROR",
       "skill": "unknown",
       "model": "unknown",
+      "runtime": {
+        "required": False,
+        "complete": False,
+        "audit_quality": "not_applicable",
+        "executor": {
+          "required": False,
+          "model": None,
+          "model_source": "configured-default",
+          "reasoning_effort": None,
+          "reasoning_effort_source": "configured-default",
+        },
+        "judge": {
+          "required": False,
+          "model": None,
+          "model_source": "executor",
+          "reasoning_effort": None,
+          "reasoning_effort_source": "executor",
+        },
+      },
+      "model_sessions": {"executor": 0, "judge": 0, "total": 0},
       "results": [{"status": "ERROR", "error": str(error)}],
       "artifacts": None,
     }

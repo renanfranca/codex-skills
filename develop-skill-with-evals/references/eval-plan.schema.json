@@ -17,7 +17,10 @@
     "approval_required",
     "reasons",
     "warnings",
-    "manifest_fingerprint"
+    "manifest_fingerprint",
+    "runtime",
+    "runtime_fingerprint",
+    "execution_blockers"
   ],
   "properties": {
     "operation": {"const": "plan"},
@@ -79,6 +82,29 @@
     "manifest_fingerprint": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
+    },
+    "runtime": {"$ref": "#/$defs/runtime"},
+    "runtime_fingerprint": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "execution_blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": {
+            "enum": [
+              "executor-runtime-explicit-required",
+              "judge-runtime-unresolved",
+              "insufficient-model-session-budget"
+            ]
+          },
+          "message": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
     }
   },
   "$defs": {
@@ -99,6 +125,42 @@
         "executor": {"type": "integer", "minimum": 0},
         "judge": {"type": "integer", "minimum": 0},
         "total": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["required", "complete", "audit_quality", "executor", "judge"],
+      "properties": {
+        "required": {"type": "boolean"},
+        "complete": {"type": "boolean"},
+        "audit_quality": {
+          "enum": ["promotion", "exploratory", "not_applicable"]
+        },
+        "executor": {"$ref": "#/$defs/roleRuntime"},
+        "judge": {"$ref": "#/$defs/roleRuntime"}
+      },
+      "additionalProperties": false
+    },
+    "roleRuntime": {
+      "type": "object",
+      "required": [
+        "required",
+        "model",
+        "model_source",
+        "reasoning_effort",
+        "reasoning_effort_source"
+      ],
+      "properties": {
+        "required": {"type": "boolean"},
+        "model": {"type": ["string", "null"]},
+        "model_source": {
+          "enum": ["cli", "environment", "configured-default", "executor"]
+        },
+        "reasoning_effort": {"type": ["string", "null"]},
+        "reasoning_effort_source": {
+          "enum": ["cli", "configured-default", "executor"]
+        }
       },
       "additionalProperties": false
     }

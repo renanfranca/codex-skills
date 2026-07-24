@@ -133,10 +133,14 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
   --skill ./candidate-skill \
   --baseline /tmp/baseline-skill \
   --impact scoped \
-  --case changed-behavior
+  --case changed-behavior \
+  --model gpt-5.6-sol \
+  --reasoning-effort medium \
+  --judge-model gpt-5.6-terra \
+  --judge-reasoning-effort medium
 ```
 
-The JSON plan lists affected and regression cases, commands, execution counts, executor sessions, judge sessions, total sessions, the approved limit, and warnings. A deterministic case consumes zero model sessions because it uses direct code checks with no executor or judge.
+The JSON plan lists affected and regression cases, commands, execution counts, executor sessions, judge sessions, total sessions, the approved limit, resolved runtime and sources, a runtime fingerprint, ordered execution blockers, and warnings. Planning always exits zero and never creates a workspace, artifact, or model subprocess. A deterministic case consumes zero model sessions because it uses direct code checks with no executor or judge.
 
 ### Validate the planned change
 
@@ -148,10 +152,16 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   --baseline /tmp/baseline-skill \
   --impact scoped \
   --case changed-behavior \
+  --model gpt-5.6-sol \
+  --reasoning-effort medium \
+  --judge-model gpt-5.6-terra \
+  --judge-reasoning-effort medium \
   --progress
 ```
 
-Eight model sessions are approved by default. An estimate above eight prints the plan, returns exit code `2`, and stops before artifacts or model calls. Approve a known larger estimate explicitly with `--approved-model-sessions <n>`. Shell or sandbox approval is not approval for model session consumption. Do not rerun an unchanged failure, inconclusive judgment, or unstable result merely to seek `PASS`.
+When model sessions are planned, `validate-change` requires executor model and reasoning effort from the CLI. A required judge may use its own CLI values or inherit that complete executor runtime. Missing runtime, unresolved judge runtime, or insufficient budget prints every blocker in the plan, returns exit code `2`, and stops before workspaces, artifacts, or model calls.
+
+Eight maximum model sessions are approved by default. Approve a known larger maximum explicitly with `--approved-model-sessions <n>`. `sessions.total` is the authorized maximum, while executed reports expose actual subprocess consumption in top-level `model_sessions.total`. Shell or sandbox approval is not approval for model session consumption. Do not rerun an unchanged failure, inconclusive judgment, or unstable result merely to seek `PASS`.
 
 ### Run one case
 
@@ -190,6 +200,8 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py run \
 ```
 
 `--all` means all cases in that skill's `evals/suite.json`; it does not mean all skills in the repository.
+
+Complete suite runs are exploratory compatibility operations. For promotion, use `plan` plus one `validate-change` so affected cases and proportional regression are selected, fingerprinted, budgeted, and enforced together.
 
 ### Run every suite in this repository
 
@@ -262,7 +274,8 @@ Only an overall `PASS` returns exit code `0`. `FAIL`, `ERROR`, `INCONCLUSIVE`, `
 
 For every report, inspect:
 
-- overall `status` and recorded model selection;
+- overall `status`, resolved `runtime`, and runtime sources;
+- planned `sessions.total` versus actual `model_sessions.total`;
 - every case status;
 - executor exit code and structured response;
 - each mechanical check and verification command;

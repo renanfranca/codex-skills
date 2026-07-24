@@ -7,6 +7,8 @@ import tempfile
 import unittest
 from unittest import mock
 
+from jsonschema import Draft202012Validator
+
 
 SCRIPT = Path(os.environ.get("RUN_SKILL_EVALS_SCRIPT", Path(__file__).parents[1] / "run_skill_evals.py"))
 
@@ -102,6 +104,180 @@ class SkillEvalRunnerTest(unittest.TestCase):
 
     with self.assertRaises(SystemExit):
       runner.parse_args(["run", "--skill", str(self.skill), "--source", "working-tree"])
+
+  def test_all_commands_accept_runtime_selection_options(self):
+    runner = load_runner()
+    common = [
+      "--model", "gpt-5.6-sol",
+      "--reasoning-effort", "medium",
+      "--judge-model", "gpt-5.6-terra",
+      "--judge-reasoning-effort", "high",
+    ]
+    commands = [
+      ["run", "--skill", str(self.skill), "--case", "write-result"],
+      ["verify-change", "--skill", str(self.skill), "--case", "write-result"],
+      ["stability", "--skill", str(self.skill), "--case", "write-result"],
+      ["plan", "--skill", str(self.skill), "--baseline", str(self.skill), "--impact", "scoped", "--case", "write-result"],
+      ["validate-change", "--skill", str(self.skill), "--baseline", str(self.skill), "--impact", "scoped", "--case", "write-result"],
+    ]
+
+    for command in commands:
+      with self.subTest(operation=command[0]):
+        args = runner.parse_args(command + common)
+        self.assertEqual("gpt-5.6-sol", args.model)
+        self.assertEqual("medium", args.reasoning_effort)
+        self.assertEqual("gpt-5.6-terra", args.judge_model)
+        self.assertEqual("high", args.judge_reasoning_effort)
+
+  def test_all_command_help_lists_runtime_selection_options(self):
+    for operation in ("run", "verify-change", "stability", "plan", "validate-change"):
+      with self.subTest(operation=operation):
+        completed = subprocess.run(
+          ["python3", str(SCRIPT), operation, "--help"],
+          text=True, capture_output=True, check=False,
+        )
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        for option in (
+          "--model",
+          "--reasoning-effort",
+          "--judge-model",
+          "--judge-reasoning-effort",
+        ):
+          self.assertIn(option, completed.stdout)
+
+  def test_public_plan_and_result_validate_against_schemas(self):
+    skill_root = Path(__file__).parents[2]
+    plan_schema = json.loads(
+      (skill_root / "references" / "eval-plan.schema.json").read_text(encoding="utf-8")
+    )
+    result_schema = json.loads(
+      (skill_root / "references" / "eval-result.schema.json").read_text(encoding="utf-8")
+    )
+    baseline = self.root / "baseline-schema"
+    subprocess.run(["cp", "-a", str(self.skill), str(baseline)], check=True)
+    plan_completed = subprocess.run(
+      [
+        "python3", str(SCRIPT), "plan", "--skill", str(self.skill),
+        "--baseline", str(baseline), "--impact", "scoped",
+        "--case", "write-result", "--model", "gpt-5.6-sol",
+        "--reasoning-effort", "medium",
+      ],
+      text=True, capture_output=True, check=False,
+    )
+    result_completed = self.invoke(
+      "run", "--skill", str(self.skill), "--case", "write-result",
+      "--source", "working-tree",
+    )
+
+    self.assertEqual(0, plan_completed.returncode, plan_completed.stderr)
+    self.assertEqual(0, result_completed.returncode, result_completed.stderr)
+    Draft202012Validator(plan_schema).validate(json.loads(plan_completed.stdout))
+    Draft202012Validator(result_schema).validate(json.loads(result_completed.stdout))
+
+  def test_plan_reports_runtime_sources_inheritance_and_stable_fingerprint(self):
+    baseline = self.root / "baseline-runtime"
+    subprocess.run(["cp", "-a", str(self.skill), str(baseline)], check=True)
+    second_baseline = self.root / "second-baseline-runtime"
+    subprocess.run(["cp", "-a", str(self.skill), str(second_baseline)], check=True)
+    base_command = [
+      "plan", "--skill", str(self.skill), "--baseline", str(baseline),
+      "--impact", "scoped", "--case", "write-result",
+      "--model", "gpt-5.6-sol", "--reasoning-effort", "medium",
+    ]
+
+    first = subprocess.run(
+      ["python3", str(SCRIPT), *base_command],
+      text=True, capture_output=True, check=False,
+    )
+    second_command = [
+      value if value != str(baseline) else str(second_baseline)
+      for value in base_command
+    ]
+    second = subprocess.run(
+      ["python3", str(SCRIPT), *second_command],
+      text=True, capture_output=True, check=False,
+    )
+
+    first_plan = json.loads(first.stdout)
+    second_plan = json.loads(second.stdout)
+    self.assertEqual(0, first.returncode, first.stderr)
+    self.assertTrue(first_plan["runtime"]["complete"])
+    self.assertEqual("promotion", first_plan["runtime"]["audit_quality"])
+    self.assertEqual("cli", first_plan["runtime"]["executor"]["model_source"])
+    self.assertEqual("gpt-5.6-sol", first_plan["runtime"]["judge"]["model"])
+    self.assertEqual("executor", first_plan["runtime"]["judge"]["model_source"])
+    self.assertEqual(first_plan["runtime_fingerprint"], second_plan["runtime_fingerprint"])
+
+  def test_validate_change_aggregates_runtime_and_budget_blockers_without_side_effects(self):
+    baseline = self.root / "baseline-blockers"
+    subprocess.run(["cp", "-a", str(self.skill), str(baseline)], check=True)
+
+    completed = self.invoke(
+      "validate-change", "--skill", str(self.skill), "--baseline", str(baseline),
+      "--impact", "scoped", "--case", "write-result",
+      "--approved-model-sessions", "0", "--progress",
+    )
+
+    plan = json.loads(completed.stdout)
+    self.assertEqual(2, completed.returncode, completed.stderr)
+    self.assertEqual([
+      "executor-runtime-explicit-required",
+      "insufficient-model-session-budget",
+    ], [blocker["code"] for blocker in plan["execution_blockers"]])
+    self.assertFalse((self.root / "artifacts").exists())
+    self.assertIn("Preparing validate-change", completed.stderr)
+
+  def test_codex_model_is_propagated_but_runtime_remains_exploratory(self):
+    completed = self.invoke(
+      "run", "--skill", str(self.skill), "--case", "write-result",
+      "--source", "working-tree",
+      env={"CODEX_MODEL": "environment-model"},
+    )
+
+    report = json.loads(completed.stdout)
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    self.assertEqual("environment-model", report["model"])
+    self.assertEqual("environment", report["runtime"]["executor"]["model_source"])
+    self.assertEqual("exploratory", report["runtime"]["audit_quality"])
+
+  def test_role_specific_runtime_is_passed_and_actual_sessions_are_aggregated(self):
+    log = self.root / "runtime-argv.jsonl"
+    self.fake.write_text(
+      "#!/usr/bin/env python3\n"
+      "import json, os, pathlib, sys\n"
+      "with pathlib.Path(os.environ['FAKE_CODEX_LOG']).open('a') as stream: stream.write(json.dumps(sys.argv[1:]) + '\\n')\n"
+      "schema = pathlib.Path(sys.argv[sys.argv.index('--output-schema') + 1])\n"
+      "out = pathlib.Path(sys.argv[sys.argv.index('-o') + 1])\n"
+      "cwd = pathlib.Path(sys.argv[sys.argv.index('-C') + 1])\n"
+      "if 'judge' in schema.name: response = {'verdict': 'PASS', 'rationale': 'ok', 'evidence': []}\n"
+      "else:\n"
+      "  (cwd / 'result.txt').write_text('ok')\n"
+      "  response = {'summary': 'done', 'classification': 'test', 'evidence': [], 'files_changed': ['result.txt']}\n"
+      "out.write_text(json.dumps(response))\n",
+      encoding="utf-8",
+    )
+    self.fake.chmod(0o755)
+    manifest_path = self.skill / "evals" / "cases" / "write-result" / "case.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["judge"] = {"enabled": True, "criteria": ["The result exists."]}
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    completed = self.invoke(
+      "run", "--skill", str(self.skill), "--case", "write-result",
+      "--source", "working-tree",
+      "--model", "gpt-5.6-sol", "--reasoning-effort", "medium",
+      "--judge-model", "gpt-5.6-terra", "--judge-reasoning-effort", "high",
+      env={"FAKE_CODEX_LOG": str(log)},
+    )
+
+    report = json.loads(completed.stdout)
+    argv = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    self.assertEqual({"executor": 1, "judge": 1, "total": 2}, report["model_sessions"])
+    self.assertEqual(["--model", "gpt-5.6-sol"], argv[0][1:3])
+    self.assertIn('model_reasoning_effort="medium"', argv[0])
+    self.assertEqual(["--model", "gpt-5.6-terra"], argv[1][1:3])
+    self.assertIn('model_reasoning_effort="high"', argv[1])
 
   def test_plan_is_side_effect_free_and_reports_static_zero_session_gate(self):
     baseline = self.root / "baseline-plan"
@@ -344,6 +520,7 @@ class SkillEvalRunnerTest(unittest.TestCase):
     completed = self.invoke(
       "validate-change", "--skill", str(self.skill), "--baseline", str(baseline),
       "--impact", "scoped", "--case", "write-result",
+      "--model", "gpt-5.6-sol", "--reasoning-effort", "medium",
     )
 
     report = json.loads(completed.stdout)
@@ -351,7 +528,8 @@ class SkillEvalRunnerTest(unittest.TestCase):
     self.assertEqual("PASS", report["status"])
     self.assertEqual(8, report["plan"]["sessions"]["total"])
     self.assertFalse(report["plan"]["approval_required"])
-    self.assertEqual(8, sum(result["model_sessions"]["total"] for result in report["results"]))
+    self.assertEqual(7, report["model_sessions"]["total"])
+    self.assertEqual(7, sum(result["model_sessions"]["total"] for result in report["results"]))
 
   def test_validate_change_refuses_unapproved_sessions_before_artifacts_or_models(self):
     self.add_case(
@@ -370,6 +548,7 @@ class SkillEvalRunnerTest(unittest.TestCase):
     completed = self.invoke(
       "validate-change", "--skill", str(self.skill), "--baseline", str(baseline),
       "--impact", "cross-cutting", "--case", "semantic-judge",
+      "--model", "gpt-5.6-sol", "--reasoning-effort", "medium",
     )
 
     plan = json.loads(completed.stdout)
@@ -397,6 +576,7 @@ class SkillEvalRunnerTest(unittest.TestCase):
       "validate-change", "--skill", str(self.skill), "--baseline", str(baseline),
       "--impact", "cross-cutting", "--case", "semantic-judge",
       "--approved-model-sessions", "9",
+      "--model", "gpt-5.6-sol", "--reasoning-effort", "medium",
     )
 
     report = json.loads(completed.stdout)
@@ -434,6 +614,7 @@ class SkillEvalRunnerTest(unittest.TestCase):
     completed = self.invoke(
       "validate-change", "--skill", str(self.skill), "--baseline", str(baseline),
       "--impact", "cross-cutting", "--case", "affected-deterministic",
+      "--model", "gpt-5.6-sol", "--reasoning-effort", "medium",
     )
 
     report = json.loads(completed.stdout)
@@ -697,7 +878,7 @@ class SkillEvalRunnerTest(unittest.TestCase):
     self.assertEqual(["PASS", "FAIL"], [result["status"] for result in report["results"]])
     self.assertTrue(Path(report["artifacts"]).exists())
 
-  def test_mechanical_failure_remains_fail_when_judge_is_inconclusive(self):
+  def test_mechanical_failure_skips_judge_and_counts_only_executor(self):
     manifest_path = self.skill / "evals" / "cases" / "write-result" / "case.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["mechanical"]["required_paths"] = ["missing.txt"]
@@ -711,7 +892,9 @@ class SkillEvalRunnerTest(unittest.TestCase):
     report = json.loads(completed.stdout)
     self.assertEqual(1, completed.returncode)
     self.assertEqual("FAIL", report["status"])
-    self.assertEqual("INCONCLUSIVE", report["results"][0]["judge"]["verdict"])
+    self.assertEqual("SKIPPED", report["results"][0]["judge"]["verdict"])
+    self.assertFalse(report["results"][0]["judge"]["executed"])
+    self.assertEqual({"executor": 1, "judge": 0, "total": 1}, report["model_sessions"])
 
   def test_mechanical_check_detects_skill_self_modification(self):
     completed = self.invoke(

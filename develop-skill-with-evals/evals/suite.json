@@ -8,6 +8,8 @@
     "full-regression-gate",
     "self-evolution-candidate",
     "runner-progress-output",
-    "impact-gate-selection"
+    "impact-gate-selection",
+    "auditable-runtime-contract",
+    "explicit-runtime-promotion-workflow"
   ]
 }

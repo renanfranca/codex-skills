@@ -42,10 +42,12 @@ Run `plan` before any model-backed evaluation:
 
 ```text
 python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
-  --skill <candidate> --baseline <baseline> --impact <impact> [--case <id>]...
+  --skill <candidate> --baseline <baseline> --impact <impact> [--case <id>]... \
+  --model <executor-model> --reasoning-effort <effort> \
+  --judge-model <judge-model> --judge-reasoning-effort <effort>
 ```
 
-Planning is side effect free and uses no model. Inspect selected and regression cases, commands, executor and judge session counts, reasons, and warnings before executing.
+Planning is side effect free and uses no model. Inspect selected and regression cases, commands, executor and judge session counts, runtime, runtime fingerprint, execution blockers, reasons, and warnings before executing. Runtime declarations do not make model output deterministic; they make the intended execution auditable.
 
 ## Apply proportional gates
 
@@ -62,18 +64,23 @@ Use the integrated command:
 ```text
 python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   --skill <candidate> --baseline <baseline> --impact <impact> \
-  [--case <id>]... [--approved-model-sessions <n>] --progress
+  [--case <id>]... \
+  --model <executor-model> --reasoning-effort <effort> \
+  --judge-model <judge-model> --judge-reasoning-effort <effort> \
+  [--approved-model-sessions <n>] --progress
 ```
 
-The default approved limit is eight model sessions. An estimate above that limit stops with exit code 2 before artifacts or model calls. `--approved-model-sessions` is explicit approval for that count. Shell, sandbox, or command approval is not cost approval.
+When the plan includes model sessions, `validate-change` requires the executor model and reasoning effort explicitly from CLI. A required judge may declare its own CLI values or inherit the complete executor runtime. The runner never reads `config.toml`. `CODEX_MODEL` remains compatible with exploratory commands but is not sufficient for promotion.
 
-A model session is one executor or judge invocation. The count does not estimate tokens, duration, or financial cost.
+The default approved limit is eight model sessions. Missing promotion runtime, unresolved required judge runtime, or an estimate above the limit returns the complete plan with exit code 2 before workspaces, artifacts, or model calls. `--approved-model-sessions` is explicit approval for that maximum. Shell, sandbox, or command approval is not cost approval.
+
+A model session is one executor or judge invocation. `sessions.total` is the planned maximum; top-level `model_sessions.total` is actual consumption. A judge skipped after mechanical failure consumes no session and reports `executed: false` with `verdict: SKIPPED`. Counts do not estimate tokens, duration, or financial cost.
 
 ## Treat every blocking result as evidence
 
 `PASS` is the only promotable status. Stop on `FAIL`, `ERROR`, `INCONCLUSIVE`, `INVALID_RED`, or `UNSTABLE`. Diagnose and correct the cause, but never repeat an unchanged evaluation merely to obtain a favorable result. The three planned candidate executions are stability evidence, not automatic retries after failure.
 
-Existing `run`, `verify-change`, and `stability` commands remain available for exploration and compatibility. Prefer `plan` plus `validate-change` for a change validation because they enforce selection and budget as one workflow.
+Existing `run`, `verify-change`, and `stability` commands remain available for exploration and compatibility. They accept the same four runtime selection options and propagate every known value. Prefer `plan` plus `validate-change` for promotion because only that workflow integrates selection, complete runtime, fingerprint, blockers, and budget.
 
 The runner writes only JSON to standard output. Progress goes to standard error, is automatic for a TTY, can be forced with `--progress`, and can be suppressed with `--quiet`.
 

@@ -4,8 +4,22 @@
   "prompt_file": "prompt.md",
   "mechanical": {
     "expected_exit_code": 0,
-    "required_paths": ["target-skill/evals/suite.json", "target-skill/SKILL.md"],
-    "forbidden_changed_paths": [".agents/skills/**"]
+    "required_paths": [
+      "target-skill/evals/suite.json",
+      "target-skill/SKILL.md",
+      "evaluation-evidence.json"
+    ],
+    "forbidden_changed_paths": [".agents/skills/**"],
+    "commands": [
+      {
+        "argv": [
+          "python3",
+          "audit_eval_sequence.py",
+          "verify"
+        ],
+        "exit_code": 0
+      }
+    ]
   },
   "judge": {
     "enabled": true,

@@ -41,7 +41,7 @@ Each ID is unique and maps to `<skill>/evals/cases/<case-id>/case.json`. Semanti
 
 The runner creates a disposable workspace, installs the evaluated skill under `.agents/skills/<name>` without `evals/`, invokes an ephemeral Codex executor, runs mechanical checks as direct argument arrays without a shell, and invokes the judge when enabled. The executor receives only the raw prompt plus the explicit skill instruction unless `implicit_skill` is true. It never receives judge criteria or answer keys.
 
-One executor invocation is one model session. An enabled judge adds one session.
+One executor invocation is one model session. An enabled judge adds one planned session, but is skipped without consumption when mechanical checks fail.
 
 ## Deterministic cases
 
@@ -85,17 +85,27 @@ Classify each proposed change:
 - `scoped`: semantic behavior limited to enumerated cases;
 - `cross-cutting`: central or shared behavior, safety, selection, or uncertain reach.
 
-`plan` loads and validates all manifests, selects gates, and calculates sessions without creating workspaces or artifacts. With deterministic impact and no `--case`, it selects every deterministic suite case. Explicit deterministic selections must be deterministic. Scoped and cross cutting plans require at least one affected case. Cross cutting plans assign every remaining suite case to one regression execution.
+`plan` loads and validates all manifests, selects gates, resolves the declared runtime, and calculates sessions without creating workspaces or artifacts. It always exits zero, including when `execution_blockers` is nonempty. With deterministic impact and no `--case`, it selects every deterministic suite case. Explicit deterministic selections must be deterministic. Scoped and cross cutting plans require at least one affected case. Cross cutting plans assign every remaining suite case to one regression execution.
 
-The plan conforms to `eval-plan.schema.json` and includes a normalized manifest fingerprint. It reports one baseline and three candidate executions for each affected case. Remaining cross cutting regression cases run once on the candidate. Session totals derive from case kind and judge configuration, so deterministic cases add zero, semantic cases add one executor session, and enabled judges add one judge session per execution.
+The plan conforms to `eval-plan.schema.json` and includes a normalized manifest fingerprint, runtime fingerprint, runtime object, and ordered blockers. It reports one baseline and three candidate executions for each affected case. Remaining cross cutting regression cases run once on the candidate. Session totals derive from case kind and judge configuration, so deterministic cases add zero, semantic cases add one executor session, and enabled judges add one maximum judge session per execution.
 
 Planning counts sessions, not tokens, elapsed time, or money. Treat uncertain reach as cross cutting; reducing the declared impact merely to avoid cost is invalid workflow.
 
+## Auditable runtime
+
+All five commands accept `--model`, `--reasoning-effort`, `--judge-model`, and `--judge-reasoning-effort`. Executor model precedence is CLI, `CODEX_MODEL`, then an unknown configured default. Executor reasoning effort comes from CLI or remains an unknown configured default. Judge fields use their CLI values or inherit the executor.
+
+The runner does not read `config.toml`. Unknown defaults are `null` in the runtime object and `configured-default` in the compatibility top-level `model` field. Every known model is passed as `--model <value>`. Every known effort is passed as the direct argument pair `-c`, `model_reasoning_effort="<value>"`.
+
+A promotion runtime is complete when every model-backed plan has executor model and effort from CLI and every required judge field is either supplied by judge CLI options or inherited from that complete executor. `CODEX_MODEL` is propagated for compatibility but produces exploratory, not promotion, audit quality.
+
+`runtime_fingerprint` hashes canonical JSON containing the manifest fingerprint, role requirements, resolved values, and sources. It excludes paths, budget, and derived fields. This records the intended runtime without claiming deterministic model output.
+
 ## Integrated change validation
 
-`validate-change` builds the same plan before allocating an operation directory. The default approved limit is eight model sessions. If the estimate exceeds the limit, or an explicit `--approved-model-sessions` value is lower than the estimate, the runner prints the plan, creates no artifacts, invokes no model, and returns exit code 2.
+`validate-change` builds the same plan before allocating an operation directory. It aggregates missing explicit executor runtime, unresolved required judge runtime, and insufficient budget as ordered blockers. Any blocker prints the plan, creates no workspace or artifact, invokes no model, and returns exit code 2. The default approved limit is eight maximum model sessions.
 
-After approval, the runner snapshots both sources and verifies that the candidate manifest fingerprint and counts still match the approved plan. Validation then:
+After approval, the runner snapshots both sources and verifies that the candidate manifest fingerprint, runtime fingerprint, selection, and counts still match the approved plan. Validation then:
 
 1. snapshots baseline and candidate;
 2. runs every affected case once on baseline;
@@ -111,6 +121,8 @@ There are no automatic retries after failures, inconclusive judgments, or instab
 Standard output contains only the JSON plan or result. Progress goes only to standard error and flushes immediately without colors, spinners, timestamps, or captured subprocess output.
 
 Without an option, progress follows `stderr.isatty()`. `--progress` forces it and `--quiet` suppresses it; they are mutually exclusive. Existing `run`, `verify-change`, and `stability` behavior remains compatible. Deterministic cases omit executor and judge progress phases because neither runs.
+
+Executed reports include the resolved runtime and top-level actual `model_sessions`. Per-result session fields remain compatible. A disabled judge has `enabled: false`, `executed: false`, and `PASS`. An executed judge has both flags true. A judge skipped after mechanical failure has `enabled: true`, `executed: false`, `SKIPPED`, and zero actual sessions.
 
 ## Status and artifacts
 

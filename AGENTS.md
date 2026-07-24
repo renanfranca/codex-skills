@@ -18,11 +18,11 @@ There is no compilation or packaging step. Run commands from the repository root
 ```bash
 python3 -m unittest discover -s develop-skill-with-evals/scripts/tests -v
 python3 .system/skill-creator/scripts/quick_validate.py ./skill-name
-python3 develop-skill-with-evals/scripts/run_skill_evals.py run --skill ./skill-name --all --source working-tree
+python3 develop-skill-with-evals/scripts/run_skill_evals.py plan --skill ./candidate-skill --baseline /tmp/baseline-skill --impact scoped --case changed-case --model <executor-model> --reasoning-effort <effort> --judge-model <judge-model> --judge-reasoning-effort <effort>
 git diff --check
 ```
 
-The first command runs deterministic runner tests. `quick_validate.py` checks skill structure and frontmatter. Full eval suites launch authenticated Codex sessions, so they consume time and model usage.
+The first command runs deterministic runner tests. `quick_validate.py` checks skill structure and frontmatter. Planning is side effect free and reports runtime blockers plus the maximum model sessions before execution.
 
 ## Coding Style & Naming Conventions
 
@@ -30,7 +30,7 @@ Use kebab-case for skill directories and eval case IDs, such as `refactor-design
 
 ## Testing Guidelines
 
-Use Python `unittest` for runner behavior. Place tests in `scripts/tests/`. Eval cases belong under `<skill>/evals/cases/<case-id>/` with `case.json`, `prompt.md`, and only the minimal fixture needed. Behavioral skill changes require baseline RED, candidate GREEN, three stable repetitions, and a complete suite regression. Never expose judge criteria in prompts or fixtures.
+Use Python `unittest` for runner behavior. Place tests in `scripts/tests/`. Eval cases belong under `<skill>/evals/cases/<case-id>/` with `case.json`, `prompt.md`, and only the minimal fixture needed. Behavioral skill changes require baseline RED and three stable candidate GREEN results for affected cases. Scoped changes stop there; cross cutting changes add every remaining suite case once as proportional regression. Model-backed promotion requires an explicit executor model and reasoning effort, with any required judge runtime declared separately or inherited. Never expose judge criteria in prompts or fixtures.
 
 ## Commit & Pull Request Guidelines
 

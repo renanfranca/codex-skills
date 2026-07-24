@@ -1,0 +1,23 @@
+{
+  "id": "auditable-runtime-contract",
+  "kind": "deterministic",
+  "mechanical": {
+    "forbidden_changed_paths": [
+      "check_runtime_contract.py",
+      "fake-codex"
+    ],
+    "commands": [
+      {
+        "argv": [
+          "python3",
+          "check_runtime_contract.py"
+        ],
+        "exit_code": 0
+      }
+    ]
+  },
+  "judge": {
+    "enabled": false,
+    "criteria": []
+  }
+}

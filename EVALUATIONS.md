@@ -406,10 +406,14 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
   --skill ./candidate-skill \
   --baseline /tmp/baseline-skill \
   --impact scoped \
-  --case changed-behavior
+  --case changed-behavior \
+  --model gpt-5.6-sol \
+  --reasoning-effort medium \
+  --judge-model gpt-5.6-terra \
+  --judge-reasoning-effort medium
 ```
 
-Planning is side effect free. It accepts `static`, `deterministic`, `scoped`, and `cross-cutting`.
+Planning is side effect free and always exits zero. It accepts `static`, `deterministic`, `scoped`, and `cross-cutting`, resolves the declared executor and judge runtimes, fingerprints them with the manifests, and reports every execution blocker without creating artifacts or subprocesses.
 
 ### Validate a change as one operation
 
@@ -419,10 +423,14 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   --baseline /tmp/baseline-skill \
   --impact scoped \
   --case changed-behavior \
+  --model gpt-5.6-sol \
+  --reasoning-effort medium \
+  --judge-model gpt-5.6-terra \
+  --judge-reasoning-effort medium \
   --progress
 ```
 
-The default approved limit is eight model sessions. An estimate of eight runs. An estimate of nine stops before artifacts or model calls. Approve a known larger estimate explicitly:
+Model-backed promotion requires executor model and reasoning effort explicitly from CLI. A required judge can use its own CLI values or inherit that complete executor runtime. The default approved maximum is eight model sessions. Missing runtime, unresolved judge runtime, or an estimate above the limit returns all blockers with exit code 2 before a workspace, artifact, or model call. Approve a known larger maximum explicitly:
 
 ```bash
 python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
@@ -430,11 +438,15 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   --baseline /tmp/baseline-skill \
   --impact cross-cutting \
   --case changed-behavior \
+  --model gpt-5.6-sol \
+  --reasoning-effort medium \
+  --judge-model gpt-5.6-terra \
+  --judge-reasoning-effort medium \
   --approved-model-sessions 14 \
   --progress
 ```
 
-This option approves up to the supplied session count. Shell or sandbox approval is not model cost approval. `validate-change` rejects `static` because static changes require only the structural gates shown by `plan`.
+This option approves up to the supplied session count. `sessions.total` is the planned maximum; top-level `model_sessions.total` in an executed report is actual consumption. Shell or sandbox approval is not model cost approval. `validate-change` rejects `static` because static changes require only the structural gates shown by `plan`.
 
 ### Run one focused case
 
@@ -453,6 +465,8 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py run \
   --all \
   --source working-tree
 ```
+
+This is an exploratory compatibility operation. Promotion uses `plan` plus one `validate-change`, which selects proportional regression and binds it to the runtime and manifest fingerprints.
 
 ### Compare baseline RED with candidate GREEN
 
@@ -496,8 +510,11 @@ Options are intentionally scoped to the commands that can use them:
 | --- | --- | --- |
 | `--progress` | `run`, `verify-change`, `stability`, `validate-change` | Forces immediate progress on standard error. |
 | `--quiet` | `run`, `verify-change`, `stability`, `validate-change` | Suppresses progress; cannot be combined with `--progress`. |
-| `--model <model>` | `run`, `verify-change`, `stability`, `validate-change` | Uses the same explicit model throughout the operation. |
-| `CODEX_MODEL` | Commands with model execution | Used when `--model` is absent. If neither is set, the report records `configured-default` and Codex resolves its normal configuration. |
+| `--model <model>` | All operations | Declares the executor model and is required from CLI for model-backed promotion. |
+| `--reasoning-effort <effort>` | All operations | Declares executor reasoning effort and is required from CLI for model-backed promotion. |
+| `--judge-model <model>` | All operations | Overrides the judge model; otherwise it inherits the executor. |
+| `--judge-reasoning-effort <effort>` | All operations | Overrides judge reasoning effort; otherwise it inherits the executor. |
+| `CODEX_MODEL` | Commands with model execution | Resolves and propagates an exploratory executor model when `--model` is absent, but is not promotion quality. |
 | `--source working-tree` | `run`, `stability` | Evaluates current files and is the default. |
 | `--source git:<revision>` | `run`, `stability` | Materializes the tracked skill from a Git revision. |
 | `--baseline <directory>` | `plan`, `validate-change` | Required frozen baseline directory. |
@@ -510,7 +527,7 @@ Options are intentionally scoped to the commands that can use them:
 | `--artifacts-dir <path>` | Executed operations | Changes the artifact parent from `/tmp/skill-eval-artifacts`. |
 | `--codex-command <path>` | Executed operations | Replaces `codex`, primarily for deterministic runner tests. |
 
-`plan` accepts no runtime controls because it invokes no executor or judge and creates no artifacts.
+`plan` accepts runtime selection controls precisely because it runs no model. It exposes the future argv and audit quality before execution. The runner never reads `config.toml`; unknown configured defaults remain `null` in `runtime` and use `configured-default` in the compatibility top-level `model` field.
 
 For `run` and `stability`, the case manifest always comes from the current skill directory named by `--skill`, even when `--source git:<revision>` installs an older skill snapshot. This allows a newly added case to evaluate an older source.
 
@@ -534,7 +551,11 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
   --skill refactor-design \
   --baseline /tmp/refactor-design-baseline \
   --impact scoped \
-  --case hidden-invocation-state
+  --case hidden-invocation-state \
+  --model gpt-5.6-sol \
+  --reasoning-effort medium \
+  --judge-model gpt-5.6-terra \
+  --judge-reasoning-effort medium
 ```
 
 If the case has an executor and enabled judge, one baseline plus three candidate executions cost eight model sessions. After confirming the plan, run:
@@ -545,6 +566,10 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   --baseline /tmp/refactor-design-baseline \
   --impact scoped \
   --case hidden-invocation-state \
+  --model gpt-5.6-sol \
+  --reasoning-effort medium \
+  --judge-model gpt-5.6-terra \
+  --judge-reasoning-effort medium \
   --progress
 ```
 
@@ -574,7 +599,7 @@ Keep assertions observable: files, command results, public outputs, explicit sto
 
 ### 5. Inspect the plan
 
-Run `plan` before any model backed evaluation. Check impact, selected and regression cases, baseline and candidate executions, session counts, warnings, and proposed commands.
+Run `plan` before any model-backed evaluation. Check impact, selected and regression cases, baseline and candidate executions, session counts, resolved runtime sources, runtime fingerprint, execution blockers, warnings, and proposed commands.
 
 If the estimate exceeds eight sessions, obtain explicit approval for the estimated count before running `validate-change`.
 
@@ -609,7 +634,7 @@ Keep positive prompts close to the skill's intended use. Negative prompts should
 
 ### Approval required
 
-`validate-change` estimated more sessions than the approved limit. Inspect `sessions`, selected cases, regression cases, and warnings in the returned plan. If the classification and selection are correct, obtain explicit approval and pass that count through `--approved-model-sessions`.
+`validate-change` found at least one runtime or budget blocker. Inspect `execution_blockers`, `runtime`, `sessions`, selected cases, regression cases, and warnings in the returned plan. Supply the missing explicit runtime. If the classification and selection are correct but the maximum exceeds the limit, obtain explicit approval and pass that count through `--approved-model-sessions`.
 
 Do not reduce the impact merely to fit the default limit. Shell or sandbox permission does not authorize model usage.
 
@@ -651,8 +676,9 @@ Use the overall `artifacts` path from the JSON report. Blocking workspaces remai
 - Keep executor input separate from judge criteria and expected answers.
 - Use deterministic checks when they cover the complete contract; use semantic judgment when they do not.
 - Treat every executed status other than `PASS` as a reason to block promotion.
-- Use the same model selection and operation configuration for baseline and candidate.
-- Count model sessions before execution, while acknowledging that tokens, duration, and financial cost remain unknown.
+- Use the same declared executor and judge runtime for baseline and candidate.
+- Treat planned sessions as a maximum and report actual executor and judge subprocess consumption separately.
+- Record runtime and manifest fingerprints for auditability without claiming deterministic model output.
 - Do not retry unchanged evaluations opportunistically after a blocking result.
 - Keep fixtures minimal, generic, reproducible, and free of confidential data.
 - Preserve detailed artifacts only for failures and keep generated responses out of version control.

@@ -4,8 +4,20 @@
   "prompt_file": "prompt.md",
   "mechanical": {
     "expected_exit_code": 0,
-    "required_paths": ["candidate/SKILL.md"],
-    "forbidden_changed_paths": [".agents/skills/**"]
+    "required_paths": [
+      "baseline/SKILL.md",
+      "candidate/SKILL.md"
+    ],
+    "forbidden_changed_paths": [".agents/skills/**"],
+    "commands": [
+      {
+        "argv": [
+          "python3",
+          "check_self_evolution.py"
+        ],
+        "exit_code": 0
+      }
+    ]
   },
   "judge": {
     "enabled": true,

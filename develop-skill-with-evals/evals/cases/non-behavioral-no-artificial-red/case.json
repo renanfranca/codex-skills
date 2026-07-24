@@ -11,7 +11,7 @@
     "enabled": true,
     "criteria": [
       "The typo-only metadata edit is classified as non-behavioral.",
-      "No artificial RED case is invented, while structural validation and the complete existing regression are still required."
+      "No artificial RED case is invented, while structural validation and proportional gates are still required."
     ],
     "no_action_acceptable": false
   }

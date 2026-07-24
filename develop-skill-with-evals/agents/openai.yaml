@@ -1,4 +1,4 @@
 interface:
   display_name: "Develop Skill with Evals"
-  short_description: "Plan proportional skill evaluation gates"
-  default_prompt: "Use $develop-skill-with-evals to classify change impact, plan model session cost, and run proportional evaluation gates."
+  short_description: "Plan auditable proportional skill evals"
+  default_prompt: "Use $develop-skill-with-evals to classify impact, declare executor and judge runtimes, and validate a skill change with proportional gates."
