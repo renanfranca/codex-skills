@@ -48,7 +48,7 @@ The runner creates a disposable workspace, installs the evaluated skill under `.
 
 Place a checker under `<case>/oracle/` only when it covers the complete expected contract. Use `{oracle_dir}` in `oracle.commands` argv or read `SKILL_EVAL_ORACLE_DIR`. The runner fingerprints oracle modes and bytes, resolves the placeholder to an absolute runner controlled path and never copies that directory into the executor workspace. A manifest without `oracle` remains valid.
 
-One executor invocation is one model session. An enabled judge adds one planned session, but is skipped without consumption when mechanical or oracle checks fail.
+One executor invocation is one model session. An enabled judge adds one planned session, but is skipped without consumption when mechanical or oracle checks fail. The executor response includes the compatibility fields `summary`, `classification`, `evidence`, and `files_changed` plus `diagnosis`, `approach`, `decisions`, `rejected_alternatives`, `key_changes`, and `validation`. The added arrays may be empty. Record concise decisions actually made; never request private reasoning or reconstructed chain of thought.
 
 ## Deterministic cases
 
@@ -140,7 +140,21 @@ Standard output contains only the JSON plan or result. Progress goes only to sta
 
 Without an option, progress follows `stderr.isatty()`. `--progress` forces it and `--quiet` suppresses it; they are mutually exclusive. Existing `run`, `verify-change`, and `stability` behavior remains compatible. Deterministic cases omit executor and judge progress phases because neither runs.
 
-Executed reports include the resolved runtime, top-level actual `model_sessions`, `promotion_eligible`, `failure_category`, `usage` and `campaign`. Every executor and judge invocation uses `codex exec --json`. Token aggregation preserves missing values as `null` with `usage.complete: false`; it never substitutes zero for unknown usage. Per-result session fields remain compatible. A disabled judge has `enabled: false`, `executed: false`, and `PASS`. An executed judge has both flags true. A judge skipped after mechanical or oracle failure has `enabled: true`, `executed: false`, `SKIPPED`, and zero actual sessions.
+Executed stdout results include the resolved runtime, top-level actual `model_sessions`, `promotion_eligible`, `failure_category`, `usage` and `campaign`. Every executor and judge invocation uses `codex exec --json`. Token aggregation preserves missing values as `null`; `usage.complete` retains compatibility for input, cached input, and output while `reasoning_output_tokens_complete` states whether reasoning output was exposed. Preserve each sanitized usage object's sequence, source event type, scope, token counts, and completeness under `usage.events`; never persist the raw JSONL event. Treat `turn.completed` as turn scoped and every unrecognized event as unknown scope. It never substitutes zero for unknown usage. Per-result session fields remain compatible. A disabled judge has `enabled: false`, `executed: false`, and `PASS`. An executed judge has both flags true. A judge skipped after mechanical or oracle failure has `enabled: true`, `executed: false`, `SKIPPED`, and zero actual sessions.
+
+## Durable evidence reports
+
+Executed commands accept `--report-dir`. When present, persist canonical evidence at `<report-dir>/<operation-id>/report.json` before successful workspace cleanup, then render `report.md` deterministically from the JSON. Report persistence does not change the stdout result contract. `--pricing-file` requires `--report-dir`; without explicit pricing, record usage but do not estimate money.
+
+Canonical evidence records operation, workflow, role, repetition, provenance `executed`, fingerprints, Codex CLI version when available, sanitized authentication mode, runner digest, runtime by role, planned and executed sessions, timestamps, durations, usage completeness, case prompt, structured executor response, mechanical facts, oracle and judge results, changed files, bounded diff, bounded fragments, truncations, and a SHA-256 report digest.
+
+Query failures for CLI version or authentication metadata do not block evaluation. Never persist raw metadata output. Normalize authentication only to `chatgpt`, `api-key`, or `unknown`.
+
+An explicit pricing snapshot uses version 1, an effective date, source, currency, `per_million_tokens`, model rates for `input`, `cached_input`, and `output`, and limitations. It may add a `long_context` object containing `input_token_threshold`, `input_multiplier`, `output_multiplier`, and `applies_per: request`. Calculate uncached input as input minus cached input. Do not add reasoning output tokens a second time because they are part of output tokens. When a non request scoped event exceeds a request scoped threshold, set the exact estimate to unavailable and preserve only `base_rate_amount` with status `indeterminate-long-context`. Every amount is an API reference estimate with `actual_charge: false`; this is especially important for ChatGPT authentication.
+
+Evidence excludes any path under `.git`, `.agents/skills`, `.eval-*`, or `__pycache__`, plus `*.pyc`. Enforce deterministic per file and per report limits and declare every truncation. Do not persist raw JSONL, complete transcripts, private reasoning, hidden oracle contents, credentials, or generated model responses beyond the bounded structured executor contract.
+
+Use `render_eval_report.py` to replay Markdown without a model. Use `compare_model_reports.py` to group reports by executor model and case, require at least three stable PASS observations in every represented case for qualification, and compare tokens, cache ratio, duration, complete API reference cost, base rate reference, effective cost per stable gate, and explanation completeness and coherence. Never sum a partial set of exact estimates. A small comparison remains directional evidence.
 
 ## Status and artifacts
 

@@ -11,6 +11,7 @@
     "impact-gate-selection",
     "auditable-runtime-contract",
     "explicit-runtime-promotion-workflow",
-    "cost-efficient-runtime-contract"
+    "cost-efficient-runtime-contract",
+    "execution-evidence-report"
   ]
 }

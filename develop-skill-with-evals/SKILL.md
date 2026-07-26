@@ -1,6 +1,6 @@
 ---
 name: develop-skill-with-evals
-description: Create or improve Codex skills through impact-aware evaluation development with isolated fixtures, diagnostic probes, proportional RED and GREEN gates, hidden mechanical oracles, session and token telemetry, cumulative campaign budgets, stability evidence, and fresh-agent validation. Use when Codex is asked to build or change a skill, add skill evals, forward-test behavior, validate trigger selection, modify an evaluation runner or contract, or safely evolve this skill itself.
+description: Create or improve Codex skills through impact-aware evaluation development with isolated fixtures, diagnostic probes, proportional RED and GREEN gates, hidden mechanical oracles, durable execution evidence, session, token and duration telemetry, API price references, cumulative campaign budgets, stability evidence, model report comparison, and fresh-agent validation. Use when Codex is asked to build or change a skill, add skill evals, forward-test behavior, validate trigger selection, persist or compare evaluation reports, modify an evaluation runner or contract, or safely evolve this skill itself.
 ---
 
 # Develop Skill with Evals
@@ -77,7 +77,57 @@ When the plan includes model sessions, `validate-change` requires the executor m
 
 The default approved limit is eight model sessions. Missing promotion runtime, unresolved required judge runtime, an estimate above the operation limit, or a campaign projection above cumulative approval returns the complete plan with exit code 2 before workspaces, artifacts, ledger creation, or model calls. `--approved-model-sessions` approves one operation. The paired campaign options bind diagnostic and promotion consumption to one locked, atomically written ledger under an explicit cumulative maximum. Shell, sandbox, or command approval is not cost approval.
 
-A model session is one executor or judge invocation. `sessions.total` is the planned maximum; top-level `model_sessions.total` is actual consumption. A judge skipped after mechanical or oracle failure consumes no session and reports `executed: false` with `verdict: SKIPPED`. `usage` aggregates JSONL token events from `codex exec --json`. Missing token fields remain `null` with `complete: false`.
+A model session is one executor or judge invocation. `sessions.total` is the planned maximum; top-level `model_sessions.total` is actual consumption. A judge skipped after mechanical or oracle failure consumes no session and reports `executed: false` with `verdict: SKIPPED`. `usage` aggregates JSONL token events from `codex exec --json` and preserves ordered normalized event counts, source types, scopes, and token fields without retaining raw JSONL. Missing token fields remain `null` with `complete: false`.
+
+## Persist execution evidence
+
+Add `--report-dir <directory>` to an executed command when durable evidence is required. The runner writes `<report-dir>/<operation-id>/report.json` atomically before removing a successful workspace, then renders `report.md` only from that JSON. `--pricing-file <json>` is optional and requires `--report-dir`.
+
+Use an explicit dated pricing file with this shape:
+
+```json
+{
+  "version": 1,
+  "effective_date": "2026-07-26",
+  "source": "https://example.test/pricing",
+  "currency": "USD",
+  "unit": "per_million_tokens",
+  "models": {
+    "model-id": {
+      "input": 1.0,
+      "cached_input": 0.5,
+      "output": 2.0,
+      "long_context": {
+        "input_token_threshold": 272000,
+        "input_multiplier": 2.0,
+        "output_multiplier": 1.5,
+        "applies_per": "request"
+      }
+    }
+  },
+  "limitations": ["Reference pricing is not an observed charge."]
+}
+```
+
+Treat every calculated amount as an API reference estimate. ChatGPT authentication does not expose a per execution monetary charge, so the report records `actual_charge: false`, billing mode, pricing date, source, and limitations. A `turn.completed` usage event is turn scoped, not proof of an individual request size. When a turn aggregate exceeds a request scoped long context threshold, report the exact amount as unavailable and retain only a labeled base rate reference.
+
+Reports persist concise executor declarations, mechanical facts, oracle and judge outcomes, runtime and source fingerprints, usage, reasoning output token availability, durations, and bounded file evidence. They never persist raw JSONL, full transcripts, private reasoning, installed skill contents, hidden oracle contents, `.eval-*`, Python caches, or `.git`.
+
+Regenerate presentation without rerunning a model:
+
+```text
+python3 develop-skill-with-evals/scripts/render_eval_report.py \
+  --input <report.json> --output <report.md>
+```
+
+Compare a directory of reports deterministically:
+
+```text
+python3 develop-skill-with-evals/scripts/compare_model_reports.py \
+  --reports <directory> --output-dir <directory>
+```
+
+Inspect qualification, per case stability, token totals and medians, cache ratio, output and reasoning output, duration, API reference cost, effective cost per stable gate, and explanation completeness. Treat small matrices as directional pilots, never statistical proof or authority to change runtime defaults automatically.
 
 ## Diagnose before promotion when useful
 
@@ -91,7 +141,7 @@ Keep mechanical expected contracts under each case's `oracle/` directory when co
 
 `PASS` is the only promotable status. Stop on `FAIL`, `ERROR`, `INCONCLUSIVE`, `INVALID_RED`, or `UNSTABLE`. Diagnose and correct the cause, but never repeat an unchanged evaluation merely to obtain a favorable result. The three planned candidate executions are stability evidence, not automatic retries after failure.
 
-Existing `run`, `verify-change`, and `stability` commands remain available for exploration and compatibility. They accept the same four runtime selection options and propagate every known value. Prefer diagnostic `plan` plus `probe-change` for one pass investigation and promotion `plan` plus `validate-change` for promotion because these workflows integrate selection, complete runtime, full fingerprints, blockers and budget.
+Existing `run`, `verify-change`, and `stability` commands remain available for exploration and compatibility. They accept the same four runtime selection options and propagate every known value. Executed commands also accept optional evidence report controls; omitting them preserves the existing stdout and cleanup behavior. Prefer diagnostic `plan` plus `probe-change` for one pass investigation and promotion `plan` plus `validate-change` for promotion because these workflows integrate selection, complete runtime, full fingerprints, blockers and budget.
 
 The runner writes only JSON to standard output. Progress goes to standard error, is automatic for a TTY, can be forced with `--progress`, and can be suppressed with `--quiet`.
 

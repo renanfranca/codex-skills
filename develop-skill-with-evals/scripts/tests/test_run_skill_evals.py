@@ -930,6 +930,17 @@ class SkillEvalRunnerTest(unittest.TestCase):
     checks = report["results"][0]["mechanical"]["checks"]
     self.assertIn("evaluated skill remained unchanged", [check["name"] for check in checks if not check["passed"]])
 
+  def test_snapshot_ignores_python_cache_artifacts(self):
+    runner = load_runner()
+    (self.skill / "__pycache__").mkdir()
+    (self.skill / "__pycache__" / "module.cpython-310.pyc").write_bytes(b"before")
+    before = runner.snapshot(self.skill)
+
+    (self.skill / "__pycache__" / "module.cpython-310.pyc").write_bytes(b"after")
+    (self.skill / "nested.pyc").write_bytes(b"generated")
+
+    self.assertEqual(before, runner.snapshot(self.skill))
+
   def test_verify_change_rejects_a_case_that_passes_on_baseline(self):
     baseline = self.root / "baseline"
     subprocess.run(["cp", "-a", str(self.skill), str(baseline)], check=True)

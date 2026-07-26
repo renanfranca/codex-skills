@@ -3,6 +3,7 @@
 
 import argparse
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import fcntl
 import fnmatch
 import hashlib
@@ -11,12 +12,31 @@ import os
 from pathlib import Path
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 from typing import Any
 import uuid
+
+SCRIPT_DIRECTORY = Path(__file__).resolve().parent
+if str(SCRIPT_DIRECTORY) not in sys.path:
+  sys.path.insert(0, str(SCRIPT_DIRECTORY))
+
+from eval_report import (
+  api_reference_estimate,
+  atomic_write_text,
+  build_file_evidence,
+  canonical_json,
+  capture_evidence_snapshot,
+  codex_environment,
+  load_pricing,
+  report_digest,
+  sanitize_fact,
+)
+from render_eval_report import render_report
 
 
 PASS = "PASS"
@@ -24,6 +44,10 @@ BLOCKING = {"FAIL", "ERROR", "INCONCLUSIVE", "INVALID_RED", "UNSTABLE"}
 IMPACTS = ("static", "deterministic", "scoped", "cross-cutting")
 WORKFLOWS = ("diagnostic", "promotion")
 DEFAULT_APPROVED_MODEL_SESSIONS = 8
+
+
+def utc_now() -> str:
+  return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 @dataclass(frozen=True)
@@ -156,6 +180,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.error(
       "--campaign-ledger and --approved-cumulative-model-sessions must be supplied together"
     )
+  if (
+    getattr(args, "pricing_file", None) is not None
+    and getattr(args, "report_dir", None) is None
+  ):
+    parser.error("--pricing-file requires --report-dir")
   return args
 
 
@@ -174,6 +203,8 @@ def add_runtime_arguments(parser: argparse.ArgumentParser) -> None:
   add_runtime_selection_arguments(parser)
   parser.add_argument("--codex-command", default="codex")
   parser.add_argument("--artifacts-dir", type=Path, default=Path("/tmp/skill-eval-artifacts"))
+  parser.add_argument("--report-dir", type=Path)
+  parser.add_argument("--pricing-file", type=Path)
   progress = parser.add_mutually_exclusive_group()
   progress.add_argument("--progress", action="store_true", help="Show progress on stderr even without a TTY")
   progress.add_argument("--quiet", action="store_true", help="Suppress progress on stderr")
@@ -250,7 +281,13 @@ def file_hash(path: Path) -> str:
 def snapshot(root: Path) -> dict[str, str]:
   result = {}
   for path in sorted(root.rglob("*")):
-    if path.is_file() and ".git" not in path.relative_to(root).parts:
+    relative = path.relative_to(root)
+    if (
+      path.is_file()
+      and ".git" not in relative.parts
+      and "__pycache__" not in relative.parts
+      and path.suffix != ".pyc"
+    ):
       result[path.relative_to(root).as_posix()] = file_hash(path)
   return result
 
@@ -293,8 +330,13 @@ def empty_usage() -> dict[str, Any]:
     "input_tokens": None,
     "cached_input_tokens": None,
     "output_tokens": None,
+    "reasoning_output_tokens": None,
     "total_tokens": None,
     "complete": False,
+    "reasoning_output_tokens_complete": False,
+    "events": [],
+    "event_count": 0,
+    "events_complete": False,
   }
 
 
@@ -312,31 +354,105 @@ def usage_from_jsonl(output: str) -> dict[str, Any]:
       key: usage.get(key)
       for key in ("input_tokens", "cached_input_tokens", "output_tokens")
     }
-    if all(isinstance(value, int) and value >= 0 for value in values.values()):
-      observations.append(values)
+    complete = all(
+      isinstance(value, int) and value >= 0
+      for value in values.values()
+    )
+    reasoning = usage.get("reasoning_output_tokens")
+    reasoning_value = (
+      reasoning
+      if isinstance(reasoning, int) and reasoning >= 0
+      else None
+    )
+    event_type = event.get("type")
+    values.update({
+      "sequence": len(observations) + 1,
+      "source_event_type": (
+        event_type if isinstance(event_type, str) else "unknown"
+      ),
+      "scope": "turn" if event_type == "turn.completed" else "unknown",
+      "reasoning_output_tokens": reasoning_value,
+      "total_tokens": (
+        values["input_tokens"] + values["output_tokens"]
+        if complete
+        else None
+      ),
+      "complete": complete,
+      "reasoning_output_tokens_complete": reasoning_value is not None,
+    })
+    observations.append(values)
   if not observations:
     return empty_usage()
+  events_complete = all(value["complete"] for value in observations)
+  if not events_complete:
+    return {
+      **empty_usage(),
+      "events": observations,
+      "event_count": len(observations),
+      "events_complete": False,
+    }
   input_tokens = sum(value["input_tokens"] for value in observations)
   cached_input_tokens = sum(value["cached_input_tokens"] for value in observations)
   output_tokens = sum(value["output_tokens"] for value in observations)
+  reasoning_complete = all(
+    value["reasoning_output_tokens"] is not None
+    for value in observations
+  )
   return {
     "input_tokens": input_tokens,
     "cached_input_tokens": cached_input_tokens,
     "output_tokens": output_tokens,
+    "reasoning_output_tokens": (
+      sum(value["reasoning_output_tokens"] for value in observations)
+      if reasoning_complete
+      else None
+    ),
     "total_tokens": input_tokens + output_tokens,
     "complete": True,
+    "reasoning_output_tokens_complete": reasoning_complete,
+    "events": observations,
+    "event_count": len(observations),
+    "events_complete": True,
   }
 
 
 def aggregate_usage(values: list[dict[str, Any]]) -> dict[str, Any]:
+  events = []
+  for value in values:
+    for event in value.get("events", []):
+      normalized = dict(event)
+      normalized["sequence"] = len(events) + 1
+      events.append(normalized)
   if not values or not all(value.get("complete", False) for value in values):
-    return empty_usage()
+    return {
+      **empty_usage(),
+      "events": events,
+      "event_count": len(events),
+      "events_complete": bool(events) and all(
+        event.get("complete", False) for event in events
+      ),
+    }
+  reasoning_complete = all(
+    value.get("reasoning_output_tokens_complete", False)
+    for value in values
+  )
   return {
     "input_tokens": sum(value["input_tokens"] for value in values),
     "cached_input_tokens": sum(value["cached_input_tokens"] for value in values),
     "output_tokens": sum(value["output_tokens"] for value in values),
+    "reasoning_output_tokens": (
+      sum(value["reasoning_output_tokens"] for value in values)
+      if reasoning_complete
+      else None
+    ),
     "total_tokens": sum(value["total_tokens"] for value in values),
     "complete": True,
+    "reasoning_output_tokens_complete": reasoning_complete,
+    "events": events,
+    "event_count": len(events),
+    "events_complete": bool(events) and all(
+      event.get("complete", False) for event in events
+    ),
   }
 
 
@@ -344,12 +460,29 @@ def write_executor_schema(path: Path) -> None:
   schema = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
-    "required": ["summary", "classification", "evidence", "files_changed"],
+    "required": [
+      "summary",
+      "classification",
+      "evidence",
+      "files_changed",
+      "diagnosis",
+      "approach",
+      "decisions",
+      "rejected_alternatives",
+      "key_changes",
+      "validation",
+    ],
     "properties": {
       "summary": {"type": "string"},
       "classification": {"type": "string"},
       "evidence": {"type": "array", "items": {"type": "string"}},
       "files_changed": {"type": "array", "items": {"type": "string"}},
+      "diagnosis": {"type": "string"},
+      "approach": {"type": "array", "items": {"type": "string"}},
+      "decisions": {"type": "array", "items": {"type": "string"}},
+      "rejected_alternatives": {"type": "array", "items": {"type": "string"}},
+      "key_changes": {"type": "array", "items": {"type": "string"}},
+      "validation": {"type": "array", "items": {"type": "string"}},
     },
     "additionalProperties": False,
   }
@@ -398,6 +531,18 @@ def run_process(
     check=False,
     env=env,
   )
+
+
+def timed_process(
+  command: list[str],
+  cwd: Path,
+  prompt: str | None = None,
+  env: dict[str, str] | None = None,
+) -> tuple[subprocess.CompletedProcess[str], int]:
+  started = time.monotonic()
+  completed = run_process(command, cwd, prompt, env)
+  duration_ms = max(0, round((time.monotonic() - started) * 1000))
+  return completed, duration_ms
 
 
 def model_process_failure(completed: subprocess.CompletedProcess[str], output_exists: bool) -> bool:
@@ -489,6 +634,7 @@ def disabled_executor() -> dict[str, Any]:
     "response": None,
     "stderr": "",
     "usage": empty_usage(),
+    "duration_ms": 0,
   }
 
 
@@ -500,6 +646,7 @@ def disabled_judge(reason: str) -> dict[str, Any]:
     "rationale": reason,
     "evidence": [],
     "usage": empty_usage(),
+    "duration_ms": 0,
     "failure_category": None,
   }
 
@@ -557,6 +704,8 @@ def evaluate_deterministic_case(
   progress: ProgressReporter,
   label: str,
 ) -> dict[str, Any]:
+  observation_started_at = utc_now()
+  observation_started = time.monotonic()
   progress.emit(f"{label}: preparing workspace")
   workspace = Path(tempfile.mkdtemp(prefix=f"{case_id}-", dir=operation_root))
   fixture = case_dir / "fixture"
@@ -564,6 +713,7 @@ def evaluate_deterministic_case(
     shutil.copytree(fixture, workspace, dirs_exist_ok=True)
   subprocess.run(["git", "init", "-q"], cwd=workspace, check=True)
   before = snapshot(workspace)
+  evidence_before = capture_evidence_snapshot(workspace)
   skill_before = snapshot(installed_source)
   progress.emit(f"{label}: running mechanical checks")
   mechanical_contract = case.get("mechanical", {})
@@ -591,6 +741,10 @@ def evaluate_deterministic_case(
   for required in mechanical_contract.get("required_paths", []):
     checks.append(check(f"required path: {required}", (workspace / required).exists(), required))
   after = snapshot(workspace)
+  file_evidence = build_file_evidence(
+    evidence_before,
+    capture_evidence_snapshot(workspace),
+  )
   changed = changed_paths(before, after)
   for pattern in mechanical_contract.get("forbidden_changed_paths", []):
     matches = [path for path in changed if fnmatch.fnmatch(path, pattern)]
@@ -605,6 +759,7 @@ def evaluate_deterministic_case(
   mechanical = {"passed": all(item["passed"] for item in checks), "checks": checks, "commands": command_results}
   oracle = run_oracle(case, case_dir, workspace)
   status = PASS if mechanical["passed"] and oracle["passed"] else "FAIL"
+  observation_finished_at = utc_now()
   result = {
     "case_id": case_id,
     "status": status,
@@ -618,6 +773,11 @@ def evaluate_deterministic_case(
     "model_sessions": {"executor": 0, "judge": 0, "total": 0},
     "usage": empty_usage(),
     "failure_category": None if status == PASS else "contract",
+    "_started_at": observation_started_at,
+    "_finished_at": observation_finished_at,
+    "_duration_ms": max(0, round((time.monotonic() - observation_started) * 1000)),
+    "_prompt": None,
+    "_evidence": file_evidence,
   }
   (workspace / ".eval-result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
   progress.emit(f"{label}: {status}")
@@ -647,7 +807,11 @@ def run_judge(
     "mechanical": mechanical,
   }
   command = codex_command(args, runtime, workspace, schema, output)
-  completed = run_process(command, workspace, json.dumps(payload))
+  completed, duration_ms = timed_process(
+    command,
+    workspace,
+    json.dumps(payload),
+  )
   usage = usage_from_jsonl(completed.stdout)
   if completed.returncode != 0 or not output.exists():
     return {
@@ -657,6 +821,7 @@ def run_judge(
       "rationale": f"Judge process failed with exit code {completed.returncode}.",
       "evidence": [completed.stderr[-1000:]],
       "usage": usage,
+      "duration_ms": duration_ms,
       "failure_category": (
         "infrastructure"
         if model_process_failure(completed, output.exists())
@@ -673,6 +838,7 @@ def run_judge(
       "rationale": str(error),
       "evidence": [],
       "usage": usage,
+      "duration_ms": duration_ms,
       "failure_category": "contract",
     }
   verdict = result.get("verdict")
@@ -685,6 +851,7 @@ def run_judge(
     "rationale": result.get("rationale", ""),
     "evidence": result.get("evidence", []),
     "usage": usage,
+    "duration_ms": duration_ms,
     "failure_category": None if verdict == PASS else "contract",
   }
 
@@ -734,6 +901,8 @@ def evaluate_case(
   progress: ProgressReporter,
   context: str | None = None,
 ) -> dict[str, Any]:
+  observation_started_at = utc_now()
+  observation_started = time.monotonic()
   label = f"Case {case_id}" + (f" [{context}]" if context else "")
   case_dir, case = load_case_manifest(case_source_skill, case_id)
   if case.get("kind") == "deterministic":
@@ -756,6 +925,7 @@ def evaluate_case(
   copy_skill_without_evals(installed_source, scoped_skill)
   subprocess.run(["git", "init", "-q"], cwd=workspace, check=True)
   before = snapshot(workspace)
+  evidence_before = capture_evidence_snapshot(workspace)
   skill_before = snapshot(scoped_skill)
 
   schema = workspace / ".eval-executor-schema.json"
@@ -766,8 +936,12 @@ def evaluate_case(
     prompt = raw_prompt
   else:
     prompt = f"Use ${installed_source.name} from the repository-scoped skill installation to complete this task.\n\n{raw_prompt}"
+  prompt += (
+    "\n\nIn the structured response, record only concise decisions actually made. "
+    "Do not reveal private reasoning or reconstruct hidden chain of thought."
+  )
   progress.emit(f"{label}: running executor")
-  completed = run_process(
+  completed, executor_duration_ms = timed_process(
     codex_command(args, runtime.executor, workspace, schema, output),
     workspace,
     prompt,
@@ -792,6 +966,10 @@ def evaluate_case(
     checks.append(check(f"required path: {required}", (workspace / required).exists(), required))
 
   after = snapshot(workspace)
+  file_evidence = build_file_evidence(
+    evidence_before,
+    capture_evidence_snapshot(workspace),
+  )
   changed = changed_paths(before, after)
   forbidden = mechanical_contract.get("forbidden_changed_paths", [])
   for pattern in forbidden:
@@ -839,6 +1017,7 @@ def evaluate_case(
       "rationale": "Semantic judge skipped because executor infrastructure failed.",
       "evidence": [],
       "usage": empty_usage(),
+      "duration_ms": 0,
       "failure_category": "infrastructure",
     }
   elif mechanical["passed"] and oracle["passed"] and judge_enabled:
@@ -852,6 +1031,7 @@ def evaluate_case(
       "rationale": "Semantic judge skipped because mechanical checks failed.",
       "evidence": [],
       "usage": empty_usage(),
+      "duration_ms": 0,
       "failure_category": None,
     }
   else:
@@ -866,6 +1046,7 @@ def evaluate_case(
     status = PASS
   else:
     status = "FAIL"
+  observation_finished_at = utc_now()
   result = {
     "case_id": case_id,
     "status": status,
@@ -877,6 +1058,7 @@ def evaluate_case(
       "response": response,
       "stderr": completed.stderr[-4000:],
       "usage": executor_usage,
+      "duration_ms": executor_duration_ms,
     },
     "mechanical": mechanical,
     "oracle": oracle,
@@ -899,6 +1081,11 @@ def evaluate_case(
       if status == "ERROR"
       else "contract"
     ),
+    "_started_at": observation_started_at,
+    "_finished_at": observation_finished_at,
+    "_duration_ms": max(0, round((time.monotonic() - observation_started) * 1000)),
+    "_prompt": raw_prompt,
+    "_evidence": file_evidence,
   }
   (workspace / ".eval-result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
   progress.emit(f"{label}: {status}")
@@ -1581,6 +1768,18 @@ def make_operation_root(args: argparse.Namespace) -> Path:
   return Path(tempfile.mkdtemp(prefix=f"{args.operation}-", dir=args.artifacts_dir))
 
 
+def remove_operation_root(operation_root: Path) -> None:
+  def make_writable_and_retry(function: Any, path: str, _: Any) -> None:
+    target = Path(path)
+    if target.exists():
+      os.chmod(target, stat.S_IRWXU)
+    if target.parent.exists():
+      os.chmod(target.parent, stat.S_IRWXU)
+    function(path)
+
+  shutil.rmtree(operation_root, onerror=make_writable_and_retry)
+
+
 def resolved_model_label(runtime: EvaluationRuntime) -> str:
   return runtime.executor.model or "configured-default"
 
@@ -1608,6 +1807,246 @@ def workflow_failure_category(
   if any(result.get("failure_category") == "infrastructure" for result in results):
     return "infrastructure"
   return "contract"
+
+
+def ensure_operation_context(args: argparse.Namespace) -> None:
+  if not hasattr(args, "_operation_started_at"):
+    args._operation_started_at = utc_now()
+    args._operation_started_monotonic = time.monotonic()
+    timestamp = args._operation_started_at.replace("-", "").replace(":", "")
+    args._operation_id = f"{timestamp}-{uuid.uuid4().hex[:12]}"
+
+
+def planned_sessions_for_report(
+  stdout_report: dict[str, Any],
+  results: list[dict[str, Any]],
+) -> dict[str, int]:
+  if isinstance(stdout_report.get("plan"), dict):
+    sessions = stdout_report["plan"]["sessions"]
+    return {
+      "executor": sessions["executor"],
+      "judge": sessions["judge"],
+      "total": sessions["total"],
+    }
+  executor = sum(
+    1 if result.get("executor", {}).get("enabled", False) else 0
+    for result in results
+  )
+  judge = sum(
+    1 if result.get("judge", {}).get("enabled", False) else 0
+    for result in results
+  )
+  return {"executor": executor, "judge": judge, "total": executor + judge}
+
+
+def normalized_executor_response(response: Any) -> dict[str, Any] | None:
+  if not isinstance(response, dict):
+    return None
+  arrays = (
+    "approach",
+    "decisions",
+    "rejected_alternatives",
+    "key_changes",
+    "validation",
+  )
+  normalized = {
+    "summary": response.get("summary", ""),
+    "classification": response.get("classification", ""),
+    "evidence": response.get("evidence", []),
+    "files_changed": response.get("files_changed", []),
+    "diagnosis": response.get("diagnosis", response.get("summary", "")),
+  }
+  for field in arrays:
+    value = response.get(field, [])
+    normalized[field] = value if isinstance(value, list) else []
+  return sanitize_fact(normalized)
+
+
+def canonical_observation(
+  result: dict[str, Any],
+  status: str,
+) -> dict[str, Any]:
+  workspace_path = result.get("workspace")
+  retained = status in BLOCKING
+  mechanical = sanitize_fact(result.get("mechanical", {}))
+  oracle = sanitize_fact(result.get("oracle", {}))
+  judge = sanitize_fact(result.get("judge", {}))
+  executor = result.get("executor", {})
+  return {
+    "case_id": result.get("case_id", "unknown"),
+    "status": result.get("status", "ERROR"),
+    "kind": result.get("kind"),
+    "role": result.get("role", "observation"),
+    "repetition": result.get("repetition", 1),
+    "provenance": "executed",
+    "started_at": result.get("_started_at"),
+    "finished_at": result.get("_finished_at"),
+    "duration_ms": result.get("_duration_ms"),
+    "prompt": result.get("_prompt"),
+    "executor": {
+      "enabled": executor.get("enabled", False),
+      "executed": executor.get("executed", False),
+      "exit_code": executor.get("exit_code"),
+      "duration_ms": executor.get("duration_ms", 0),
+      "response": normalized_executor_response(executor.get("response")),
+      "usage": executor.get("usage", empty_usage()),
+    },
+    "mechanical": mechanical,
+    "oracle": oracle,
+    "judge": {
+      "enabled": judge.get("enabled", False),
+      "executed": judge.get("executed", False),
+      "verdict": judge.get("verdict", "SKIPPED"),
+      "rationale": judge.get("rationale", ""),
+      "evidence": judge.get("evidence", []),
+      "duration_ms": judge.get("duration_ms", 0),
+      "usage": judge.get("usage", empty_usage()),
+      "failure_category": judge.get("failure_category"),
+    },
+    "sessions": result.get(
+      "model_sessions",
+      {"executor": 0, "judge": 0, "total": 0},
+    ),
+    "usage": result.get("usage", empty_usage()),
+    "evidence": result.get("_evidence", {
+      "changed_files": [],
+      "diff": "",
+      "fragments": [],
+      "truncated": False,
+      "truncations": [],
+      "limits": {},
+    }),
+    "workspace": {
+      "original_path": workspace_path,
+      "retention": "retained" if retained else "removed",
+    },
+  }
+
+
+def persist_execution_report(
+  args: argparse.Namespace,
+  stdout_report: dict[str, Any],
+  results: list[dict[str, Any]],
+  runtime: EvaluationRuntime,
+) -> Path | None:
+  report_dir = getattr(args, "report_dir", None)
+  if report_dir is None:
+    return None
+  ensure_operation_context(args)
+  finished_at = utc_now()
+  environment = codex_environment(args.codex_command)
+  pricing = load_pricing(getattr(args, "pricing_file", None))
+  plan = stdout_report.get("plan")
+  skill = args.skill.resolve()
+  if isinstance(plan, dict):
+    fingerprints = {
+      "manifest": plan["manifest_fingerprint"],
+      "cases": plan["case_fingerprints"],
+      "sources": plan["source_fingerprints"],
+      "runtime": plan["runtime_fingerprint"],
+      "evaluation": plan["evaluation_fingerprint"],
+    }
+  else:
+    manifests = case_manifests(skill)
+    manifest_hash = manifest_fingerprint(manifests)
+    runtime_hash = runtime_fingerprint(manifest_hash, runtime)
+    source_hashes = {"evaluated": tree_fingerprint(skill)}
+    case_hashes = case_fingerprints(skill, manifests)
+    fingerprints = {
+      "manifest": manifest_hash,
+      "cases": case_hashes,
+      "sources": source_hashes,
+      "runtime": runtime_hash,
+      "evaluation": fingerprint_payload({
+        "operation": args.operation,
+        "cases": [
+          result.get("case_id")
+          for result in results
+        ],
+        "case_fingerprints": case_hashes,
+        "source_fingerprints": source_hashes,
+        "runtime_fingerprint": runtime_hash,
+      }),
+    }
+  estimate = api_reference_estimate(
+    pricing,
+    stdout_report["usage"],
+    runtime.executor.model,
+    environment["billing_mode"],
+  )
+  report = {
+    "schema_version": 1,
+    "operation": {
+      "id": args._operation_id,
+      "type": args.operation,
+      "status": stdout_report["status"],
+      "workflow": getattr(args, "workflow", None),
+      "promotion_eligible": stdout_report.get("promotion_eligible", False),
+      "failure_category": stdout_report.get("failure_category"),
+    },
+    "provenance": "executed",
+    "started_at": args._operation_started_at,
+    "finished_at": finished_at,
+    "duration_ms": max(
+      0,
+      round((time.monotonic() - args._operation_started_monotonic) * 1000),
+    ),
+    "skill": {
+      "path": str(skill),
+      "name": skill.name,
+    },
+    "fingerprints": fingerprints,
+    "environment": {
+      "codex_cli": environment["codex_cli"],
+      "authentication": environment["authentication"],
+      "runner": {
+        "path": str(Path(__file__).resolve()),
+        "sha256": file_hash(Path(__file__).resolve()),
+      },
+    },
+    "billing": {
+      "mode": environment["billing_mode"],
+      "actual_charge_observed": False,
+    },
+    "runtime": runtime.as_dict(),
+    "sessions": {
+      "planned": planned_sessions_for_report(stdout_report, results),
+      "executed": stdout_report["model_sessions"],
+      "provenance": "executed",
+    },
+    "usage": stdout_report["usage"],
+    "pricing": pricing,
+    "api_reference_estimate": estimate,
+    "observations": [
+      canonical_observation(result, stdout_report["status"])
+      for result in results
+    ],
+    "limitations": [
+      "No raw Codex JSONL or complete transcript is persisted.",
+      "Structured executor fields record concise declared decisions, not private reasoning.",
+      "Diffs and text fragments are sanitized and bounded.",
+    ],
+  }
+  report["report_digest"] = {
+    "algorithm": "sha256",
+    "value": report_digest(report),
+  }
+  operation_dir = report_dir.resolve() / args._operation_id
+  report_path = operation_dir / "report.json"
+  markdown_path = operation_dir / "report.md"
+  atomic_write_text(
+    report_path,
+    json.dumps(report, indent=2, ensure_ascii=False) + "\n",
+  )
+  atomic_write_text(markdown_path, render_report(report))
+  return report_path
+
+
+def strip_internal_result_fields(results: list[dict[str, Any]]) -> None:
+  for result in results:
+    for field in tuple(result):
+      if field.startswith("_"):
+        result.pop(field)
 
 
 def run_change_workflow(
@@ -1808,16 +2247,26 @@ def run_change_workflow(
     "results": results,
     "artifacts": str(operation_root) if status in BLOCKING else None,
   }
+  evidence_path = persist_execution_report(
+    args,
+    report,
+    results,
+    runtime,
+  )
+  if evidence_path is not None:
+    report["evidence_report"] = str(evidence_path)
   if status == PASS:
-    shutil.rmtree(operation_root)
+    remove_operation_root(operation_root)
     for result in results:
       result["workspace"] = None
+  strip_internal_result_fields(results)
   return report
 
 
 def execute(args: argparse.Namespace, progress: ProgressReporter | None = None) -> dict[str, Any]:
   progress = progress or ProgressReporter(False)
   progress.emit(f"Preparing {args.operation}")
+  ensure_operation_context(args)
   skill = args.skill.resolve()
   if args.operation == "plan":
     return build_eval_plan(skill, args.baseline, args.impact, args.case, args)
@@ -1927,6 +2376,9 @@ def execute(args: argparse.Namespace, progress: ProgressReporter | None = None) 
       )
       for run_number in range(1, args.runs + 1)
     ]
+    for run_number, result in enumerate(results, start=1):
+      result["role"] = "observation"
+      result["repetition"] = run_number
     signatures = {verdict_signature(result) for result in results}
     status = aggregate_status(results) if len(signatures) == 1 else "UNSTABLE"
 
@@ -1944,10 +2396,19 @@ def execute(args: argparse.Namespace, progress: ProgressReporter | None = None) 
     "results": results,
     "artifacts": str(operation_root) if status in BLOCKING else None,
   }
+  evidence_path = persist_execution_report(
+    args,
+    report,
+    results,
+    runtime,
+  )
+  if evidence_path is not None:
+    report["evidence_report"] = str(evidence_path)
   if status == PASS:
-    shutil.rmtree(operation_root)
+    remove_operation_root(operation_root)
     for result in results:
       result["workspace"] = None
+  strip_internal_result_fields(results)
   return report
 
 
@@ -1958,7 +2419,13 @@ def main(argv: list[str] | None = None) -> int:
     progress = ProgressReporter(progress_enabled(args))
     report = execute(args, progress)
   except (OSError, ValueError, subprocess.SubprocessError) as error:
-    operation = argv[0] if argv else "run"
+    operation = (
+      argv[0]
+      if argv
+      else sys.argv[1]
+      if len(sys.argv) > 1
+      else "run"
+    )
     report = {
       "operation": operation,
       "status": "ERROR",
@@ -1997,7 +2464,7 @@ def main(argv: list[str] | None = None) -> int:
   print(json.dumps(report, indent=2))
   if exit_code is not None:
     return exit_code
-  if report["operation"] == "plan":
+  if report["operation"] == "plan" and report.get("status") != "ERROR":
     return 0
   return 0 if report["status"] == PASS else 1
 

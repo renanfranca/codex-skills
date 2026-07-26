@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+import json
+from pathlib import Path
+import sys
+
+
+if "--version" in sys.argv:
+  print("codex-cli fixture")
+  raise SystemExit(0)
+if sys.argv[1:3] == ["login", "status"]:
+  print("Logged in using ChatGPT")
+  raise SystemExit(0)
+
+output = Path(sys.argv[sys.argv.index("-o") + 1])
+workspace = Path(sys.argv[sys.argv.index("-C") + 1])
+(workspace / "result.txt").write_text("ok", encoding="utf-8")
+(workspace / ".eval-private").write_text("excluded", encoding="utf-8")
+response = {
+  "summary": "Created the requested result.",
+  "classification": "implementation",
+  "evidence": ["result.txt contains ok"],
+  "files_changed": ["result.txt"],
+  "diagnosis": "The required result was absent.",
+  "approach": ["Create the exact requested file."],
+  "decisions": ["Use plain UTF-8 text."],
+  "rejected_alternatives": [],
+  "key_changes": ["Added result.txt."],
+  "validation": ["Checked the required path and contents."]
+}
+output.write_text(json.dumps(response), encoding="utf-8")
+print(json.dumps({
+  "type": "turn.completed",
+  "usage": {
+    "input_tokens": 20,
+    "cached_input_tokens": 5,
+    "output_tokens": 8,
+    "reasoning_output_tokens": 2
+  }
+}))
