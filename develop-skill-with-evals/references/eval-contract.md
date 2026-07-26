@@ -144,7 +144,11 @@ Executed stdout results include the resolved runtime, top-level actual `model_se
 
 ## Durable evidence reports
 
-Executed commands accept `--report-dir`. When present, persist canonical evidence at `<report-dir>/<operation-id>/report.json` before successful workspace cleanup, then render `report.md` deterministically from the JSON. Report persistence does not change the stdout result contract. `--pricing-file` requires `--report-dir`; without explicit pricing, record usage but do not estimate money.
+Executed commands accept `--report-dir` and `--no-report`. An explicit report directory persists canonical evidence at `<report-dir>/<operation-id>/report.json` before successful workspace cleanup, then renders `report.md` deterministically from the JSON. `--pricing-file` requires `--report-dir`. `--no-report` is incompatible with either option.
+
+When neither option is present, locate `evaluation-reports/archive-config.json` relative to the repository containing the runner. Automatically archive only operations that consumed at least one session and used a Codex command whose basename is `codex`. Write under `evaluation-reports/<skill-name>/operations/<operation-id>/` and apply the pricing snapshot named by the config. Fakes, deterministic operations, and zero session operations do not archive implicitly. Without the config, preserve compatibility. Report persistence does not change the stdout result contract.
+
+Treat a persistence failure after session consumption as blocking infrastructure failure and retain diagnostic artifacts. Never stage, commit, push, or publish from the runner.
 
 Canonical evidence records operation, workflow, role, repetition, provenance `executed`, fingerprints, Codex CLI version when available, sanitized authentication mode, runner digest, runtime by role, planned and executed sessions, timestamps, durations, usage completeness, case prompt, structured executor response, mechanical facts, oracle and judge results, changed files, bounded diff, bounded fragments, truncations, and a SHA-256 report digest.
 
@@ -154,7 +158,9 @@ An explicit pricing snapshot uses version 1, an effective date, source, currency
 
 Evidence excludes any path under `.git`, `.agents/skills`, `.eval-*`, or `__pycache__`, plus `*.pyc`. Enforce deterministic per file and per report limits and declare every truncation. Do not persist raw JSONL, complete transcripts, private reasoning, hidden oracle contents, credentials, or generated model responses beyond the bounded structured executor contract.
 
-Use `render_eval_report.py` to replay Markdown without a model. Use `compare_model_reports.py` to group reports by executor model and case, require at least three stable PASS observations in every represented case for qualification, and compare tokens, cache ratio, duration, complete API reference cost, base rate reference, effective cost per stable gate, and explanation completeness and coherence. Never sum a partial set of exact estimates. A small comparison remains directional evidence.
+Canonical reports conform to [eval-report.schema.json](eval-report.schema.json). Renderers and comparisons reject incompatible schemas and invalid digests. Use `render_eval_report.py` to replay Markdown without a model. Use `compare_model_reports.py` only on one skill at a time to group reports by executor model and case, reject duplicate operation IDs, require at least three stable PASS observations in every represented case for qualification, and compare tokens, cache ratio, duration, complete API reference cost, base rate reference, effective cost per stable gate, and explanation completeness and coherence. Never sum a partial set of exact estimates. A small comparison remains directional evidence.
+
+Use `manage_evaluation_archive.py rebuild --archive evaluation-reports` to regenerate every report Markdown file, manifest, and configured comparison from canonical JSON. Use `validate` to verify schema versions, digests, unique IDs, byte identical projections, pricing semantics, manifest consistency, forbidden artifact classes, and credential patterns without invoking a model.
 
 ## Status and artifacts
 

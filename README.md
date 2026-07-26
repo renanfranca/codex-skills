@@ -62,11 +62,11 @@ A skill always contains `SKILL.md` and may include:
 - `scripts/` for deterministic automation;
 - `evals/` for isolated cases, fixtures, and expected contracts used during skill development.
 
-Evaluation fixtures and oracles belong under `evals/`, not in normal skill references. The local `.system` and `_temporary` directories are not part of the public skill catalog.
+Evaluation fixtures and oracles belong under `evals/`, not in normal skill references. Permanent audited evidence belongs under `evaluation-reports/`; canonical JSON is authoritative and Markdown, manifests, and comparisons are deterministic projections. The local `.system` and `_temporary` directories are not part of the public skill catalog.
 
 ## Skill evaluations
 
-See [Evaluating Codex Skills](EVALUATIONS.md) for the complete guide to suites, isolated fixtures, hidden mechanical oracles, diagnostic probes, cumulative campaign budgets, promotion gates, and the real `refactor-design` examples. Executed evaluations can now persist canonical JSON plus deterministic Markdown, retain normalized usage telemetry, apply an optional dated API pricing reference, regenerate presentation, and compare model reports without another model session; see [Durable evidence and pricing](EVALUATIONS.md#durable-evidence-and-pricing), [Economic runtime policy](EVALUATIONS.md#economic-runtime-policy), and the [copyable CLI recipes](CODEX_CLI.md#persist-evidence-with-dated-pricing).
+See [Evaluating Codex Skills](EVALUATIONS.md) for the complete guide to suites, isolated fixtures, hidden mechanical oracles, diagnostic probes, cumulative campaign budgets, promotion gates, and the real `refactor-design` examples. Real Codex evaluations can automatically persist canonical JSON plus deterministic Markdown in `evaluation-reports/`, retain normalized usage telemetry, apply a dated API pricing reference, rebuild and validate the archive, and compare model reports without another model session; see [Durable evidence and pricing](EVALUATIONS.md#durable-evidence-and-pricing), [Economic runtime policy](EVALUATIONS.md#economic-runtime-policy), and the [copyable CLI recipes](CODEX_CLI.md#persist-evidence-with-dated-pricing).
 
 ## Developing a skill
 

@@ -81,7 +81,11 @@ A model session is one executor or judge invocation. `sessions.total` is the pla
 
 ## Persist execution evidence
 
-Add `--report-dir <directory>` to an executed command when durable evidence is required. The runner writes `<report-dir>/<operation-id>/report.json` atomically before removing a successful workspace, then renders `report.md` only from that JSON. `--pricing-file <json>` is optional and requires `--report-dir`.
+Keep the repository's `evaluation-reports/archive-config.json` when real Codex executions should be archived automatically. An executed operation that consumes at least one session with a command named `codex` writes to `evaluation-reports/<skill-name>/operations/<operation-id>/`. The archive's dated pricing file is applied automatically.
+
+Use `--report-dir <directory>` for an explicit destination or `--no-report` to disable persistence. Explicit destinations take precedence over the archive. `--pricing-file <json>` is optional, requires `--report-dir`, and overrides archive pricing. `--no-report` is incompatible with both options. Fakes, deterministic operations, and operations that consume no sessions require an explicit destination.
+
+The runner writes `<report-dir>/<operation-id>/report.json` atomically before removing a successful workspace, then renders `report.md` only from that JSON. A persistence failure after session consumption blocks the operation and retains diagnostic artifacts. The runner never stages, commits, or publishes reports.
 
 Use an explicit dated pricing file with this shape:
 
@@ -127,6 +131,15 @@ python3 develop-skill-with-evals/scripts/compare_model_reports.py \
   --reports <directory> --output-dir <directory>
 ```
 
+The renderer and comparator require canonical schema version 1 and a valid report digest. Compare only reports from one skill. Rebuild or validate a permanent archive without a model:
+
+```text
+python3 develop-skill-with-evals/scripts/manage_evaluation_archive.py rebuild \
+  --archive evaluation-reports
+python3 develop-skill-with-evals/scripts/manage_evaluation_archive.py validate \
+  --archive evaluation-reports
+```
+
 Inspect qualification, per case stability, token totals and medians, cache ratio, output and reasoning output, duration, API reference cost, effective cost per stable gate, and explanation completeness. Treat small matrices as directional pilots, never statistical proof or authority to change runtime defaults automatically.
 
 ## Diagnose before promotion when useful
@@ -141,7 +154,7 @@ Keep mechanical expected contracts under each case's `oracle/` directory when co
 
 `PASS` is the only promotable status. Stop on `FAIL`, `ERROR`, `INCONCLUSIVE`, `INVALID_RED`, or `UNSTABLE`. Diagnose and correct the cause, but never repeat an unchanged evaluation merely to obtain a favorable result. The three planned candidate executions are stability evidence, not automatic retries after failure.
 
-Existing `run`, `verify-change`, and `stability` commands remain available for exploration and compatibility. They accept the same four runtime selection options and propagate every known value. Executed commands also accept optional evidence report controls; omitting them preserves the existing stdout and cleanup behavior. Prefer diagnostic `plan` plus `probe-change` for one pass investigation and promotion `plan` plus `validate-change` for promotion because these workflows integrate selection, complete runtime, full fingerprints, blockers and budget.
+Existing `run`, `verify-change`, and `stability` commands remain available for exploration and compatibility. They accept the same four runtime selection options and propagate every known value. Executed commands also accept evidence report controls. Without repository archive configuration, omitting them preserves the existing stdout and cleanup behavior. Prefer diagnostic `plan` plus `probe-change` for one pass investigation and promotion `plan` plus `validate-change` for promotion because these workflows integrate selection, complete runtime, full fingerprints, blockers and budget.
 
 The runner writes only JSON to standard output. Progress goes to standard error, is automatic for a TTY, can be forced with `--progress`, and can be suppressed with `--quiet`.
 

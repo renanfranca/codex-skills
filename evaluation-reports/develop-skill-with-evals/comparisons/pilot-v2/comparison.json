@@ -1,0 +1,209 @@
+{
+  "version": 1,
+  "report_count": 18,
+  "observation_count": 18,
+  "executed_observation_count": 18,
+  "models": [
+    {
+      "model": "gpt-5.6-luna",
+      "observation_count": 6,
+      "pass_count": 6,
+      "cases": [
+        {
+          "case_id": "explicit-runtime-promotion-workflow",
+          "observation_count": 3,
+          "pass_count": 3,
+          "stable": true,
+          "signature_count": 1
+        },
+        {
+          "case_id": "load-skill-creator-first",
+          "observation_count": 3,
+          "pass_count": 3,
+          "stable": false,
+          "signature_count": 3
+        }
+      ],
+      "qualifies": false,
+      "tokens": {
+        "input": {
+          "total": 2311093,
+          "median": 417140.0,
+          "complete": true
+        },
+        "cached_input": {
+          "total": 2005760,
+          "median": 368896.0,
+          "complete": true
+        },
+        "output": {
+          "total": 33837,
+          "median": 4633.0,
+          "complete": true
+        },
+        "reasoning_output": {
+          "total": 6499,
+          "median": 762.0,
+          "complete": true
+        }
+      },
+      "cache_ratio": 0.867884,
+      "duration_ms": {
+        "total": 763390,
+        "median": 112262.0,
+        "complete": true
+      },
+      "api_reference_cost": {
+        "total": null,
+        "complete": false,
+        "base_rate_total": 0.708931,
+        "indeterminate_long_context_count": 5,
+        "effective_per_stable_gate": null,
+        "base_rate_per_stable_gate": 0.236310333333,
+        "actual_charge": false
+      },
+      "explanation": {
+        "complete_count": 6,
+        "complete_ratio": 1.0,
+        "coherent_count": 5,
+        "coherent_ratio": 0.833333
+      }
+    },
+    {
+      "model": "gpt-5.6-sol",
+      "observation_count": 6,
+      "pass_count": 6,
+      "cases": [
+        {
+          "case_id": "explicit-runtime-promotion-workflow",
+          "observation_count": 3,
+          "pass_count": 3,
+          "stable": true,
+          "signature_count": 1
+        },
+        {
+          "case_id": "load-skill-creator-first",
+          "observation_count": 3,
+          "pass_count": 3,
+          "stable": false,
+          "signature_count": 3
+        }
+      ],
+      "qualifies": false,
+      "tokens": {
+        "input": {
+          "total": 5832476,
+          "median": 784587.5,
+          "complete": true
+        },
+        "cached_input": {
+          "total": 5420544,
+          "median": 718336.0,
+          "complete": true
+        },
+        "output": {
+          "total": 57114,
+          "median": 8451.0,
+          "complete": true
+        },
+        "reasoning_output": {
+          "total": 14251,
+          "median": 2085.0,
+          "complete": true
+        }
+      },
+      "cache_ratio": 0.929373,
+      "duration_ms": {
+        "total": 1649465,
+        "median": 269474.5,
+        "complete": true
+      },
+      "api_reference_cost": {
+        "total": null,
+        "complete": false,
+        "base_rate_total": 6.483352,
+        "indeterminate_long_context_count": 6,
+        "effective_per_stable_gate": null,
+        "base_rate_per_stable_gate": 2.161117333333,
+        "actual_charge": false
+      },
+      "explanation": {
+        "complete_count": 6,
+        "complete_ratio": 1.0,
+        "coherent_count": 4,
+        "coherent_ratio": 0.666667
+      }
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "observation_count": 6,
+      "pass_count": 4,
+      "cases": [
+        {
+          "case_id": "explicit-runtime-promotion-workflow",
+          "observation_count": 3,
+          "pass_count": 1,
+          "stable": false,
+          "signature_count": 3
+        },
+        {
+          "case_id": "load-skill-creator-first",
+          "observation_count": 3,
+          "pass_count": 3,
+          "stable": false,
+          "signature_count": 3
+        }
+      ],
+      "qualifies": false,
+      "tokens": {
+        "input": {
+          "total": 3046841,
+          "median": 494142.0,
+          "complete": true
+        },
+        "cached_input": {
+          "total": 2740224,
+          "median": 448512.0,
+          "complete": true
+        },
+        "output": {
+          "total": 34363,
+          "median": 5795.0,
+          "complete": true
+        },
+        "reasoning_output": {
+          "total": 10246,
+          "median": 1703.0,
+          "complete": true
+        }
+      },
+      "cache_ratio": 0.899366,
+      "duration_ms": {
+        "total": 806997,
+        "median": 133538.5,
+        "complete": true
+      },
+      "api_reference_cost": {
+        "total": null,
+        "complete": false,
+        "base_rate_total": 1.9670435,
+        "indeterminate_long_context_count": 6,
+        "effective_per_stable_gate": null,
+        "base_rate_per_stable_gate": null,
+        "actual_charge": false
+      },
+      "explanation": {
+        "complete_count": 6,
+        "complete_ratio": 1.0,
+        "coherent_count": 6,
+        "coherent_ratio": 1.0
+      }
+    }
+  ],
+  "directional_pilot": true,
+  "limitations": [
+    "The comparison is directional and is not statistical proof.",
+    "API reference estimates are not observed ChatGPT charges.",
+    "A model qualifies only with at least three stable PASS observations in every represented case."
+  ]
+}

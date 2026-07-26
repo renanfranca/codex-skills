@@ -179,7 +179,7 @@ Eight maximum model sessions are approved by default. Approve a known larger ope
 
 ### Persist evidence with dated pricing
 
-For a scoped case whose complete mechanical oracle allows the judge to remain disabled, prepare a dated version 1 pricing snapshot as described in [Durable evidence and pricing](EVALUATIONS.md#durable-evidence-and-pricing), then add both evidence options to the executed operation:
+For a scoped case whose complete mechanical oracle allows the judge to remain disabled, keep the repository's dated pricing snapshot in `evaluation-reports/pricing/` and run the operation normally:
 
 ```bash
 python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
@@ -190,27 +190,25 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   --model gpt-5.6-luna \
   --reasoning-effort medium \
   --approved-model-sessions 4 \
-  --report-dir /tmp/skill-eval-reports \
-  --pricing-file /tmp/pricing-2026-07-26.json \
   --progress
 ```
 
-The runner writes `/tmp/skill-eval-reports/<operation-id>/report.json` atomically before successful workspace cleanup and derives `report.md` from that JSON. `--pricing-file` requires `--report-dir`; omit pricing when you want usage evidence without a monetary reference.
+When `evaluation-reports/archive-config.json` exists, a real Codex operation that consumes at least one session writes `evaluation-reports/<skill-name>/operations/<operation-id>/report.json` atomically before successful workspace cleanup and derives `report.md` from that JSON. Use `--no-report` to opt out or `--report-dir` for an explicit destination. `--pricing-file` requires an explicit destination.
 
 Regenerate Markdown after a presentation change without another model session:
 
 ```bash
 python3 develop-skill-with-evals/scripts/render_eval_report.py \
-  --input /tmp/skill-eval-reports/<operation-id>/report.json \
-  --output /tmp/skill-eval-reports/<operation-id>/report.md
+  --input evaluation-reports/<skill-name>/operations/<operation-id>/report.json \
+  --output evaluation-reports/<skill-name>/operations/<operation-id>/report.md
 ```
 
 Compare a directory of reports without another model session:
 
 ```bash
 python3 develop-skill-with-evals/scripts/compare_model_reports.py \
-  --reports /tmp/skill-eval-reports \
-  --output-dir /tmp/skill-eval-comparison
+  --reports evaluation-reports/<skill-name>/operations \
+  --output-dir evaluation-reports/<skill-name>/comparisons/manual
 ```
 
 Treat comparison results as directional. Turn scoped usage cannot establish individual request sizes for long context pricing, and ChatGPT authentication does not expose a per execution charge.
@@ -230,8 +228,6 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   --judge-model gpt-5.6-terra \
   --judge-reasoning-effort medium \
   --approved-model-sessions 14 \
-  --report-dir /tmp/skill-eval-reports \
-  --pricing-file /tmp/pricing-2026-07-26.json \
   --progress
 ```
 

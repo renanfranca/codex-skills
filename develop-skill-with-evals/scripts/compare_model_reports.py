@@ -8,7 +8,7 @@ from pathlib import Path
 import statistics
 from typing import Any
 
-from eval_report import api_reference_estimate, atomic_write_text
+from eval_report import api_reference_estimate, atomic_write_text, load_report
 
 
 TOKEN_FIELDS = (
@@ -21,15 +21,20 @@ TOKEN_FIELDS = (
 
 def compare_reports(reports_root: Path) -> dict[str, Any]:
   report_paths = sorted(reports_root.rglob("report.json"))
+  return compare_report_paths(report_paths)
+
+
+def compare_report_paths(report_paths: list[Path]) -> dict[str, Any]:
   observations: list[dict[str, Any]] = []
   operation_ids: set[str] = set()
+  skill_names: set[str] = set()
   for path in report_paths:
-    with path.open(encoding="utf-8") as stream:
-      report = json.load(stream)
+    report = load_report(path)
     operation_id = report["operation"]["id"]
     if operation_id in operation_ids:
       raise ValueError(f"Duplicate operation id: {operation_id}")
     operation_ids.add(operation_id)
+    skill_names.add(report["skill"]["name"])
     model = report["runtime"]["executor"]["model"] or "configured-default"
     for observation in report["observations"]:
       observations.append({
@@ -38,6 +43,11 @@ def compare_reports(reports_root: Path) -> dict[str, Any]:
         "_estimate": _observation_estimate(report, observation),
         "_operation_id": operation_id,
       })
+  if len(skill_names) > 1:
+    raise ValueError(
+      "Reports from different skills cannot be compared together: "
+      + ", ".join(sorted(skill_names))
+    )
 
   grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
   for observation in observations:

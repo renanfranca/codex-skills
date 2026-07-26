@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openai.com/codex/skills/eval-report.schema.json",
+  "title": "Canonical skill evaluation evidence report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "operation",
+    "provenance",
+    "started_at",
+    "finished_at",
+    "duration_ms",
+    "skill",
+    "fingerprints",
+    "environment",
+    "billing",
+    "runtime",
+    "sessions",
+    "usage",
+    "pricing",
+    "api_reference_estimate",
+    "observations",
+    "limitations",
+    "report_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "operation": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "status",
+        "workflow",
+        "promotion_eligible",
+        "failure_category"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "enum": [
+            "run",
+            "verify-change",
+            "stability",
+            "probe-change",
+            "validate-change"
+          ]
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "ERROR",
+            "INCONCLUSIVE",
+            "INVALID_RED",
+            "UNSTABLE"
+          ]
+        },
+        "workflow": {
+          "enum": [
+            "diagnostic",
+            "promotion",
+            null
+          ]
+        },
+        "promotion_eligible": {
+          "type": "boolean"
+        },
+        "failure_category": {
+          "enum": [
+            "contract",
+            "infrastructure",
+            null
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "provenance": {
+      "const": "executed"
+    },
+    "started_at": {
+      "type": "string"
+    },
+    "finished_at": {
+      "type": "string"
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "skill": {
+      "type": "object",
+      "required": [
+        "path",
+        "name"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "fingerprints": {
+      "type": "object"
+    },
+    "environment": {
+      "type": "object"
+    },
+    "billing": {
+      "type": "object",
+      "required": [
+        "mode",
+        "actual_charge_observed"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string"
+        },
+        "actual_charge_observed": {
+          "const": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "runtime": {
+      "type": "object"
+    },
+    "sessions": {
+      "type": "object",
+      "required": [
+        "planned",
+        "executed",
+        "provenance"
+      ]
+    },
+    "usage": {
+      "type": "object"
+    },
+    "pricing": {
+      "type": "object"
+    },
+    "api_reference_estimate": {
+      "type": "object",
+      "required": [
+        "actual_charge"
+      ],
+      "properties": {
+        "actual_charge": {
+          "const": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "report_digest": {
+      "type": "object",
+      "required": [
+        "algorithm",
+        "value"
+      ],
+      "properties": {
+        "algorithm": {
+          "const": "sha256"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

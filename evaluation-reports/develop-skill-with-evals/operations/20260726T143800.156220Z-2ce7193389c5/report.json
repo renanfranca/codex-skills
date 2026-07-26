@@ -1,0 +1,485 @@
+{
+  "schema_version": 1,
+  "operation": {
+    "id": "20260726T143800.156220Z-2ce7193389c5",
+    "type": "run",
+    "status": "PASS",
+    "workflow": null,
+    "promotion_eligible": false,
+    "failure_category": null
+  },
+  "provenance": "executed",
+  "started_at": "2026-07-26T14:38:00.156220Z",
+  "finished_at": "2026-07-26T14:40:37.100760Z",
+  "duration_ms": 157326,
+  "skill": {
+    "path": "/tmp/persist-eval-evidence.auoqZx/candidate-source/develop-skill-with-evals",
+    "name": "develop-skill-with-evals"
+  },
+  "fingerprints": {
+    "manifest": "95033bdb528d83c03df64f6d7950d96e8170a1553596c5d2da9188b296fbcb65",
+    "cases": {
+      "load-skill-creator-first": "2663898d01b34e4231a80a306a80814c4f8481175f93cea5b0ba5c0ae9ca4125",
+      "eval-before-behavior": "567a95f0897b87b2caa6c50b3379a5b4a3c9db1fd7106e54e053e769e4992d35",
+      "reject-passing-baseline": "bafe37163cb9cffca115aa6edcf74542f7c82bbfb6680f82579840d607b224f0",
+      "non-behavioral-no-artificial-red": "0cc9245b6108103ca06542ddfa0ee27e82e5db4c9a6d7e0d0a6ffbafe2078d57",
+      "full-regression-gate": "425eac74ddf56eb2c4464717dacd4a598778c8ba9d9356375ccda97d040234a4",
+      "self-evolution-candidate": "65b9251d2b67c99d96ea2ae9e6091f047a990ef60bbc739f0c817649f0c05ec6",
+      "runner-progress-output": "4b03cdbd847cbdb9855b3e87078b0e71902a551afac373305b1a00764023776a",
+      "impact-gate-selection": "0a5214efe6b81c2acb7bec0f8ae210b6b22b223f37cfa9e7f91cd6647b01e31c",
+      "auditable-runtime-contract": "407472ee44b55f95d424faf09b64e910d38f6b00bac385d62a33757bf6a2dca2",
+      "explicit-runtime-promotion-workflow": "2b813505c0f15a5001844fcf824c6197b33bf5c89f554f824562c23393cd2a7c",
+      "cost-efficient-runtime-contract": "72b5d791d8c6a31eefcc62eda38ba25e734de7337c7180820791a573999aae56",
+      "execution-evidence-report": "8f2f76eb3f8cb53ab7625a3f779ca0448d6208ccce38b0cdaa7213ecb995d4a0"
+    },
+    "sources": {
+      "evaluated": "41ec968eb2098fe896d3d2fcf495a7e69a38289eb498c1b91bad96904a510e43"
+    },
+    "runtime": "d1adab131e875b304232973cf73d6a10ecafa5404f8b5744bf34f0f21bfbc25e",
+    "evaluation": "6daedaf7442c4974640e8ac0c20487a7c9c728cbb777438ccd44e1c19485643d"
+  },
+  "environment": {
+    "codex_cli": {
+      "status": "available",
+      "version": "codex-cli 0.145.0"
+    },
+    "authentication": {
+      "status": "available",
+      "mode": "chatgpt"
+    },
+    "runner": {
+      "path": "/tmp/persist-eval-evidence.auoqZx/candidate-source/develop-skill-with-evals/scripts/run_skill_evals.py",
+      "sha256": "c63a75cb545b42f3479d20e8937ac1b2e8eb93b06064aebeb7630630a02540e9"
+    }
+  },
+  "billing": {
+    "mode": "chatgpt-plan",
+    "actual_charge_observed": false
+  },
+  "runtime": {
+    "required": true,
+    "complete": true,
+    "audit_quality": "promotion",
+    "executor": {
+      "required": true,
+      "model": "gpt-5.6-terra",
+      "model_source": "cli",
+      "reasoning_effort": "medium",
+      "reasoning_effort_source": "cli"
+    },
+    "judge": {
+      "required": false,
+      "model": "gpt-5.6-terra",
+      "model_source": "executor",
+      "reasoning_effort": "medium",
+      "reasoning_effort_source": "executor"
+    }
+  },
+  "sessions": {
+    "planned": {
+      "executor": 1,
+      "judge": 0,
+      "total": 1
+    },
+    "executed": {
+      "executor": 1,
+      "judge": 0,
+      "total": 1
+    },
+    "provenance": "executed"
+  },
+  "usage": {
+    "input_tokens": 576087,
+    "cached_input_tokens": 501248,
+    "output_tokens": 6816,
+    "reasoning_output_tokens": 2750,
+    "total_tokens": 582903,
+    "complete": true,
+    "reasoning_output_tokens_complete": true,
+    "events": [
+      {
+        "input_tokens": 576087,
+        "cached_input_tokens": 501248,
+        "output_tokens": 6816,
+        "sequence": 1,
+        "source_event_type": "turn.completed",
+        "scope": "turn",
+        "reasoning_output_tokens": 2750,
+        "total_tokens": 582903,
+        "complete": true,
+        "reasoning_output_tokens_complete": true
+      }
+    ],
+    "event_count": 1,
+    "events_complete": true
+  },
+  "pricing": {
+    "applied": true,
+    "snapshot": {
+      "version": 1,
+      "effective_date": "2026-07-26",
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol; https://developers.openai.com/api/docs/models/gpt-5.6-terra; https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+      "currency": "USD",
+      "unit": "per_million_tokens",
+      "models": {
+        "gpt-5.6-sol": {
+          "input": 5.0,
+          "cached_input": 0.5,
+          "output": 30.0,
+          "long_context": {
+            "input_token_threshold": 272000,
+            "input_multiplier": 2.0,
+            "output_multiplier": 1.5,
+            "applies_per": "request"
+          }
+        },
+        "gpt-5.6-terra": {
+          "input": 2.5,
+          "cached_input": 0.25,
+          "output": 15.0,
+          "long_context": {
+            "input_token_threshold": 272000,
+            "input_multiplier": 2.0,
+            "output_multiplier": 1.5,
+            "applies_per": "request"
+          }
+        },
+        "gpt-5.6-luna": {
+          "input": 1.0,
+          "cached_input": 0.1,
+          "output": 6.0,
+          "long_context": {
+            "input_token_threshold": 272000,
+            "input_multiplier": 2.0,
+            "output_multiplier": 1.5,
+            "applies_per": "request"
+          }
+        }
+      },
+      "limitations": [
+        "This dated table is an API reference and is not an observed ChatGPT charge.",
+        "Prompts above 272,000 input tokens use the documented higher rates; an exact estimate is unavailable when normalized telemetry does not expose request scoped input.",
+        "Cache write charges are not estimated because Codex JSONL usage does not identify cache writes.",
+        "Reasoning output tokens are reported separately but are already included in output tokens."
+      ]
+    },
+    "limitations": [
+      "This dated table is an API reference and is not an observed ChatGPT charge.",
+      "Prompts above 272,000 input tokens use the documented higher rates; an exact estimate is unavailable when normalized telemetry does not expose request scoped input.",
+      "Cache write charges are not estimated because Codex JSONL usage does not identify cache writes.",
+      "Reasoning output tokens are reported separately but are already included in output tokens."
+    ]
+  },
+  "api_reference_estimate": {
+    "available": false,
+    "status": "indeterminate-long-context",
+    "currency": "USD",
+    "amount": null,
+    "base_rate_amount": 0.4146495,
+    "actual_charge": false,
+    "billing_mode": "chatgpt-plan",
+    "calculation": null,
+    "long_context_assessment": {
+      "input_token_threshold": 272000,
+      "applies_per": "request",
+      "triggering_event_sequences": [
+        1
+      ],
+      "observed_event_scopes": [
+        "turn"
+      ]
+    },
+    "limitations": [
+      "This is an API reference estimate, not an observed charge.",
+      "This dated table is an API reference and is not an observed ChatGPT charge.",
+      "Prompts above 272,000 input tokens use the documented higher rates; an exact estimate is unavailable when normalized telemetry does not expose request scoped input.",
+      "Cache write charges are not estimated because Codex JSONL usage does not identify cache writes.",
+      "Reasoning output tokens are reported separately but are already included in output tokens.",
+      "A reported usage event exceeded a request-scoped threshold, but the event is not request scoped; the exact multiplier cannot be audited."
+    ]
+  },
+  "observations": [
+    {
+      "case_id": "load-skill-creator-first",
+      "status": "PASS",
+      "kind": "behavioral",
+      "role": "observation",
+      "repetition": 1,
+      "provenance": "executed",
+      "started_at": "2026-07-26T14:38:00.165983Z",
+      "finished_at": "2026-07-26T14:40:37.100327Z",
+      "duration_ms": 157207,
+      "prompt": "Create a small skill named `weather-brief` at `./weather-brief` in this workspace. It should turn supplied weather facts into a concise morning brief.\n\nBefore editing the new skill, load the system `skill-creator` `SKILL.md` and initialize the skill with its official `init_skill.py`. Record the exact loaded `SKILL.md` path and the exact scaffold command argv in `./creation-evidence.json` at the workspace root, outside `./weather-brief`, using fields `skill_creator_path` and `scaffold_argv`. Do not create `weather-brief/creation-evidence.json`. Do not commit anything.\n",
+      "executor": {
+        "enabled": true,
+        "executed": true,
+        "exit_code": 0,
+        "duration_ms": 157181,
+        "response": {
+          "summary": "Created the `weather-brief` skill and required creation evidence. Nothing was committed.",
+          "classification": "completed",
+          "evidence": [
+            "Loaded `/home/renanfranca/.codex/skills/.system/skill-creator/SKILL.md` before initialization.",
+            "`creation-evidence.json` records the exact SKILL.md path and scaffold argv.",
+            "Promotion validation passed: baseline RED and candidate GREEN ×3 with zero model sessions.",
+            "Fresh usage check produced a concise, fact based brief."
+          ],
+          "files_changed": [
+            "creation-evidence.json",
+            "weather-brief/SKILL.md",
+            "weather-brief/agents/openai.yaml",
+            "weather-brief/evals/suite.json",
+            "weather-brief/evals/cases/brief-workflow/case.json",
+            "weather-brief/evals/cases/brief-workflow/fixture/check_skill.py"
+          ],
+          "diagnosis": "",
+          "approach": [],
+          "decisions": [
+            "Keep the skill instruction only, with no bundled runtime resources.",
+            "Use supplied facts only and omit unavailable details.",
+            "Use a deterministic evaluation because the authored skill contract is mechanically observable."
+          ],
+          "rejected_alternatives": [],
+          "key_changes": [
+            "Added a concise morning weather brief workflow.",
+            "Added creation evidence only at the workspace root.",
+            "Added a stable deterministic evaluation case."
+          ],
+          "validation": [
+            "`quick_validate.py weather-brief` passed.",
+            "`validate-change` passed with baseline failure and three candidate passes.",
+            "Fresh agent forward test passed."
+          ]
+        },
+        "usage": {
+          "input_tokens": 576087,
+          "cached_input_tokens": 501248,
+          "output_tokens": 6816,
+          "reasoning_output_tokens": 2750,
+          "total_tokens": 582903,
+          "complete": true,
+          "reasoning_output_tokens_complete": true,
+          "events": [
+            {
+              "input_tokens": 576087,
+              "cached_input_tokens": 501248,
+              "output_tokens": 6816,
+              "sequence": 1,
+              "source_event_type": "turn.completed",
+              "scope": "turn",
+              "reasoning_output_tokens": 2750,
+              "total_tokens": 582903,
+              "complete": true,
+              "reasoning_output_tokens_complete": true
+            }
+          ],
+          "event_count": 1,
+          "events_complete": true
+        }
+      },
+      "mechanical": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "executor exit code",
+            "passed": true,
+            "detail": "expected 0, got 0"
+          },
+          {
+            "name": "executor response schema",
+            "passed": true,
+            "detail": "structured response present and valid"
+          },
+          {
+            "name": "required path: weather-brief/SKILL.md",
+            "passed": true,
+            "detail": "weather-brief/SKILL.md"
+          },
+          {
+            "name": "required path: creation-evidence.json",
+            "passed": true,
+            "detail": "creation-evidence.json"
+          },
+          {
+            "name": "forbidden changed path: .agents/skills/**",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "forbidden changed path: weather-brief/creation-evidence.json",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "evaluated skill remained unchanged",
+            "passed": true,
+            "detail": "repository-scoped skill hash comparison"
+          }
+        ],
+        "commands": []
+      },
+      "oracle": {
+        "enabled": true,
+        "passed": true,
+        "commands": [
+          {
+            "argv": [
+              "python3",
+              "{oracle_dir}/check_creation_evidence.py"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "passed": true,
+            "stdout": "{\"created_skill\": \"weather-brief/SKILL.md\", \"official_scaffold_argv\": [\"python3\", \"/home/renanfranca/.codex/skills/.system/skill-creator/scripts/init_skill.py\", \"weather-brief\", \"--path\", \".\", \"--interface\", \"display_name=Weather Brief\", \"--interface\", \"short_description=Turn weather facts into morning briefs\", \"--interface\", \"default_prompt=Use $weather-brief to turn these weather facts into a concise morning brief.\"], \"skill_creator_loaded\": \"/home/renanfranca/.codex/skills/.system/skill-creator/SKILL.md\"}\n",
+            "stderr": ""
+          }
+        ]
+      },
+      "judge": {
+        "enabled": false,
+        "executed": false,
+        "verdict": "PASS",
+        "rationale": "Semantic judge disabled for this case.",
+        "evidence": [],
+        "duration_ms": 0,
+        "usage": {
+          "input_tokens": null,
+          "cached_input_tokens": null,
+          "output_tokens": null,
+          "reasoning_output_tokens": null,
+          "total_tokens": null,
+          "complete": false,
+          "reasoning_output_tokens_complete": false,
+          "events": [],
+          "event_count": 0,
+          "events_complete": false
+        },
+        "failure_category": null
+      },
+      "sessions": {
+        "executor": 1,
+        "judge": 0,
+        "total": 1
+      },
+      "usage": {
+        "input_tokens": 576087,
+        "cached_input_tokens": 501248,
+        "output_tokens": 6816,
+        "reasoning_output_tokens": 2750,
+        "total_tokens": 582903,
+        "complete": true,
+        "reasoning_output_tokens_complete": true,
+        "events": [
+          {
+            "input_tokens": 576087,
+            "cached_input_tokens": 501248,
+            "output_tokens": 6816,
+            "sequence": 1,
+            "source_event_type": "turn.completed",
+            "scope": "turn",
+            "reasoning_output_tokens": 2750,
+            "total_tokens": 582903,
+            "complete": true,
+            "reasoning_output_tokens_complete": true
+          }
+        ],
+        "event_count": 1,
+        "events_complete": true
+      },
+      "evidence": {
+        "changed_files": [
+          "creation-evidence.json",
+          "weather-brief/SKILL.md",
+          "weather-brief/agents/openai.yaml",
+          "weather-brief/evals/cases/brief-workflow/case.json",
+          "weather-brief/evals/cases/brief-workflow/fixture/check_skill.py",
+          "weather-brief/evals/suite.json"
+        ],
+        "diff": "--- /dev/null\n+++ b/creation-evidence.json\n@@ -0,0 +1,16 @@\n+{\n+  \"skill_creator_path\": \"/home/renanfranca/.codex/skills/.system/skill-creator/SKILL.md\",\n+  \"scaffold_argv\": [\n+    \"python3\",\n+    \"/home/renanfranca/.codex/skills/.system/skill-creator/scripts/init_skill.py\",\n+    \"weather-brief\",\n+    \"--path\",\n+    \".\",\n+    \"--interface\",\n+    \"display_name=Weather Brief\",\n+    \"--interface\",\n+    \"short_description=Turn weather facts into morning briefs\",\n+    \"--interface\",\n+    \"default_prompt=Use $weather-brief to turn these weather facts into a concise morning brief.\"\n+  ]\n+}\n--- /dev/null\n+++ b/weather-brief/SKILL.md\n@@ -0,0 +1,21 @@\n+---\n+name: weather-brief\n+description: Turn supplied weather facts into a concise morning brief. Use when a user provides conditions, temperatures, precipitation, wind, alerts, or forecast timing and wants a clear morning weather summary.\n+---\n+\n+# Weather Brief\n+\n+Turn supplied weather facts into a short, practical update for the morning.\n+\n+## Process\n+\n+1. Identify the location, date or period, current conditions, temperatures, precipitation chance and timing, wind, alerts, and any conditions that affect plans.\n+2. Use only the supplied facts. Do not invent missing conditions, timing, locations, or forecasts.\n+3. Lead with the overall conditions and temperature range. Add the most relevant timing, precipitation, wind, alert, or comfort detail.\n+4. End with one practical recommendation only when the facts support it, such as bringing an umbrella, dressing in layers, or allowing extra travel time.\n+\n+## Output\n+\n+Write 2 to 4 sentences in a friendly, direct tone. Include numbers only when they make the brief more useful. Omit unavailable details instead of calling attention to every missing field.\n+\n+Example: \"Cool and dry this morning, with temperatures climbing from 12°C to 19°C. Skies stay mostly clear, though winds pick up after 9 AM. A light jacket should be enough.\"\n--- /dev/null\n+++ b/weather-brief/agents/openai.yaml\n@@ -0,0 +1,4 @@\n+interface:\n+  display_name: \"Weather Brief\"\n+  short_description: \"Turn weather facts into morning briefs\"\n+  default_prompt: \"Use $weather-brief to turn these weather facts into a concise morning brief.\"\n--- /dev/null\n+++ b/weather-brief/evals/cases/brief-workflow/case.json\n@@ -0,0 +1,16 @@\n+{\n+  \"id\": \"brief-workflow\",\n+  \"kind\": \"deterministic\",\n+  \"mechanical\": {\n+    \"commands\": [\n+      {\n+        \"argv\": [\"python3\", \"check_skill.py\"],\n+        \"exit_code\": 0\n+      }\n+    ]\n+  },\n+  \"judge\": {\n+    \"enabled\": false,\n+    \"criteria\": []\n+  }\n+}\n--- /dev/null\n+++ b/weather-brief/evals/cases/brief-workflow/fixture/check_skill.py\n@@ -0,0 +1,21 @@\n+import os\n+from pathlib import Path\n+\n+\n+skill = Path(os.environ[\"SKILL_EVAL_SKILL_DIR\"])\n+content = (skill / \"SKILL.md\").read_text(encoding=\"utf-8\")\n+required = (\n+    \"name: weather-brief\",\n+    \"supplied weather facts\",\n+    \"concise morning brief\",\n+    \"Use only the supplied facts.\",\n+    \"Do not invent missing conditions\",\n+    \"## Process\",\n+    \"2 to 4 sentences\",\n+    \"## Output\",\n+)\n+missing = [phrase for phrase in required if phrase not in content]\n+if \"TODO\" in content:\n+    missing.append(\"no TODO placeholders\")\n+if missing:\n+    raise SystemExit(\"Missing required skill contract: \" + \", \".join(missing))\n--- /dev/null\n+++ b/weather-brief/evals/suite.json\n@@ -0,0 +1,4 @@\n+{\n+  \"version\": 1,\n+  \"cases\": [\"brief-workflow\"]\n+}\n",
+        "fragments": [
+          {
+            "path": "creation-evidence.json",
+            "before_sha256": null,
+            "after_sha256": "1792fbe133b1cf46d6947ee8036d69c4a41e458accc82c344b67dcfe68f2c4be",
+            "before_size": null,
+            "after_size": 514,
+            "before": "",
+            "after": "{\n  \"skill_creator_path\": \"/home/renanfranca/.codex/skills/.system/skill-creator/SKILL.md\",\n  \"scaffold_argv\": [\n    \"python3\",\n    \"/home/renanfranca/.codex/skills/.system/skill-creator/scripts/init_skill.py\",\n    \"weather-brief\",\n    \"--path\",\n    \".\",\n    \"--interface\",\n    \"display_name=Weather Brief\",\n    \"--interface\",\n    \"short_description=Turn weather facts into morning briefs\",\n    \"--interface\",\n    \"default_prompt=Use $weather-brief to turn these weather facts into a concise morning brief.\"\n  ]\n}\n",
+            "binary": false
+          },
+          {
+            "path": "weather-brief/SKILL.md",
+            "before_sha256": null,
+            "after_sha256": "0a5f4a98d38e1fc0b25787a3c2d0dcadbf8ebe2f30160586e676b84a5bbf829b",
+            "before_size": null,
+            "after_size": 1276,
+            "before": "",
+            "after": "---\nname: weather-brief\ndescription: Turn supplied weather facts into a concise morning brief. Use when a user provides conditions, temperatures, precipitation, wind, alerts, or forecast timing and wants a clear morning weather summary.\n---\n\n# Weather Brief\n\nTurn supplied weather facts into a short, practical update for the morning.\n\n## Process\n\n1. Identify the location, date or period, current conditions, temperatures, precipitation chance and timing, wind, alerts, and any conditions that affect plans.\n2. Use only the supplied facts. Do not invent missing conditions, timing, locations, or forecasts.\n3. Lead with the overall conditions and temperature range. Add the most relevant timing, precipitation, wind, alert, or comfort detail.\n4. End with one practical recommendation only when the facts support it, such as bringing an umbrella, dressing in layers, or allowing extra travel time.\n\n## Output\n\nWrite 2 to 4 sentences in a friendly, direct tone. Include numbers only when they make the brief more useful. Omit unavailable details instead of calling attention to every missing field.\n\nExample: \"Cool and dry this morning, with temperatures climbing from 12°C to 19°C. Skies stay mostly clear, though winds pick up after 9 AM. A light jacket should be enough.\"\n",
+            "binary": false
+          },
+          {
+            "path": "weather-brief/agents/openai.yaml",
+            "before_sha256": null,
+            "after_sha256": "2f60ba72356f4724520fb3fa1695de13a4131098b24275e6de6fd9a14b16052f",
+            "before_size": null,
+            "after_size": 202,
+            "before": "",
+            "after": "interface:\n  display_name: \"Weather Brief\"\n  short_description: \"Turn weather facts into morning briefs\"\n  default_prompt: \"Use $weather-brief to turn these weather facts into a concise morning brief.\"\n",
+            "binary": false
+          },
+          {
+            "path": "weather-brief/evals/cases/brief-workflow/case.json",
+            "before_sha256": null,
+            "after_sha256": "67adaa0046f5b3c6d7b9c802a4bb629236b692c943d54c01f4d316abe083b6ec",
+            "before_size": null,
+            "after_size": 248,
+            "before": "",
+            "after": "{\n  \"id\": \"brief-workflow\",\n  \"kind\": \"deterministic\",\n  \"mechanical\": {\n    \"commands\": [\n      {\n        \"argv\": [\"python3\", \"check_skill.py\"],\n        \"exit_code\": 0\n      }\n    ]\n  },\n  \"judge\": {\n    \"enabled\": false,\n    \"criteria\": []\n  }\n}\n",
+            "binary": false
+          },
+          {
+            "path": "weather-brief/evals/cases/brief-workflow/fixture/check_skill.py",
+            "before_sha256": null,
+            "after_sha256": "645b455633489c847752a23dce3ffd813188e508f5f3ef3af3696a1ab1e7ddcd",
+            "before_size": null,
+            "after_size": 604,
+            "before": "",
+            "after": "import os\nfrom pathlib import Path\n\n\nskill = Path(os.environ[\"SKILL_EVAL_SKILL_DIR\"])\ncontent = (skill / \"SKILL.md\").read_text(encoding=\"utf-8\")\nrequired = (\n    \"name: weather-brief\",\n    \"supplied weather facts\",\n    \"concise morning brief\",\n    \"Use only the supplied facts.\",\n    \"Do not invent missing conditions\",\n    \"## Process\",\n    \"2 to 4 sentences\",\n    \"## Output\",\n)\nmissing = [phrase for phrase in required if phrase not in content]\nif \"TODO\" in content:\n    missing.append(\"no TODO placeholders\")\nif missing:\n    raise SystemExit(\"Missing required skill contract: \" + \", \".join(missing))\n",
+            "binary": false
+          },
+          {
+            "path": "weather-brief/evals/suite.json",
+            "before_sha256": null,
+            "after_sha256": "88a355dae62111a5ba6db2eca526a9668fd87714a6831046c8bbc0f1b44561ac",
+            "before_size": null,
+            "after_size": 50,
+            "before": "",
+            "after": "{\n  \"version\": 1,\n  \"cases\": [\"brief-workflow\"]\n}\n",
+            "binary": false
+          }
+        ],
+        "truncated": false,
+        "truncations": [],
+        "limits": {
+          "capture_bytes_per_file": 32768,
+          "diff_bytes_per_file": 12000,
+          "diff_bytes_per_report": 64000,
+          "fragment_bytes": 2000
+        }
+      },
+      "workspace": {
+        "original_path": "/tmp/persist-eval-evidence.auoqZx/pilot-v2-artifacts/run-v2-04/run-0_e9xc8i/load-skill-creator-first-9y_tnadt",
+        "retention": "removed"
+      }
+    }
+  ],
+  "limitations": [
+    "No raw Codex JSONL or complete transcript is persisted.",
+    "Structured executor fields record concise declared decisions, not private reasoning.",
+    "Diffs and text fragments are sanitized and bounded."
+  ],
+  "report_digest": {
+    "algorithm": "sha256",
+    "value": "6a7170d6c4db50f67be18031d922a6ddaf81bca1e847373698ea397aab5237a8"
+  }
+}

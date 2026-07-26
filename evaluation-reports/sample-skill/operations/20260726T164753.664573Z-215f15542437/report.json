@@ -1,0 +1,374 @@
+{
+  "schema_version": 1,
+  "operation": {
+    "id": "20260726T164753.664573Z-215f15542437",
+    "type": "run",
+    "status": "PASS",
+    "workflow": null,
+    "promotion_eligible": false,
+    "failure_category": null
+  },
+  "provenance": "executed",
+  "started_at": "2026-07-26T16:47:53.664573Z",
+  "finished_at": "2026-07-26T16:47:53.704384Z",
+  "duration_ms": 71,
+  "skill": {
+    "path": "/tmp/persist-eval-evidence.auoqZx/candidate-source/develop-skill-with-evals/evals/cases/execution-evidence-report/fixture/sample-skill",
+    "name": "sample-skill"
+  },
+  "fingerprints": {
+    "manifest": "e5ac6031ac713ba735a508e861a2db107c034d6139f14131849e8110322fa75b",
+    "cases": {
+      "write-result": "b04a4e9a0423d675e4594e91368d0abb2bc6b3d874eb8c9fc5e5b9110c4bfa11"
+    },
+    "sources": {
+      "evaluated": "5c6b06c15c06bd277553e111b4fbaa3658f6357b2decc624267c62f78dca3a08"
+    },
+    "runtime": "02cca02085fff10fd50f0d3a1d98b59729eabc83235ae3a63f030a8a1a2b8ab1",
+    "evaluation": "3a2dc2e4d1d3ac406bf20ae61cd0c4498f692b3bc5ff15e53ae15e0b19d706df"
+  },
+  "environment": {
+    "codex_cli": {
+      "status": "available",
+      "version": "codex-cli fixture"
+    },
+    "authentication": {
+      "status": "available",
+      "mode": "chatgpt"
+    },
+    "runner": {
+      "path": "/tmp/persist-eval-evidence.auoqZx/candidate-source/develop-skill-with-evals/scripts/run_skill_evals.py",
+      "sha256": "553f07db2db6e113463a2fc3c0249d8f0098b664e38502be93f973759eba210a"
+    }
+  },
+  "billing": {
+    "mode": "chatgpt-plan",
+    "actual_charge_observed": false
+  },
+  "runtime": {
+    "required": true,
+    "complete": true,
+    "audit_quality": "promotion",
+    "executor": {
+      "required": true,
+      "model": "fixture-model",
+      "model_source": "cli",
+      "reasoning_effort": "medium",
+      "reasoning_effort_source": "cli"
+    },
+    "judge": {
+      "required": false,
+      "model": "fixture-model",
+      "model_source": "executor",
+      "reasoning_effort": "medium",
+      "reasoning_effort_source": "executor"
+    }
+  },
+  "sessions": {
+    "planned": {
+      "executor": 1,
+      "judge": 0,
+      "total": 1
+    },
+    "executed": {
+      "executor": 1,
+      "judge": 0,
+      "total": 1
+    },
+    "provenance": "executed"
+  },
+  "usage": {
+    "input_tokens": 20,
+    "cached_input_tokens": 5,
+    "output_tokens": 8,
+    "reasoning_output_tokens": 2,
+    "total_tokens": 28,
+    "complete": true,
+    "reasoning_output_tokens_complete": true,
+    "events": [
+      {
+        "input_tokens": 20,
+        "cached_input_tokens": 5,
+        "output_tokens": 8,
+        "sequence": 1,
+        "source_event_type": "turn.completed",
+        "scope": "turn",
+        "reasoning_output_tokens": 2,
+        "total_tokens": 28,
+        "complete": true,
+        "reasoning_output_tokens_complete": true
+      }
+    ],
+    "event_count": 1,
+    "events_complete": true
+  },
+  "pricing": {
+    "applied": true,
+    "snapshot": {
+      "version": 1,
+      "effective_date": "2026-07-26",
+      "source": "https://example.test/fixture-pricing",
+      "currency": "USD",
+      "unit": "per_million_tokens",
+      "models": {
+        "fixture-model": {
+          "input": 1.0,
+          "cached_input": 0.5,
+          "output": 2.0
+        }
+      },
+      "limitations": [
+        "Fixture prices validate calculation only and are not an actual charge."
+      ]
+    },
+    "limitations": [
+      "Fixture prices validate calculation only and are not an actual charge."
+    ]
+  },
+  "api_reference_estimate": {
+    "available": true,
+    "status": "complete",
+    "currency": "USD",
+    "amount": 3.35e-05,
+    "base_rate_amount": 3.35e-05,
+    "actual_charge": false,
+    "billing_mode": "chatgpt-plan",
+    "calculation": {
+      "model": "fixture-model",
+      "unit": "per_million_tokens",
+      "tokens": {
+        "uncached_input": 15,
+        "cached_input": 5,
+        "output": 8,
+        "reasoning_output": 2
+      },
+      "rates": {
+        "input": 1.0,
+        "cached_input": 0.5,
+        "output": 2.0
+      },
+      "components": {
+        "input": 1.5e-05,
+        "cached_input": 2.5e-06,
+        "output": 1.6e-05
+      },
+      "reasoning_note": "Reasoning output tokens are reported separately and are not added again because they are a subset of output tokens."
+    },
+    "long_context_assessment": null,
+    "limitations": [
+      "This is an API reference estimate, not an observed charge.",
+      "Fixture prices validate calculation only and are not an actual charge."
+    ]
+  },
+  "observations": [
+    {
+      "case_id": "write-result",
+      "status": "PASS",
+      "kind": "behavioral",
+      "role": "observation",
+      "repetition": 1,
+      "provenance": "executed",
+      "started_at": "2026-07-26T16:47:53.665901Z",
+      "finished_at": "2026-07-26T16:47:53.704047Z",
+      "duration_ms": 38,
+      "prompt": "Create `result.txt` containing exactly `ok`.\n",
+      "executor": {
+        "enabled": true,
+        "executed": true,
+        "exit_code": 0,
+        "duration_ms": 16,
+        "response": {
+          "summary": "Created the requested result.",
+          "classification": "implementation",
+          "evidence": [
+            "result.txt contains ok"
+          ],
+          "files_changed": [
+            "result.txt"
+          ],
+          "diagnosis": "The required result was absent.",
+          "approach": [
+            "Create the exact requested file."
+          ],
+          "decisions": [
+            "Use plain UTF-8 text."
+          ],
+          "rejected_alternatives": [],
+          "key_changes": [
+            "Added result.txt."
+          ],
+          "validation": [
+            "Checked the required path and contents."
+          ]
+        },
+        "usage": {
+          "input_tokens": 20,
+          "cached_input_tokens": 5,
+          "output_tokens": 8,
+          "reasoning_output_tokens": 2,
+          "total_tokens": 28,
+          "complete": true,
+          "reasoning_output_tokens_complete": true,
+          "events": [
+            {
+              "input_tokens": 20,
+              "cached_input_tokens": 5,
+              "output_tokens": 8,
+              "sequence": 1,
+              "source_event_type": "turn.completed",
+              "scope": "turn",
+              "reasoning_output_tokens": 2,
+              "total_tokens": 28,
+              "complete": true,
+              "reasoning_output_tokens_complete": true
+            }
+          ],
+          "event_count": 1,
+          "events_complete": true
+        }
+      },
+      "mechanical": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "executor exit code",
+            "passed": true,
+            "detail": "expected 0, got 0"
+          },
+          {
+            "name": "executor response schema",
+            "passed": true,
+            "detail": "structured response present and valid"
+          },
+          {
+            "name": "required path: result.txt",
+            "passed": true,
+            "detail": "result.txt"
+          },
+          {
+            "name": "forbidden changed path: .agents/skills/**",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "evaluated skill remained unchanged",
+            "passed": true,
+            "detail": "repository-scoped skill hash comparison"
+          },
+          {
+            "name": "command: python3 -c from pathlib import Path; assert Path('result.txt').read_text(encoding='utf-8') == 'ok'",
+            "passed": true,
+            "detail": "expected 0, got 0"
+          }
+        ],
+        "commands": [
+          {
+            "argv": [
+              "python3",
+              "-c",
+              "from pathlib import Path; assert Path('result.txt').read_text(encoding='utf-8') == 'ok'"
+            ],
+            "exit_code": 0,
+            "stdout": "",
+            "stderr": ""
+          }
+        ]
+      },
+      "oracle": {
+        "enabled": false,
+        "passed": true,
+        "commands": []
+      },
+      "judge": {
+        "enabled": false,
+        "executed": false,
+        "verdict": "PASS",
+        "rationale": "Semantic judge disabled for this case.",
+        "evidence": [],
+        "duration_ms": 0,
+        "usage": {
+          "input_tokens": null,
+          "cached_input_tokens": null,
+          "output_tokens": null,
+          "reasoning_output_tokens": null,
+          "total_tokens": null,
+          "complete": false,
+          "reasoning_output_tokens_complete": false,
+          "events": [],
+          "event_count": 0,
+          "events_complete": false
+        },
+        "failure_category": null
+      },
+      "sessions": {
+        "executor": 1,
+        "judge": 0,
+        "total": 1
+      },
+      "usage": {
+        "input_tokens": 20,
+        "cached_input_tokens": 5,
+        "output_tokens": 8,
+        "reasoning_output_tokens": 2,
+        "total_tokens": 28,
+        "complete": true,
+        "reasoning_output_tokens_complete": true,
+        "events": [
+          {
+            "input_tokens": 20,
+            "cached_input_tokens": 5,
+            "output_tokens": 8,
+            "sequence": 1,
+            "source_event_type": "turn.completed",
+            "scope": "turn",
+            "reasoning_output_tokens": 2,
+            "total_tokens": 28,
+            "complete": true,
+            "reasoning_output_tokens_complete": true
+          }
+        ],
+        "event_count": 1,
+        "events_complete": true
+      },
+      "evidence": {
+        "changed_files": [
+          "result.txt"
+        ],
+        "diff": "--- /dev/null\n+++ b/result.txt\n@@ -0,0 +1 @@\n+ok",
+        "fragments": [
+          {
+            "path": "result.txt",
+            "before_sha256": null,
+            "after_sha256": "2689367b205c16ce32ed4200942b8b8b1e262dfc70d9bc9fbc77c49699a4f1df",
+            "before_size": null,
+            "after_size": 2,
+            "before": "",
+            "after": "ok",
+            "binary": false
+          }
+        ],
+        "truncated": false,
+        "truncations": [],
+        "limits": {
+          "capture_bytes_per_file": 32768,
+          "diff_bytes_per_file": 12000,
+          "diff_bytes_per_report": 64000,
+          "fragment_bytes": 2000
+        }
+      },
+      "workspace": {
+        "original_path": "/tmp/persist-eval-evidence.auoqZx/fresh-agent-work/run-01/artifacts/run-ts36k3c6/write-result-jz_3xvc6",
+        "retention": "removed"
+      }
+    }
+  ],
+  "limitations": [
+    "No raw Codex JSONL or complete transcript is persisted.",
+    "Structured executor fields record concise declared decisions, not private reasoning.",
+    "Diffs and text fragments are sanitized and bounded."
+  ],
+  "report_digest": {
+    "algorithm": "sha256",
+    "value": "ae65c37788b6c598f5ef566f87acf433a94d199233caf7dc3b668b7c0466e7b3"
+  }
+}

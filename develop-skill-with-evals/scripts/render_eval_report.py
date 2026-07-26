@@ -6,10 +6,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from eval_report import atomic_write_text
+from eval_report import atomic_write_text, load_report, validate_report
 
 
 def render_report(report: dict[str, Any]) -> str:
+  validate_report(report)
   operation = report["operation"]
   estimate = report["api_reference_estimate"]
   lines = [
@@ -143,7 +144,8 @@ def render_report(report: dict[str, Any]) -> str:
     ),
     "",
   ])
-  return "\n".join(lines)
+  rendered = "\n".join(lines)
+  return "\n".join(line.rstrip() for line in rendered.split("\n"))
 
 
 def _usage_line(usage: dict[str, Any]) -> str:
@@ -179,10 +181,7 @@ def main() -> int:
   parser.add_argument("--input", type=Path, required=True)
   parser.add_argument("--output", type=Path, required=True)
   args = parser.parse_args()
-  with args.input.open(encoding="utf-8") as stream:
-    report = json.load(stream)
-  if not isinstance(report, dict):
-    raise ValueError("Report must contain a JSON object")
+  report = load_report(args.input)
   atomic_write_text(args.output, render_report(report))
   return 0
 

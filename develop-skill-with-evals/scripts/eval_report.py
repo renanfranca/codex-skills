@@ -28,6 +28,7 @@ SECRET_PATTERNS = (
     r"([^\s,'\"}]+)"
   ),
 )
+REPORT_SCHEMA_VERSION = 1
 
 
 def canonical_json(value: Any) -> str:
@@ -47,6 +48,69 @@ def report_digest(report: dict[str, Any]) -> str:
   payload = dict(report)
   payload.pop("report_digest", None)
   return sha256_bytes(canonical_json(payload).encode("utf-8"))
+
+
+def validate_report(report: dict[str, Any], source: str = "report") -> None:
+  required = {
+    "schema_version",
+    "operation",
+    "provenance",
+    "started_at",
+    "finished_at",
+    "duration_ms",
+    "skill",
+    "fingerprints",
+    "environment",
+    "billing",
+    "runtime",
+    "sessions",
+    "usage",
+    "pricing",
+    "api_reference_estimate",
+    "observations",
+    "limitations",
+    "report_digest",
+  }
+  missing = sorted(required - report.keys())
+  if missing:
+    raise ValueError(f"{source} is missing report fields: {', '.join(missing)}")
+  if report.get("schema_version") != REPORT_SCHEMA_VERSION:
+    raise ValueError(
+      f"{source} uses unsupported report schema version "
+      f"{report.get('schema_version')!r}"
+    )
+  operation = report.get("operation")
+  if not isinstance(operation, dict) or not isinstance(operation.get("id"), str):
+    raise ValueError(f"{source} has no valid operation id")
+  skill = report.get("skill")
+  if not isinstance(skill, dict) or not isinstance(skill.get("name"), str):
+    raise ValueError(f"{source} has no valid skill name")
+  if report.get("provenance") != "executed":
+    raise ValueError(f"{source} has unsupported provenance")
+  if not isinstance(report.get("observations"), list):
+    raise ValueError(f"{source} observations must be an array")
+  if report.get("billing", {}).get("actual_charge_observed") is not False:
+    raise ValueError(f"{source} must record actual_charge_observed as false")
+  if report.get("api_reference_estimate", {}).get("actual_charge") is not False:
+    raise ValueError(f"{source} must record actual_charge as false")
+  digest = report.get("report_digest")
+  if not isinstance(digest, dict) or digest.get("algorithm") != "sha256":
+    raise ValueError(f"{source} has no valid SHA-256 report digest")
+  expected = report_digest(report)
+  if digest.get("value") != expected:
+    raise ValueError(
+      f"{source} report digest mismatch: expected {expected}, "
+      f"found {digest.get('value')}"
+    )
+
+
+def load_report(path: Path) -> dict[str, Any]:
+  with path.open(encoding="utf-8") as stream:
+    report = json.load(stream)
+  if not isinstance(report, dict):
+    raise ValueError(f"Report must contain a JSON object: {path}")
+  validate_report(report, str(path))
+  return report
 
 
 def atomic_write_text(path: Path, value: str) -> None:

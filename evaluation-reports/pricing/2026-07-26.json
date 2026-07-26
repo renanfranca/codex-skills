@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "effective_date": "2026-07-26",
+  "source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol; https://developers.openai.com/api/docs/models/gpt-5.6-terra; https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+  "currency": "USD",
+  "unit": "per_million_tokens",
+  "models": {
+    "gpt-5.6-sol": {
+      "input": 5.0,
+      "cached_input": 0.5,
+      "output": 30.0,
+      "long_context": {
+        "input_token_threshold": 272000,
+        "input_multiplier": 2.0,
+        "output_multiplier": 1.5,
+        "applies_per": "request"
+      }
+    },
+    "gpt-5.6-terra": {
+      "input": 2.5,
+      "cached_input": 0.25,
+      "output": 15.0,
+      "long_context": {
+        "input_token_threshold": 272000,
+        "input_multiplier": 2.0,
+        "output_multiplier": 1.5,
+        "applies_per": "request"
+      }
+    },
+    "gpt-5.6-luna": {
+      "input": 1.0,
+      "cached_input": 0.1,
+      "output": 6.0,
+      "long_context": {
+        "input_token_threshold": 272000,
+        "input_multiplier": 2.0,
+        "output_multiplier": 1.5,
+        "applies_per": "request"
+      }
+    }
+  },
+  "limitations": [
+    "This dated table is an API reference and is not an observed ChatGPT charge.",
+    "Prompts above 272,000 input tokens use the documented higher rates; an exact estimate is unavailable when normalized telemetry does not expose request scoped input.",
+    "Cache write charges are not estimated because Codex JSONL usage does not identify cache writes.",
+    "Reasoning output tokens are reported separately but are already included in output tokens."
+  ]
+}

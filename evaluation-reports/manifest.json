@@ -1,0 +1,444 @@
+{
+  "version": 1,
+  "canonical_format": "report.json",
+  "report_count": 23,
+  "reports": [
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T135400.814626Z-f6f8831020c6",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 1060145,
+        "cached_input": 980992,
+        "output": 12554,
+        "reasoning_output": 3876,
+        "total": 1072699
+      },
+      "duration_ms": 342108,
+      "digest": "a793aa10035424a5573baa82849f91695aa3cd61cbe35017b27b9e5ed0a107d7",
+      "path": "develop-skill-with-evals/operations/20260726T135400.814626Z-f6f8831020c6/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T141839.575391Z-5ae726e51321",
+      "operation": "run",
+      "status": "ERROR",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": null,
+        "cached_input": null,
+        "output": null,
+        "reasoning_output": null,
+        "total": null
+      },
+      "duration_ms": 263,
+      "digest": "33145fc174981257365332e683da9afce6f4831ad42dd7f1baabd7ed85fdc9c9",
+      "path": "develop-skill-with-evals/operations/20260726T141839.575391Z-5ae726e51321/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T142523.377510Z-706003141596",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 831401,
+        "cached_input": 760064,
+        "output": 10775,
+        "reasoning_output": 2542,
+        "total": 842176
+      },
+      "duration_ms": 345221,
+      "digest": "3fc77f5548e51a7471a225c8e7ec4190de369981272ef031974b0883694fc883",
+      "path": "develop-skill-with-evals/operations/20260726T142523.377510Z-706003141596/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T143154.742965Z-2ae09d167f9b",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 452849,
+        "cached_input": 409344,
+        "output": 5740,
+        "reasoning_output": 1995,
+        "total": 458589
+      },
+      "duration_ms": 137801,
+      "digest": "c4d48db0e11e59ff9769bc03b17e25c1c2616d6203db2bfe5eae0ae133c4b2f9",
+      "path": "develop-skill-with-evals/operations/20260726T143154.742965Z-2ae09d167f9b/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T143800.156220Z-2ce7193389c5",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 576087,
+        "cached_input": 501248,
+        "output": 6816,
+        "reasoning_output": 2750,
+        "total": 582903
+      },
+      "duration_ms": 157326,
+      "digest": "6a7170d6c4db50f67be18031d922a6ddaf81bca1e847373698ea397aab5237a8",
+      "path": "develop-skill-with-evals/operations/20260726T143800.156220Z-2ce7193389c5/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T144022.093172Z-26f480b75a5b",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 478714,
+        "cached_input": 415232,
+        "output": 8586,
+        "reasoning_output": 1808,
+        "total": 487300
+      },
+      "duration_ms": 187627,
+      "digest": "a07c60ff3e2fa382f4c9d3877a48647bdc2fadf1d892e0098f49d7fa8290ac03",
+      "path": "develop-skill-with-evals/operations/20260726T144022.093172Z-26f480b75a5b/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T144054.112991Z-200a20696ea7",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 185620,
+        "cached_input": 139776,
+        "output": 3891,
+        "reasoning_output": 747,
+        "total": 189511
+      },
+      "duration_ms": 82395,
+      "digest": "fb5264971c2b868d24ff89335d6720ae7dd966177c3cf067ed35f95d6bc00e17",
+      "path": "develop-skill-with-evals/operations/20260726T144054.112991Z-200a20696ea7/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T144240.270612Z-290ff88e6dea",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 1257636,
+        "cached_input": 1176320,
+        "output": 14414,
+        "reasoning_output": 3688,
+        "total": 1272050
+      },
+      "duration_ms": 405037,
+      "digest": "606a966f2466da79e54ea2171c48718fac16426e9f7b7ad51cc53d4a43daf4f5",
+      "path": "develop-skill-with-evals/operations/20260726T144240.270612Z-290ff88e6dea/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T144943.249622Z-6fd37796e609",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 471665,
+        "cached_input": 423936,
+        "output": 7876,
+        "reasoning_output": 1964,
+        "total": 479541
+      },
+      "duration_ms": 173263,
+      "digest": "4ae2c09370ab86c2d4d1a3e7ecb847cd42f85e8e3105885675a71325cadf5781",
+      "path": "develop-skill-with-evals/operations/20260726T144943.249622Z-6fd37796e609/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T145252.671822Z-4954bd0ffca7",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 1625618,
+        "cached_input": 1542400,
+        "output": 13954,
+        "reasoning_output": 3770,
+        "total": 1639572
+      },
+      "duration_ms": 382710,
+      "digest": "71a7510bd0e435355022d744dfa60a9be7eeac493f24d7366c8d525daaac5685",
+      "path": "develop-skill-with-evals/operations/20260726T145252.671822Z-4954bd0ffca7/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T145931.784014Z-5e8967433fab",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 704984,
+        "cached_input": 651520,
+        "output": 8015,
+        "reasoning_output": 2584,
+        "total": 712999
+      },
+      "duration_ms": 194867,
+      "digest": "33b10a1a1e2bf07f37ba74a74ea356bd975917fc5b45390ad1215824ffa464ac",
+      "path": "develop-skill-with-evals/operations/20260726T145931.784014Z-5e8967433fab/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T150304.264058Z-c2779f082697",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 444607,
+        "cached_input": 403712,
+        "output": 5043,
+        "reasoning_output": 777,
+        "total": 449650
+      },
+      "duration_ms": 119874,
+      "digest": "74c85e9fa49fae421a1d022866da4ca30c58a3b2d1a6ab2341de1bdd201592df",
+      "path": "develop-skill-with-evals/operations/20260726T150304.264058Z-c2779f082697/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T150521.633411Z-9201a817610e",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 331526,
+        "cached_input": 290304,
+        "output": 3525,
+        "reasoning_output": 706,
+        "total": 335051
+      },
+      "duration_ms": 82852,
+      "digest": "1b0df40fecd5b9438fb64795930ecd1bf3049fbd34a1e50debc28f09d87fbb39",
+      "path": "develop-skill-with-evals/operations/20260726T150521.633411Z-9201a817610e/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T150700.894622Z-915d8ae4a645",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 701419,
+        "cached_input": 642816,
+        "output": 6127,
+        "reasoning_output": 1366,
+        "total": 707546
+      },
+      "duration_ms": 158578,
+      "digest": "a937b4ccb3df208d75434e57ed2c28e5cb1ea79a8dbd69a8ade156befe3b09c8",
+      "path": "develop-skill-with-evals/operations/20260726T150700.894622Z-915d8ae4a645/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T150955.798710Z-4141bf891321",
+      "operation": "run",
+      "status": "FAIL",
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 445960,
+        "cached_input": 400128,
+        "output": 4417,
+        "reasoning_output": 800,
+        "total": 450377
+      },
+      "duration_ms": 105327,
+      "digest": "90c3ab3468c0ecb4663306a857d2dbd58c635817e19436ac864d3b0eb527f798",
+      "path": "develop-skill-with-evals/operations/20260726T150955.798710Z-4141bf891321/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T151204.350808Z-4a0eb0057728",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 678628,
+        "cached_input": 622336,
+        "output": 5981,
+        "reasoning_output": 1628,
+        "total": 684609
+      },
+      "duration_ms": 164653,
+      "digest": "1d71ed7e32c8ad92254c47bdfd75e1964b869fcb31950c71ac4fe91cc5637df8",
+      "path": "develop-skill-with-evals/operations/20260726T151204.350808Z-4a0eb0057728/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T151506.815062Z-b080dfdb515a",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 340814,
+        "cached_input": 289024,
+        "output": 4223,
+        "reasoning_output": 642,
+        "total": 345037
+      },
+      "duration_ms": 104876,
+      "digest": "4b254c80991e7bb1fa9650612bd9f500e60729dde441410930b16e2bed26c60d",
+      "path": "develop-skill-with-evals/operations/20260726T151506.815062Z-b080dfdb515a/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T151709.605027Z-e8697413da0a",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 737774,
+        "cached_input": 676608,
+        "output": 5863,
+        "reasoning_output": 1257,
+        "total": 743637
+      },
+      "duration_ms": 193996,
+      "digest": "903cda09f75c1da77aa8b57006959dd507fa690b6b615e0c1e8ecfc2627364e5",
+      "path": "develop-skill-with-evals/operations/20260726T151709.605027Z-e8697413da0a/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T152041.581095Z-f3125f1ad84c",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 389673,
+        "cached_input": 334080,
+        "output": 4218,
+        "reasoning_output": 561,
+        "total": 393891
+      },
+      "duration_ms": 96047,
+      "digest": "1053cd6a1d713f4787d2ed25e1900f388b44038eef6dc6ff52012141484dafdf",
+      "path": "develop-skill-with-evals/operations/20260726T152041.581095Z-f3125f1ad84c/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T152233.746420Z-9c8ebe8313e0",
+      "operation": "run",
+      "status": "FAIL",
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 535435,
+        "cached_input": 487680,
+        "output": 5850,
+        "reasoning_output": 1411,
+        "total": 541285
+      },
+      "duration_ms": 129516,
+      "digest": "e3f6268cb1d8b0bf259fa19f2c0b4fe99f5358f0ed62316d07b92e06a5b29bd5",
+      "path": "develop-skill-with-evals/operations/20260726T152233.746420Z-9c8ebe8313e0/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T154034.751426Z-1b55504205b5",
+      "operation": "validate-change",
+      "status": "FAIL",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 11,
+      "tokens": {
+        "input": 5210253,
+        "cached_input": 4682752,
+        "output": 55651,
+        "reasoning_output": 16964,
+        "total": 5265904
+      },
+      "duration_ms": 1669037,
+      "digest": "b9be4c59a4cae6c3bbb0a33707cb20a4b0c1c4c5e02fc41e9ea97fd0e09a294e",
+      "path": "develop-skill-with-evals/operations/20260726T154034.751426Z-1b55504205b5/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260726T161420.645412Z-e164c11ef470",
+      "operation": "validate-change",
+      "status": "PASS",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 15,
+      "tokens": {
+        "input": 4925286,
+        "cached_input": 4319232,
+        "output": 60079,
+        "reasoning_output": 14439,
+        "total": 4985365
+      },
+      "duration_ms": 1771521,
+      "digest": "99b5603a64f694d5e5eefd037bda93117ec6d9d3e5343cdfb5cb8525a81c6949",
+      "path": "develop-skill-with-evals/operations/20260726T161420.645412Z-e164c11ef470/report.json"
+    },
+    {
+      "skill": "sample-skill",
+      "operation_id": "20260726T164753.664573Z-215f15542437",
+      "operation": "run",
+      "status": "PASS",
+      "model": "fixture-model",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 20,
+        "cached_input": 5,
+        "output": 8,
+        "reasoning_output": 2,
+        "total": 28
+      },
+      "duration_ms": 71,
+      "digest": "ae65c37788b6c598f5ef566f87acf433a94d199233caf7dc3b668b7c0466e7b3",
+      "path": "sample-skill/operations/20260726T164753.664573Z-215f15542437/report.json"
+    }
+  ]
+}

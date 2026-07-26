@@ -12,6 +12,7 @@
     "auditable-runtime-contract",
     "explicit-runtime-promotion-workflow",
     "cost-efficient-runtime-contract",
-    "execution-evidence-report"
+    "execution-evidence-report",
+    "persistent-evaluation-archive"
   ]
 }

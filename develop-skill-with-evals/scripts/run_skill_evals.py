@@ -36,6 +36,11 @@ from eval_report import (
   report_digest,
   sanitize_fact,
 )
+from archive_config import (
+  ARCHIVE_CONFIG_NAME,
+  configured_pricing_path,
+  load_archive_config,
+)
 from render_eval_report import render_report
 
 
@@ -180,6 +185,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.error(
       "--campaign-ledger and --approved-cumulative-model-sessions must be supplied together"
     )
+  if getattr(args, "no_report", False) and (
+    getattr(args, "report_dir", None) is not None
+    or getattr(args, "pricing_file", None) is not None
+  ):
+    parser.error("--no-report is incompatible with --report-dir and --pricing-file")
   if (
     getattr(args, "pricing_file", None) is not None
     and getattr(args, "report_dir", None) is None
@@ -205,6 +215,11 @@ def add_runtime_arguments(parser: argparse.ArgumentParser) -> None:
   parser.add_argument("--artifacts-dir", type=Path, default=Path("/tmp/skill-eval-artifacts"))
   parser.add_argument("--report-dir", type=Path)
   parser.add_argument("--pricing-file", type=Path)
+  parser.add_argument(
+    "--no-report",
+    action="store_true",
+    help="Disable explicit and automatic evidence report persistence",
+  )
   progress = parser.add_mutually_exclusive_group()
   progress.add_argument("--progress", action="store_true", help="Show progress on stderr even without a TTY")
   progress.add_argument("--quiet", action="store_true", help="Suppress progress on stderr")
@@ -1929,13 +1944,13 @@ def persist_execution_report(
   results: list[dict[str, Any]],
   runtime: EvaluationRuntime,
 ) -> Path | None:
-  report_dir = getattr(args, "report_dir", None)
+  report_dir, pricing_file = report_controls(args, stdout_report)
   if report_dir is None:
     return None
   ensure_operation_context(args)
   finished_at = utc_now()
   environment = codex_environment(args.codex_command)
-  pricing = load_pricing(getattr(args, "pricing_file", None))
+  pricing = load_pricing(pricing_file)
   plan = stdout_report.get("plan")
   skill = args.skill.resolve()
   if isinstance(plan, dict):
@@ -2040,6 +2055,56 @@ def persist_execution_report(
   )
   atomic_write_text(markdown_path, render_report(report))
   return report_path
+
+
+def report_controls(
+  args: argparse.Namespace,
+  stdout_report: dict[str, Any],
+) -> tuple[Path | None, Path | None]:
+  if getattr(args, "no_report", False):
+    return None, None
+  explicit = getattr(args, "report_dir", None)
+  if explicit is not None:
+    return explicit, getattr(args, "pricing_file", None)
+  if stdout_report.get("model_sessions", {}).get("total", 0) < 1:
+    return None, None
+  if Path(args.codex_command).name != "codex":
+    return None, None
+  config_path = (
+    Path(__file__).resolve().parents[2]
+    / "evaluation-reports"
+    / ARCHIVE_CONFIG_NAME
+  )
+  if not config_path.is_file():
+    return None, None
+  config = load_archive_config(config_path)
+  pricing_file = configured_pricing_path(config_path, config)
+  report_dir = (
+    config_path.parent
+    / args.skill.resolve().name
+    / "operations"
+  )
+  return report_dir, pricing_file
+
+
+def persist_report_or_block(
+  args: argparse.Namespace,
+  report: dict[str, Any],
+  results: list[dict[str, Any]],
+  runtime: EvaluationRuntime,
+  operation_root: Path,
+) -> Path | None:
+  try:
+    return persist_execution_report(args, report, results, runtime)
+  except (OSError, ValueError) as error:
+    if report["model_sessions"]["total"] < 1:
+      raise
+    report["status"] = "ERROR"
+    report["promotion_eligible"] = False
+    report["failure_category"] = "infrastructure"
+    report["artifacts"] = str(operation_root)
+    report["report_persistence_error"] = sanitize_fact(str(error))
+    return None
 
 
 def strip_internal_result_fields(results: list[dict[str, Any]]) -> None:
@@ -2247,15 +2312,16 @@ def run_change_workflow(
     "results": results,
     "artifacts": str(operation_root) if status in BLOCKING else None,
   }
-  evidence_path = persist_execution_report(
+  evidence_path = persist_report_or_block(
     args,
     report,
     results,
     runtime,
+    operation_root,
   )
   if evidence_path is not None:
     report["evidence_report"] = str(evidence_path)
-  if status == PASS:
+  if report["status"] == PASS:
     remove_operation_root(operation_root)
     for result in results:
       result["workspace"] = None
@@ -2396,15 +2462,16 @@ def execute(args: argparse.Namespace, progress: ProgressReporter | None = None) 
     "results": results,
     "artifacts": str(operation_root) if status in BLOCKING else None,
   }
-  evidence_path = persist_execution_report(
+  evidence_path = persist_report_or_block(
     args,
     report,
     results,
     runtime,
+    operation_root,
   )
   if evidence_path is not None:
     report["evidence_report"] = str(evidence_path)
-  if status == PASS:
+  if report["status"] == PASS:
     remove_operation_root(operation_root)
     for result in results:
       result["workspace"] = None

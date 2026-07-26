@@ -373,16 +373,18 @@ Successful operations delete their workspaces and set `artifacts` and each `work
 
 ## Durable evidence and pricing
 
-Executed commands accept `--report-dir <directory>`. When supplied, the runner atomically writes canonical evidence to:
+The repository's `evaluation-reports/archive-config.json` enables automatic persistence for real Codex operations that consume at least one session. The runner atomically writes canonical evidence to:
 
 ```text
-<report-dir>/<operation-id>/report.json
-<report-dir>/<operation-id>/report.md
+evaluation-reports/<skill-name>/operations/<operation-id>/report.json
+evaluation-reports/<skill-name>/operations/<operation-id>/report.md
 ```
 
-The runner persists `report.json` before removing a successful workspace. That JSON is authoritative and includes a SHA-256 digest over its canonical content. `report.md` is a deterministic presentation rendered only from the JSON. Omitting `--report-dir` preserves the existing stdout and cleanup behavior.
+The runner persists `report.json` before removing a successful workspace. That JSON is authoritative and includes a SHA-256 digest over its canonical content. `report.md` is a deterministic presentation rendered only from the JSON. Fakes, deterministic operations, and zero session operations do not persist automatically. Without archive configuration, omission preserves the previous stdout and cleanup behavior.
 
-`--pricing-file <json>` is optional and requires `--report-dir`. Use a dated version 1 snapshot:
+`--no-report` disables automatic and explicit persistence. `--report-dir <directory>` selects an explicit destination and takes precedence over the archive. `--pricing-file <json>` is optional, requires an explicit destination, and overrides archive pricing. `--no-report` is incompatible with both options.
+
+Use a dated version 1 snapshot:
 
 ```json
 {
@@ -423,19 +425,30 @@ Regenerate presentation without invoking a model:
 
 ```bash
 python3 develop-skill-with-evals/scripts/render_eval_report.py \
-  --input /tmp/skill-eval-reports/<operation-id>/report.json \
-  --output /tmp/skill-eval-reports/<operation-id>/report.md
+  --input evaluation-reports/<skill-name>/operations/<operation-id>/report.json \
+  --output evaluation-reports/<skill-name>/operations/<operation-id>/report.md
 ```
 
 Compare every canonical report found under a directory:
 
 ```bash
 python3 develop-skill-with-evals/scripts/compare_model_reports.py \
-  --reports /tmp/skill-eval-reports \
-  --output-dir /tmp/skill-eval-comparison
+  --reports evaluation-reports/<skill-name>/operations \
+  --output-dir evaluation-reports/<skill-name>/comparisons/manual
 ```
 
-The comparator groups by executor model and case, requires at least three stable `PASS` observations in every represented case for qualification, and summarizes token totals and medians, cache ratio, output and reasoning output, duration, complete API reference cost, base rate reference, effective cost per stable gate, and explanation completeness. Never sum a partial set of exact estimates. Treat a small model matrix as directional evidence, not statistical proof or authority to change runtime defaults automatically.
+The comparator rejects incompatible schemas, invalid digests, duplicate operation IDs, and mixed skill directories. It groups by executor model and case, requires at least three stable `PASS` observations in every represented case for qualification, and summarizes token totals and medians, cache ratio, output and reasoning output, duration, complete API reference cost, base rate reference, effective cost per stable gate, and explanation completeness. Never sum a partial set of exact estimates. Treat a small model matrix as directional evidence, not statistical proof or authority to change runtime defaults automatically.
+
+Rebuild every Markdown projection, manifest, and configured comparison without a model, then validate the complete archive:
+
+```bash
+python3 develop-skill-with-evals/scripts/manage_evaluation_archive.py rebuild \
+  --archive evaluation-reports
+python3 develop-skill-with-evals/scripts/manage_evaluation_archive.py validate \
+  --archive evaluation-reports
+```
+
+The validator checks canonical schema version 1, SHA-256 digests, unique operation IDs, byte identical Markdown replay, pricing semantics, `actual_charge: false`, manifest consistency, forbidden artifact classes, skill separation, and known credential patterns. A persistence failure after session consumption blocks the operation and retains diagnostic artifacts. The runner never stages, commits, pushes, or publishes.
 
 ## Result statuses, progress, and artifacts
 
@@ -509,8 +522,6 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   --reasoning-effort medium \
   --campaign-ledger /tmp/my-skill-campaign.json \
   --approved-cumulative-model-sessions 26 \
-  --report-dir /tmp/skill-eval-reports \
-  --pricing-file /tmp/pricing-2026-07-26.json \
   --progress
 ```
 
@@ -612,8 +623,9 @@ Options are intentionally scoped to the commands that can use them:
 | `--approved-cumulative-model-sessions <n>` | `plan`, `probe-change`, `validate-change` | Approves the cumulative campaign maximum; requires a ledger path. |
 | `--runs <n>` | `stability` | Sets repetitions; defaults to `3` and must be at least `2`. |
 | `--artifacts-dir <path>` | Executed operations | Changes the artifact parent from `/tmp/skill-eval-artifacts`. |
-| `--report-dir <path>` | Executed operations | Persists canonical `report.json` and deterministic `report.md` under an operation directory. |
+| `--report-dir <path>` | Executed operations | Overrides the automatic archive and persists canonical `report.json` plus deterministic `report.md` under an operation directory. |
 | `--pricing-file <json>` | Executed operations | Applies an explicit dated API pricing reference; requires `--report-dir`. |
+| `--no-report` | Executed operations | Disables automatic and explicit persistence; incompatible with report and pricing options. |
 | `--codex-command <path>` | Executed operations | Replaces `codex`, primarily for deterministic runner tests. |
 
 `plan` accepts runtime selection controls precisely because it runs no model. It exposes the future argv and audit quality before execution. The runner never reads `config.toml`; unknown configured defaults remain `null` in `runtime` and use `configured-default` in the compatibility top-level `model` field.

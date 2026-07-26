@@ -1,0 +1,19 @@
+{
+  "id": "persistent-evaluation-archive",
+  "kind": "deterministic",
+  "mechanical": {
+    "commands": [
+      {
+        "argv": [
+          "python3",
+          "check_archive_contract.py"
+        ],
+        "exit_code": 0
+      }
+    ]
+  },
+  "judge": {
+    "enabled": false,
+    "criteria": []
+  }
+}
