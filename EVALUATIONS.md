@@ -14,9 +14,11 @@ If you want commands and prompts ready to copy rather than runner internals, sta
 - [Choose gates by impact](#choose-gates-by-impact)
 - [Plan model session usage](#plan-model-session-usage)
 - [What happens during a run](#what-happens-during-a-run)
+- [Durable evidence and pricing](#durable-evidence-and-pricing)
 - [Result statuses, progress, and artifacts](#result-statuses-progress-and-artifacts)
 - [Command reference](#command-reference)
 - [Optional runtime controls](#optional-runtime-controls)
+- [Economic runtime policy](#economic-runtime-policy)
 - [Example: evaluating `refactor-design`](#example-evaluating-refactor-design)
 - [Adding evals to another skill](#adding-evals-to-another-skill)
 - [Trigger evaluations](#trigger-evaluations)
@@ -369,6 +371,72 @@ The shortened nested objects above only show the report hierarchy. Use the linke
 
 Successful operations delete their workspaces and set `artifacts` and each `workspace` to `null`. Blocking operations retain the operation directory for diagnosis.
 
+## Durable evidence and pricing
+
+Executed commands accept `--report-dir <directory>`. When supplied, the runner atomically writes canonical evidence to:
+
+```text
+<report-dir>/<operation-id>/report.json
+<report-dir>/<operation-id>/report.md
+```
+
+The runner persists `report.json` before removing a successful workspace. That JSON is authoritative and includes a SHA-256 digest over its canonical content. `report.md` is a deterministic presentation rendered only from the JSON. Omitting `--report-dir` preserves the existing stdout and cleanup behavior.
+
+`--pricing-file <json>` is optional and requires `--report-dir`. Use a dated version 1 snapshot:
+
+```json
+{
+  "version": 1,
+  "effective_date": "2026-07-26",
+  "source": "https://example.test/pricing",
+  "currency": "USD",
+  "unit": "per_million_tokens",
+  "models": {
+    "gpt-5.6-luna": {
+      "input": 1.0,
+      "cached_input": 0.1,
+      "output": 6.0,
+      "long_context": {
+        "input_token_threshold": 272000,
+        "input_multiplier": 2.0,
+        "output_multiplier": 1.5,
+        "applies_per": "request"
+      }
+    }
+  },
+  "limitations": [
+    "Reference pricing is not an observed charge.",
+    "Cache write pricing is unavailable from runner telemetry."
+  ]
+}
+```
+
+The canonical report records operation, workflow, role, repetition, runtime and source fingerprints, planned and executed sessions, timestamps, durations, sanitized CLI and authentication metadata, structured executor declarations, mechanical facts, oracle and judge outcomes, eligible changed files, bounded diffs and fragments, truncations, usage, and optional pricing. It does not persist raw JSONL, complete transcripts, private reasoning, credentials, hidden oracle contents, installed skill contents, `.git`, `.agents/skills`, `.eval-*`, Python caches, or bytecode.
+
+`usage.events` preserves each normalized event in order with its source event type, scope, token fields, and completeness. Missing values remain `null`; the runner never substitutes zero. `reasoning_output_tokens` is reported separately when exposed but is already part of output tokens and is not priced twice.
+
+`turn.completed` usage is turn scoped. It does not prove the input size of any individual request. When a turn aggregate exceeds a long context threshold whose `applies_per` value is `request`, the exact estimate is unavailable. The report retains a labeled base rate reference with status `indeterminate-long-context` instead of applying an unsupported multiplier.
+
+Every calculated amount is an API reference estimate. Reports record the pricing date, source, currency, limitations, sanitized billing mode, and `actual_charge: false`. ChatGPT authentication does not expose a monetary charge for an individual runner execution, so these values must never be described as ChatGPT charges.
+
+Regenerate presentation without invoking a model:
+
+```bash
+python3 develop-skill-with-evals/scripts/render_eval_report.py \
+  --input /tmp/skill-eval-reports/<operation-id>/report.json \
+  --output /tmp/skill-eval-reports/<operation-id>/report.md
+```
+
+Compare every canonical report found under a directory:
+
+```bash
+python3 develop-skill-with-evals/scripts/compare_model_reports.py \
+  --reports /tmp/skill-eval-reports \
+  --output-dir /tmp/skill-eval-comparison
+```
+
+The comparator groups by executor model and case, requires at least three stable `PASS` observations in every represented case for qualification, and summarizes token totals and medians, cache ratio, output and reasoning output, duration, complete API reference cost, base rate reference, effective cost per stable gate, and explanation completeness. Never sum a partial set of exact estimates. Treat a small model matrix as directional evidence, not statistical proof or authority to change runtime defaults automatically.
+
 ## Result statuses, progress, and artifacts
 
 ### Statuses and exit codes
@@ -383,6 +451,8 @@ Successful operations delete their workspaces and set `artifacts` and each `work
 | `UNSTABLE` | Repeated normalized outcomes differed. | Remove the nondeterminism before promotion. |
 
 Executed evaluations return exit code `0` only for `PASS`. Blocking executed operations return `1`. A cost refusal returns `2`, prints the plan with `approval_required: true`, and creates no artifacts. `plan` itself returns `0`.
+
+Stop the campaign immediately on `FAIL`, `ERROR`, `INCONCLUSIVE`, `INVALID_RED`, `UNSTABLE`, or any infrastructure, authentication, quota, or subprocess failure. Diagnose the cause before another execution. Do not retry an unchanged evaluation to seek a favorable result; a new attempt requires a material correction or a new hypothesis, refreshed fingerprints when applicable, a new plan or explicit amendment, and new session approval when the maximum changes.
 
 Normalized stability signatures compare status, mechanical check names and outcomes, judge verdict, and outcome relevant changed paths. They ignore runner `.eval-*` files and generated `__pycache__` or `.pyc` files. They do not require identical model prose.
 
@@ -415,10 +485,8 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
   --impact scoped \
   --case changed-behavior \
   --workflow promotion \
-  --model gpt-5.6-sol \
-  --reasoning-effort medium \
-  --judge-model gpt-5.6-terra \
-  --judge-reasoning-effort medium
+  --model gpt-5.6-luna \
+  --reasoning-effort medium
 ```
 
 Planning is side effect free and always exits zero. It accepts `static`, `deterministic`, `scoped`, and `cross-cutting`, plus `diagnostic` or `promotion` workflow. It resolves executor and judge runtimes, fingerprints manifests, prompts, fixtures, oracles, both sources and runtime, and reports every execution blocker without creating ledgers, artifacts or subprocesses.
@@ -437,12 +505,12 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   --baseline /tmp/baseline-skill \
   --impact scoped \
   --case changed-behavior \
-  --model gpt-5.6-sol \
+  --model gpt-5.6-luna \
   --reasoning-effort medium \
-  --judge-model gpt-5.6-terra \
-  --judge-reasoning-effort medium \
   --campaign-ledger /tmp/my-skill-campaign.json \
   --approved-cumulative-model-sessions 26 \
+  --report-dir /tmp/skill-eval-reports \
+  --pricing-file /tmp/pricing-2026-07-26.json \
   --progress
 ```
 
@@ -544,11 +612,28 @@ Options are intentionally scoped to the commands that can use them:
 | `--approved-cumulative-model-sessions <n>` | `plan`, `probe-change`, `validate-change` | Approves the cumulative campaign maximum; requires a ledger path. |
 | `--runs <n>` | `stability` | Sets repetitions; defaults to `3` and must be at least `2`. |
 | `--artifacts-dir <path>` | Executed operations | Changes the artifact parent from `/tmp/skill-eval-artifacts`. |
+| `--report-dir <path>` | Executed operations | Persists canonical `report.json` and deterministic `report.md` under an operation directory. |
+| `--pricing-file <json>` | Executed operations | Applies an explicit dated API pricing reference; requires `--report-dir`. |
 | `--codex-command <path>` | Executed operations | Replaces `codex`, primarily for deterministic runner tests. |
 
 `plan` accepts runtime selection controls precisely because it runs no model. It exposes the future argv and audit quality before execution. The runner never reads `config.toml`; unknown configured defaults remain `null` in `runtime` and use `configured-default` in the compatibility top-level `model` field.
 
 For `run` and `stability`, the case manifest always comes from the current skill directory named by `--skill`, even when `--source git:<revision>` installs an older skill snapshot. This allows a newly added case to evaluate an older source.
+
+## Economic runtime policy
+
+Keep evaluation cost proportional to evidence needs:
+
+| Change or role | Durable policy |
+| --- | --- |
+| `static` or fully `deterministic` | Use structural checks, tests, schemas, mechanical oracles, fake Codex, report replay, and deterministic comparison. Maximum real model sessions: zero. |
+| `scoped` semantic change | Use `gpt-5.6-luna` with `medium` reasoning effort as the explicit executor after a side effect free plan. For one case with a complete oracle, the normal ceiling is four executor sessions: one baseline RED and three candidate GREEN runs. |
+| Semantic judge | Prefer a complete mechanical oracle. When interpretation is unavoidable, use `gpt-5.6-terra` with `medium` reasoning effort as judge under an explicit maximum. |
+| Indispensable broad promotion | Use `gpt-5.6-sol` with `medium` reasoning effort only when complexity justifies it or Luna has a demonstrated capacity failure on a representative task. Keep Terra `medium` as judge only where semantic judgment remains necessary. |
+
+Do not use Sol as an automatic retry after Luna. Escalation requires a diagnosis, a material change or new hypothesis, and a new plan. Split cross cutting work when doing so reduces the regression surface. Keep `medium` reasoning effort until a representative comparison justifies another value.
+
+The runner never reads the global `config.toml`. Model and reasoning effort must be selected explicitly for auditable promotion, so this policy does not change a global Sol `medium` default.
 
 ## Example: evaluating `refactor-design`
 
@@ -571,7 +656,7 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
   --baseline /tmp/refactor-design-baseline \
   --impact scoped \
   --case hidden-invocation-state \
-  --model gpt-5.6-sol \
+  --model gpt-5.6-luna \
   --reasoning-effort medium \
   --judge-model gpt-5.6-terra \
   --judge-reasoning-effort medium
@@ -585,7 +670,7 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   --baseline /tmp/refactor-design-baseline \
   --impact scoped \
   --case hidden-invocation-state \
-  --model gpt-5.6-sol \
+  --model gpt-5.6-luna \
   --reasoning-effort medium \
   --judge-model gpt-5.6-terra \
   --judge-reasoning-effort medium \

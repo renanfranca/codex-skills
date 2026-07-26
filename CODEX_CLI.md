@@ -124,6 +124,8 @@ Run all commands in this section from `/home/renanfranca/.codex/skills`.
 
 The runner normally shows progress when its standard error is attached to a terminal and stays silent when that stream is captured. When Codex CLI launches the runner as a monitored subprocess, pass `--progress` so preparation, executor, mechanical checks, judge, case results, and the final result are visible immediately on standard error. This does not make the run interactive: the runner never waits for input, approval, or confirmation. Its final JSON remains pure on standard output. Use `--quiet` to suppress progress explicitly; `--progress` and `--quiet` are mutually exclusive.
 
+The runner does not read the global `config.toml`. Declare the executor model and reasoning effort explicitly for promotion; declare a separate judge runtime only when semantic judgment is required. Monetary values in persisted reports are dated API reference estimates with `actual_charge: false`, not observed ChatGPT charges.
+
 ### Plan proportional gates first
 
 Classify the proposed diff as `static`, `deterministic`, `scoped`, or `cross-cutting`. Use `cross-cutting` when the affected reach is uncertain. Planning creates no workspace or artifact and invokes no model:
@@ -135,10 +137,8 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
   --impact scoped \
   --case changed-behavior \
   --workflow promotion \
-  --model gpt-5.6-sol \
-  --reasoning-effort medium \
-  --judge-model gpt-5.6-terra \
-  --judge-reasoning-effort medium
+  --model gpt-5.6-luna \
+  --reasoning-effort medium
 ```
 
 The JSON plan lists affected and regression cases, commands, execution counts, executor sessions, judge sessions, total sessions, the approved limit, campaign projection, resolved runtime and sources, case, source, runtime and evaluation fingerprints, ordered execution blockers, and warnings. Planning always exits zero and never creates a workspace, ledger, artifact, or model subprocess. A deterministic case consumes zero model sessions because it uses direct code checks with no executor or judge.
@@ -166,10 +166,8 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   --baseline /tmp/baseline-skill \
   --impact scoped \
   --case changed-behavior \
-  --model gpt-5.6-sol \
+  --model gpt-5.6-luna \
   --reasoning-effort medium \
-  --judge-model gpt-5.6-terra \
-  --judge-reasoning-effort medium \
   --campaign-ledger /tmp/my-skill-campaign.json \
   --approved-cumulative-model-sessions 26 \
   --progress
@@ -178,6 +176,66 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
 When model sessions are planned, `validate-change` requires executor model and reasoning effort from the CLI. A required judge may use its own CLI values or inherit that complete executor runtime. Missing runtime, unresolved judge runtime, or insufficient budget prints every blocker in the plan, returns exit code `2`, and stops before workspaces, artifacts, or model calls.
 
 Eight maximum model sessions are approved by default. Approve a known larger operation maximum explicitly with `--approved-model-sessions <n>`. `sessions.total` is the authorized maximum, while executed reports expose actual subprocess consumption in top-level `model_sessions.total`, JSONL token telemetry in `usage`, and cumulative state in `campaign`. Unknown token counts remain `null`; they are never reported as zero. Shell or sandbox approval is not approval for model session consumption. Do not rerun an unchanged failure, inconclusive judgment, or unstable result merely to seek `PASS`.
+
+### Persist evidence with dated pricing
+
+For a scoped case whose complete mechanical oracle allows the judge to remain disabled, prepare a dated version 1 pricing snapshot as described in [Durable evidence and pricing](EVALUATIONS.md#durable-evidence-and-pricing), then add both evidence options to the executed operation:
+
+```bash
+python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
+  --skill ./candidate-skill \
+  --baseline /tmp/baseline-skill \
+  --impact scoped \
+  --case changed-behavior \
+  --model gpt-5.6-luna \
+  --reasoning-effort medium \
+  --approved-model-sessions 4 \
+  --report-dir /tmp/skill-eval-reports \
+  --pricing-file /tmp/pricing-2026-07-26.json \
+  --progress
+```
+
+The runner writes `/tmp/skill-eval-reports/<operation-id>/report.json` atomically before successful workspace cleanup and derives `report.md` from that JSON. `--pricing-file` requires `--report-dir`; omit pricing when you want usage evidence without a monetary reference.
+
+Regenerate Markdown after a presentation change without another model session:
+
+```bash
+python3 develop-skill-with-evals/scripts/render_eval_report.py \
+  --input /tmp/skill-eval-reports/<operation-id>/report.json \
+  --output /tmp/skill-eval-reports/<operation-id>/report.md
+```
+
+Compare a directory of reports without another model session:
+
+```bash
+python3 develop-skill-with-evals/scripts/compare_model_reports.py \
+  --reports /tmp/skill-eval-reports \
+  --output-dir /tmp/skill-eval-comparison
+```
+
+Treat comparison results as directional. Turn scoped usage cannot establish individual request sizes for long context pricing, and ChatGPT authentication does not expose a per execution charge.
+
+### Use Sol and Terra only for an exceptional broad promotion
+
+Reserve Sol `medium` for an indispensable complex promotion or a capacity failure by Luna demonstrated on a representative task. Use Terra `medium` as judge only when a complete mechanical oracle is impossible:
+
+```bash
+python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
+  --skill ./candidate-skill \
+  --baseline /tmp/baseline-skill \
+  --impact cross-cutting \
+  --case changed-behavior \
+  --model gpt-5.6-sol \
+  --reasoning-effort medium \
+  --judge-model gpt-5.6-terra \
+  --judge-reasoning-effort medium \
+  --approved-model-sessions 14 \
+  --report-dir /tmp/skill-eval-reports \
+  --pricing-file /tmp/pricing-2026-07-26.json \
+  --progress
+```
+
+Do not use Sol as an automatic retry after Luna. Stop immediately on any blocking status or infrastructure failure, diagnose it, and create a new plan before spending another session.
 
 ### Run one case
 
