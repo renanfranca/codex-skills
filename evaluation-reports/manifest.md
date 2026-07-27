@@ -1,6 +1,6 @@
 # Evaluation report archive
 
-- Canonical reports: `28`
+- Canonical reports: `29`
 - Canonical format: `report.json`
 - Markdown and comparisons are deterministic projections.
 
@@ -33,4 +33,5 @@
 | develop-skill-with-evals | 20260727T121835.379099Z-1076d0881b03 | validate-change | FAIL | gpt-5.6-sol | 2 | 804468 | 293107 | a047f7ef6757a2fb47f3dc28e9166b5cecac99198a586b4ab2121fdd9bd796b9 | develop-skill-with-evals/operations/20260727T121835.379099Z-1076d0881b03/report.json |
 | develop-skill-with-evals | 20260727T123055.036794Z-1963f50be95e | validate-change | FAIL | gpt-5.6-sol | 11 | 3234402 | 1199710 | bd0a54a0b21e05925ffb0677ca0ad48b000582088879f77221ca8cc32d0de628 | develop-skill-with-evals/operations/20260727T123055.036794Z-1963f50be95e/report.json |
 | develop-skill-with-evals | 20260727T132448.821094Z-1fcd91faa06a | validate-change | PASS | gpt-5.6-sol | 16 | 5583284 | 1778061 | 26c0f53f77375d0ec6d655f2ae7b010f39b1d9fa5e4d60641442287f4118109b | develop-skill-with-evals/operations/20260727T132448.821094Z-1fcd91faa06a/report.json |
+| refactor-design | 20260727T144730.399249Z-24a76a532c0b | run | PASS | gpt-5.6-sol | 12 | 816083 | 309182 | 8fbe3c4297fa5d0f3b2dda77656e734ab2c8e97eaaf39c0f295b42d92a18925c | refactor-design/operations/20260727T144730.399249Z-24a76a532c0b/report.json |
 | sample-skill | 20260726T164753.664573Z-215f15542437 | run | PASS | fixture-model | 1 | 28 | 71 | ae65c37788b6c598f5ef566f87acf433a94d199233caf7dc3b668b7c0466e7b3 | sample-skill/operations/20260726T164753.664573Z-215f15542437/report.json |
