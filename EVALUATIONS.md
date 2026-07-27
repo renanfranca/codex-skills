@@ -208,18 +208,18 @@ See the [evaluation contract](develop-skill-with-evals/references/eval-contract.
 
 ## Coverage as a traceable contract
 
-A semantic evaluation asks a fresh executor to perform a realistic task and then combines public checks with an optional hidden oracle or judge. It is useful evidence that the skill can interpret and act on that scenario. It is not a proof that every future model run, repository, technology, or wording will behave identically.
+A traceable coverage manifest connects requirements to the observations intended to protect them. It makes suite scope and maintenance obligations inspectable, but the declaration is not evidence that a semantic case executed or passed.
 
-Measure suite coverage against declared contracts, not case count. Ten cases that repeat one easy path may protect less behavior than three cases that distinguish entry, action, and stop conditions. A traceable coverage manifest can bind each normative contract to the case dimension and evidence that observes it. Source fingerprints then turn the manifest into an incremental maintenance gate: when `SKILL.md` or a governed reference changes, the deterministic check fails until a maintainer reviews the affected contracts, cases, dimensions, evidence, and limitations.
+| Layer | What it guarantees | Supporting evidence | What it does not guarantee |
+| --- | --- | --- | --- |
+| Normative traceability | Every governed instruction is declared and mapped to at least one distinct case dimension and evidence type. | Source fingerprints, contract mappings, guarantee levels, and limitations in `coverage.json`. | That the mapped cases ran, passed, or will generalize to every future task. |
+| Mechanical integrity | Declared fingerprints, suite membership, case IDs, dimensions, evidence compatibility, and structural invariants satisfy the deterministic checker. | The `coverage-contract` case, including rejection of deliberately stale or inconsistent copies. | Contextual judgment such as whether a risk is concrete or a refactor is proportionate. |
+| Semantic behavior | When the applicable gates execute and pass, the evaluated scenario satisfied its public checks, oracle, and judge criteria for those runs. | Structured runner statuses and durable reports from actual executor and judge sessions. | Universal correctness across models, prompts, repositories, technologies, or future runs. |
+| Rubric sampling | Representative signals, risks, false positives, and technologies are mapped without requiring one case for every rubric item. | Rubric family mappings, distinct coverage dimensions, declared limitations, and executed applicable cases. | Permission to skip selected suite cases or a claim that every contextual classification is correct. |
 
-Keep two meanings of coverage separate:
+`complete` and `partial` in `coverage.json` are declared coverage levels, not execution statuses. Representative coverage removes the requirement for one case per rubric item, but it does not authorize skipping cases selected by the applicable suite gates. Semantic qualification requires those gates to execute and pass.
 
-- **Normative coverage** says every instruction the skill requires is represented in the manifest. It can be complete as a traceability property without proving universal model behavior.
-- **Rubric coverage** samples representative signals, risks, false positives, and technologies. Contextual design judgment makes this partial even when every rubric section is mapped exactly once.
-
-Mechanical guarantees and semantic judgment also serve different roles. Code can verify fingerprints, suite membership, orphaned cases, unique dimensions, evidence compatibility, paths, exit codes, compilability, and exact structural invariants. A judge is still needed for questions such as whether a risk is concrete, a false positive is legitimate, a refactor is proportionate, or an exception gate needs human direction. A judge verdict is evidence under stated criteria, not a universal authority.
-
-Redundancy is intentional only when overlapping cases declare different dimensions, such as explicit invocation, implicit selection, a stop condition, or Java technology. Duplicate scenarios with the same contract and dimension add cost without improving traceability and should be consolidated.
+Case count remains a poor proxy for coverage. Overlap is useful only when cases declare different observation dimensions, such as explicit invocation, implicit selection, a stop condition, or Java technology. Duplicate scenarios with the same contract and dimension add cost without improving traceability.
 
 ## The proof cycle
 
@@ -409,7 +409,17 @@ Do not retry an unchanged evaluation with a larger model after blocking evidence
 
 The [`refactor-design` suite](refactor-design/evals/suite.json) is a broader example after the minimal `impact-gate-selection` case. Its [`coverage.json`](refactor-design/evals/coverage.json) binds source fingerprints, normative contracts, rubric families, case dimensions, evidence types, guarantee levels, and explicit limitations. The zero session `coverage-contract` case checks those relationships and proves that deliberately stale or inconsistent copies are rejected.
 
-The manifest records complete normative traceability while the semantic cases remain representative samples. They cover entry and exception gates, needed refactors, justified no action, scope protection, learning without self modification, explicit trigger boundaries, implicit selection, lifecycle, boundary and cohesion calibration, and one compilable Java hexagonal mapping. This breadth is not proof that Refactor Design will classify every design correctly.
+The manifest records declared normative traceability while the semantic cases remain representative samples. The following state was observed on 2026-07-27:
+
+| Evidence | Observed state | Durable basis and limitation |
+| --- | --- | --- |
+| [`coverage-contract`](refactor-design/evals/cases/coverage-contract/case.json) | `PASS`: one RED and three GREEN runs, zero model sessions. | Deterministic contract evidence only. It does not qualify semantic behavior. |
+| Six earlier semantic cases | `PASS` in the [archived report](evaluation-reports/refactor-design/operations/20260727T144730.399249Z-24a76a532c0b/report.md). | Covers the earlier versions of `hidden-invocation-state`, `cohesive-no-action`, `red-suite-gate`, `no-self-modification`, `trigger-selection`, and `implicit-trigger-smoke`, not their later modifications. |
+| Eight new or modified semantic cases in the [current suite](refactor-design/evals/suite.json) | Diagnostic not completed. | No completed diagnostic or promotion result qualifies these versions as `PASS`. |
+| Strengthened [`hidden-invocation-state`](refactor-design/evals/cases/hidden-invocation-state/case.json) negative control | `INVALID_RED`. | The baseline solved the scenario, so the control did not distinguish the candidate. No durable report was archived for this observation. |
+| [Java fixture](refactor-design/evals/cases/java-hexagonal-mapping/fixture/compile_and_test.py) | Local compilation and test `PASS`. | Proves the fixture is executable; it is not a semantic executor or judge result. |
+| [`java-hexagonal-mapping`](refactor-design/evals/cases/java-hexagonal-mapping/case.json) | Not executed semantically. | Its mapping and local fixture checks do not establish a case `PASS`. |
+| Semantic promotion | Not performed. | The suite has no integrated RED, three GREEN, and applicable regression evidence for the new or modified semantic cases. |
 
 If a change affects only one bounded behavior, plan that case as `scoped`. If shared guidance, safety, or selection may affect several cases, use `cross-cutting` so the remaining suite runs once between affected GREEN 1 and GREEN 2. The [CLI cookbook](CODEX_CLI.md#plan-proportional-gates-first) shows the corresponding command. Do not infer success from executor prose; inspect the structured status and all required evidence.
 
