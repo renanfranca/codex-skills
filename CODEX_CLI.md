@@ -1,12 +1,12 @@
 # Using Skills with Codex CLI
 
-This is the cookbook for people using the skills in this repository. It shows how to verify that Codex sees a skill, run its evaluations, create a new skill with evals, improve an existing skill, and invoke every available workflow from the terminal.
+This cookbook is for people who use the skills in this repository. Start here to make the skills discoverable, choose the right Codex CLI mode, invoke a workflow, and review its work. Maintainers can continue into skill creation, evaluation, promotion, and durable report operations.
 
-For the evaluation architecture and manifest reference, see [Evaluating Codex Skills](EVALUATIONS.md). For current product behavior, see the official [Codex CLI](https://learn.chatgpt.com/docs/codex/cli), [CLI command reference](https://learn.chatgpt.com/docs/developer-commands?surface=cli), [non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode), and [Build skills](https://learn.chatgpt.com/docs/build-skills) documentation.
+For the evaluation model and supervision guidance, see [Evaluating Codex Skills](EVALUATIONS.md). The normative local behavior remains in each [`SKILL.md`](README.md#skill-catalog), its references, and its scripts. For current product behavior, use the official [CLI command reference](https://learn.chatgpt.com/docs/developer-commands?surface=cli), [non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode), [Build skills](https://learn.chatgpt.com/docs/build-skills), and [Codex models](https://learn.chatgpt.com/docs/models) documentation.
 
-## Before the first run
+## Prepare Codex and discover the skills
 
-Check the installed CLI, authentication, and local environment:
+This guide was checked against `codex-cli 0.145.0`. Verify your installation and authentication before diagnosing a skill:
 
 ```bash
 codex --version
@@ -14,16 +14,13 @@ codex login status
 codex doctor
 ```
 
-This guide was validated against `codex-cli 0.145.0`. The examples avoid depending on that exact version; use `codex --help` and `codex exec --help` if your installed CLI differs.
+If your version differs, treat `codex --help` and the relevant subcommand help as authoritative.
 
-### Make the skills discoverable
+### Install a skill in a discovery location
 
-The current Codex documentation lists two common authoring locations:
+Codex scans `.agents/skills` from the current directory up to the repository root, plus the personal `$HOME/.agents/skills` location. It follows symlinked skill directories. This source repository can stay at `/home/renanfranca/.codex/skills`.
 
-- `$HOME/.agents/skills` for personal skills available across repositories;
-- `<repository>/.agents/skills` for skills scoped to a repository or subtree.
-
-This source repository can remain at `/home/renanfranca/.codex/skills`. To make an individual skill portable across CLI installations, symlink it into the personal location:
+Make one skill available across repositories:
 
 ```bash
 mkdir -p "$HOME/.agents/skills"
@@ -31,7 +28,7 @@ ln -s /home/renanfranca/.codex/skills/refactor-design \
   "$HOME/.agents/skills/refactor-design"
 ```
 
-Repeat the symlink for each skill you want available globally. For an installation scoped to a repository:
+Or make it available only in one repository:
 
 ```bash
 mkdir -p /path/to/project/.agents/skills
@@ -39,96 +36,184 @@ ln -s /home/renanfranca/.codex/skills/refactor-design \
   /path/to/project/.agents/skills/refactor-design
 ```
 
-Codex follows symlinked skill folders. Avoid installing two skills with the same frontmatter `name`; Codex does not merge them.
+Avoid duplicate frontmatter `name` values. Codex does not merge duplicate skills and may show both in its selectors.
 
-Launch Codex and run `/skills`, or type `$`, to verify that the expected skill appears:
+Launch Codex in the project where the work will happen:
 
 ```bash
 codex -C /path/to/project
 ```
 
-Codex normally detects skill changes automatically. Restart the CLI when an updated or newly installed skill does not appear.
+Inside the TUI, run `/skills` or type `$` and confirm that the expected skill appears. Codex normally detects skill changes automatically; restart it if a new or updated skill does not appear.
 
-## Choose interactive or non-interactive mode
+## Choose the TUI or `codex exec`
 
-### Interactive mode: recommended for skill work
-
-Use the terminal UI when creating or changing skills. It supports subsequent prompts, shows progress, and can ask for approval when an eval needs to start nested ephemeral Codex sessions:
+Use the interactive TUI for exploratory work, multi step changes, follow up prompts, or work that may need human approval:
 
 ```bash
-codex -C /home/renanfranca/.codex/skills \
+codex -C /path/to/project \
   --sandbox workspace-write \
   --ask-for-approval on-request
 ```
 
-Use the skills repository as the working directory when editing skill sources. Use the target project as the working directory when applying TDD, design review, or Seed4J workflows to that project.
+Use the skills repository as the working directory when editing skill sources. Use the target project as the working directory when applying TDD, design review, Git, or Seed4J workflows there.
 
-Inside the TUI, invoke a skill explicitly:
-
-```text
-Use $develop-skill-with-evals to run the complete refactor-design evaluation suite. Do not modify either skill. Report the overall status, failed checks, retained artifacts, and exit code.
-```
-
-Continue the most recent interactive session later with:
+Resume the most recent interactive session with:
 
 ```bash
 codex resume --last
 ```
 
-### Non-interactive mode: work from a single command and automation
-
-Use `codex exec` when the prompt and permissions are known in advance:
+Use `codex exec` when the request and permission boundary are known in advance and the run should finish without another human response:
 
 ```bash
 codex exec --ephemeral \
-  -C /home/renanfranca/.codex/skills \
+  -C /path/to/project \
   --sandbox workspace-write \
-  'Use $develop-skill-with-evals to validate refactor-design structurally. Do not change files.'
-```
-
-Single quotes are important in POSIX shells: they prevent the shell from expanding `$skill-name` as an environment variable.
-
-`codex exec` streams progress to standard error and prints the final response to standard output. Use `--json` for an event stream or `-o/--output-last-message` to save the final message:
-
-```bash
-codex exec --ephemeral --json \
-  -C /home/renanfranca/.codex/skills \
   'Use $refactor-design to review this completed green implementation.'
 ```
 
+In POSIX shells, single quotes prevent `$refactor-design` from being expanded as an environment variable. `--ephemeral` avoids persisting session rollout files; use it only when you do not intend to resume the run.
+
+By default, `codex exec` streams progress to standard error and prints the final response to standard output. Use `--json` when a script needs the complete JSONL event stream:
+
+```bash
+codex exec --ephemeral --json \
+  -C /path/to/project \
+  'Use $refactor-design to review this completed green implementation.'
+```
+
+Use `-o/--output-last-message` when a script needs the final response in a file. The response is still printed to standard output:
+
 ```bash
 codex exec --ephemeral \
-  -C /home/renanfranca/.codex/skills \
+  -C /path/to/project \
   -o /tmp/codex-final-message.md \
   'Use $develop-skill-with-evals to explain the latest blocking eval result. Do not modify files.'
 ```
 
-Non-interactive runs cannot stop and wait for a new human approval. Skill development workflows can launch nested `codex exec` sessions, so use the interactive TUI when approval may be required. Use `danger-full-access` or approval bypass flags only inside an externally hardened disposable environment; they are not the default solution for an eval permission failure.
-
-Resume a saved non-interactive session with the following command. Omit `--ephemeral` from the original run when you intend to resume it:
+To resume a saved noninteractive session, omit `--ephemeral` from the original command:
 
 ```bash
-codex exec resume --last 'Continue from the previous result and run the remaining validation.'
+codex exec resume --last \
+  'Continue from the previous result and run the remaining validation.'
 ```
+
+The CLI exposes many other commands and flags. They are outside this repository's workflows; use the official command reference instead of assuming they are part of this cookbook.
+
+## Select a skill explicitly or implicitly
+
+Explicit selection is the reliable default. Name the skill with `$skill-name` and describe the concrete outcome, scope, stopping conditions, and validation:
+
+```text
+Use $refactor-design to review this completed green implementation. Apply only justified behavior-preserving changes, keep public tests green, and report No action when no concrete design risk exists.
+```
+
+Codex can also select a skill implicitly when the task matches its frontmatter `description`. This is useful when testing discovery or natural triggering:
+
+```text
+The implementation and public tests are green. Inspect the changed scope for structural design risks and apply only justified behavior-preserving improvements.
+```
+
+After an implicit test, verify which skill was selected and whether it respected its entry conditions. `agents/openai.yaml` may disable implicit invocation, and its `default_prompt` is presentation metadata, not a replacement for `SKILL.md`.
+
+## Choose a workflow by task
+
+The [README catalog](README.md#skill-catalog) is the canonical active skill list. The complete workflow is in the linked `SKILL.md`; display metadata and default invocation text are in `agents/openai.yaml`.
+
+| Task | Skill and canonical sources | Working directory |
+| --- | --- | --- |
+| Create or improve a skill with proportional evaluations | [`develop-skill-with-evals`](develop-skill-with-evals/SKILL.md), [metadata](develop-skill-with-evals/agents/openai.yaml) | This skills repository |
+| Plan and execute a substantial repository change | [`implement-execplan`](implement-execplan/SKILL.md), [metadata](implement-execplan/agents/openai.yaml) | Target repository |
+| Review a completed green implementation for design risks | [`refactor-design`](refactor-design/SKILL.md), [metadata](refactor-design/agents/openai.yaml) | Target repository |
+| Implement behavior through autonomous quiet TDD | [`tdd-behavior-autonomous-quiet`](tdd-behavior-autonomous-quiet/SKILL.md), [metadata](tdd-behavior-autonomous-quiet/agents/openai.yaml) | Target repository |
+| Plan substantial Seed4J CLI work with TDD and design review | [`seed4j-execplan-tdd`](seed4j-execplan-tdd/SKILL.md), [metadata](seed4j-execplan-tdd/agents/openai.yaml) | `seed4j-cli` worktree |
+| Audit, create, or clean up Seed4J CLI worktrees | [`seed4j-worktree-flow`](seed4j-worktree-flow/SKILL.md), [metadata](seed4j-worktree-flow/agents/openai.yaml) | Main `seed4j-cli` worktree |
+| Commit exactly what is already staged | [`commit-staged-change`](commit-staged-change/SKILL.md), [metadata](commit-staged-change/agents/openai.yaml) | Target repository |
+| Let Codex select intended changes, stage, and commit them | [`commit-the-changes`](commit-the-changes/SKILL.md), [metadata](commit-the-changes/agents/openai.yaml) | Target repository |
+
+Use these request patterns instead of maintaining one nearly identical prompt per skill:
+
+### Implement or review a change
+
+```text
+Use $skill-name to <observable outcome>. Work only in <scope>. Preserve <public contract>. Run <validation>. Stop if <blocking condition>. Do not commit or push.
+```
+
+For TDD, state behavior through public contracts. For design review, say that behavior is already green. For an ExecPlan, identify the substantial outcome and require the living plan to remain current.
+
+### Manage repository state
+
+```text
+Use $skill-name to inspect <repository state> and perform <commit or worktree outcome>. Include only <exact scope>. Preserve <protected state>. Do not push or remove anything outside that scope.
+```
+
+The two commit skills create commits but never imply a push. Use `commit-staged-change` only when the exact intended diff is already staged. Use `commit-the-changes` when Codex is authorized to decide which current changes belong together and stage them.
+
+## Create and evolve skills
+
+Use `$develop-skill-with-evals` for new skills and behavioral revisions. It composes the system `skill-creator` scaffold with the repository's evaluation workflow.
+
+### Create a new skill
+
+Start in this repository and describe behavior, trigger boundaries, forbidden behavior, and release boundaries:
+
+```text
+Use $develop-skill-with-evals to create changelog-writer in this repository.
+
+It must turn supplied user-visible changes into one concise Markdown changelog section. It should trigger for release notes and changelogs, but not for committing, publishing, or inventing facts.
+
+Create the official scaffold, preserve its untouched baseline, add minimal generic eval cases before implementing behavior, classify impact, inspect the session plan, demonstrate baseline RED, and run proportional candidate gates. Validate SKILL.md and agents/openai.yaml. Do not commit, push, or publish.
+```
+
+Prefer the TUI because a maintainer may need to review the plan or approve the complete runner command. A fully predetermined request can use `codex exec`, but the noninteractive process cannot pause for a new conversational decision.
+
+### Change observable behavior
+
+Name every affected behavior when the reach is known:
+
+```text
+Use $develop-skill-with-evals to improve changelog-writer so it refuses to invent issue numbers. Add or update a focused case before editing SKILL.md, preserve the baseline, plan a scoped promotion, require valid RED and three stable candidate GREEN results, and run only proportional regression. Do not commit or push.
+```
+
+Trigger changes need positive, negative, and implicit selection coverage. Use `cross-cutting` when the affected reach cannot be bounded confidently.
+
+### Change static documentation or metadata
+
+Do not manufacture a failing behavior test for spelling, formatting, organization, or metadata that cannot change triggering or behavior:
+
+```text
+Use $develop-skill-with-evals to correct “Chanelog Writer” to “Changelog Writer” in agents/openai.yaml. Classify this as static, inspect the side effect free plan, run only structural and metadata validation, and do not invent RED.
+```
+
+When evolving `develop-skill-with-evals` itself, work in isolated baseline and candidate copies and keep the canonical source unchanged until the candidate passes the required gates.
 
 ## Run skill evaluations
 
-There are two ways to run evals:
+There are two supported entry points:
 
-1. Ask Codex to orchestrate the workflow with `$develop-skill-with-evals`.
-2. Run the evaluation runner directly from a trusted terminal.
+1. Ask `$develop-skill-with-evals` to orchestrate the workflow.
+2. Run `develop-skill-with-evals/scripts/run_skill_evals.py` directly from a trusted terminal.
 
-The direct runner is authoritative and itself launches isolated `codex exec` sessions for the executor and semantic judge.
+The direct runner is authoritative. For concepts, evidence visibility, impact, gates, and supervision, read [Evaluating Codex Skills](EVALUATIONS.md). Run the commands below from `/home/renanfranca/.codex/skills`.
 
-Run all commands in this section from `/home/renanfranca/.codex/skills`.
+Before the first model backed operation, run:
 
-The runner normally shows progress when its standard error is attached to a terminal and stays silent when that stream is captured. When Codex CLI launches the runner as a monitored subprocess, pass `--progress` so preparation, executor, mechanical checks, judge, case results, and the final result are visible immediately on standard error. This does not make the run interactive: the runner never waits for input, approval, or confirmation. Its final JSON remains pure on standard output. Use `--quiet` to suppress progress explicitly; `--progress` and `--quiet` are mutually exclusive.
+```bash
+codex doctor --json
+```
 
-The runner does not read the global `config.toml`. Declare the executor model and reasoning effort explicitly for promotion; declare a separate judge runtime only when semantic judgment is required. Monetary values in persisted reports are dated API reference estimates with `actual_charge: false`, not observed ChatGPT charges.
+Run it at the same outer permission boundary that will launch the runner and require `overallStatus: ok`. A TUI started with `--ask-for-approval on-request` does not automatically elevate a noninteractive runner subprocess. If `CODEX_HOME` is read only or network access is unavailable, approve the exact complete runner command externally or run it from a trusted terminal.
+
+Keep every nested executor and judge in the runner's internal `workspace-write` sandbox. Do not use `danger-full-access`, bypass approval, or copy authentication state into `/tmp`.
+
+The runner prints its final JSON to standard output. It shows progress on standard error when attached to a terminal; pass `--progress` when another process is monitoring it. `--quiet` suppresses progress, and the two flags are mutually exclusive.
+
+The runner does not choose a promotion runtime from global `config.toml`. Supply executor model and reasoning effort explicitly whenever the plan includes model sessions. Supply a separate judge runtime only when required, or let it inherit the complete executor runtime.
 
 ### Plan proportional gates first
 
-Classify the proposed diff as `static`, `deterministic`, `scoped`, or `cross-cutting`. Use `cross-cutting` when the affected reach is uncertain. Planning creates no workspace or artifact and invokes no model:
+Classify the diff as `static`, `deterministic`, `scoped`, or `cross-cutting`. Use `cross-cutting` when the affected reach is uncertain. Planning is side effect free: it creates no workspace, ledger, artifact, or model subprocess.
 
 ```bash
 python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
@@ -137,28 +222,30 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
   --impact scoped \
   --case changed-behavior \
   --workflow promotion \
-  --model gpt-5.6-luna \
-  --reasoning-effort medium
+  --model <executor-model> \
+  --reasoning-effort <effort>
 ```
 
-The JSON plan lists affected and regression cases, commands, execution counts, executor sessions, judge sessions, total sessions, the approved limit, campaign projection, resolved runtime and sources, case, source, runtime and evaluation fingerprints, ordered execution blockers, and warnings. Planning always exits zero and never creates a workspace, ledger, artifact, or model subprocess. A deterministic case consumes zero model sessions because it uses direct code checks with no executor or judge.
+Inspect the selected cases and regressions, session maximum, resolved runtime, `economic_runtime`, fingerprints, blockers, and warnings. Economic guidance is informative and never fills in a missing runtime. A complete explicit mismatch remains in the proposed command with a warning.
 
-### Probe once for a complete diagnosis
+Planning always exits zero, including when it reports blockers. A deterministic case consumes no model sessions. A static plan requires no RED or model execution.
 
-Use `--workflow diagnostic` when one pass across affected baseline, affected candidate and proportional regressions will save repeated failed promotion gates. After inspecting and approving that plan, run its `probe-change` command. The diagnostic continues after contract failures, stops on infrastructure failures, and always reports `promotion_eligible: false`.
+### Diagnose once when it will change the plan
 
-To bind the diagnostic and later promotion to one cumulative budget, pass both:
+Use `--workflow diagnostic` when one observation of affected baseline, candidate, and proportional regressions will prevent repeated failed promotion attempts. Inspect the plan, then run its proposed `probe-change` command. A diagnostic continues after contract failures, stops on infrastructure failures, and always reports `promotion_eligible: false`.
+
+To bind diagnostic and promotion to one cumulative budget, give both operations the same:
 
 ```text
 --campaign-ledger /tmp/my-skill-campaign.json
 --approved-cumulative-model-sessions 26
 ```
 
-The ledger is locked and written atomically. A cumulative budget blocker is reported before any ledger, workspace, artifact or model side effect. Do not repeat an unchanged complete diagnostic.
+The ledger is locked and written atomically. A cumulative budget blocker is reported before any ledger, workspace, artifact, or model side effect. Do not repeat an unchanged complete diagnostic.
 
 ### Validate the planned change
 
-`validate-change` runs baseline, candidate repetition one, every proportional regression, then candidate repetitions two and three. This preserves three stable GREEN results while allowing an early regression defect to block the last two repetitions:
+Run the exact promotion command reviewed in the plan:
 
 ```bash
 python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
@@ -166,82 +253,28 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   --baseline /tmp/baseline-skill \
   --impact scoped \
   --case changed-behavior \
-  --model gpt-5.6-luna \
-  --reasoning-effort medium \
+  --model <executor-model> \
+  --reasoning-effort <effort> \
   --campaign-ledger /tmp/my-skill-campaign.json \
   --approved-cumulative-model-sessions 26 \
   --progress
 ```
 
-When model sessions are planned, `validate-change` requires executor model and reasoning effort from the CLI. A required judge may use its own CLI values or inherit that complete executor runtime. Missing runtime, unresolved judge runtime, or insufficient budget prints every blocker in the plan, returns exit code `2`, and stops before workspaces, artifacts, or model calls.
+`validate-change` runs baseline RED, candidate GREEN 1, proportional regression, then candidate GREEN 2 and 3. Missing runtime, unresolved judge runtime, or insufficient budget prints every blocker, returns exit code `2`, and stops before workspace, report, or model side effects.
 
-Eight maximum model sessions are approved by default. Approve a known larger operation maximum explicitly with `--approved-model-sessions <n>`. `sessions.total` is the authorized maximum, while executed reports expose actual subprocess consumption in top-level `model_sessions.total`, JSONL token telemetry in `usage`, and cumulative state in `campaign`. Unknown token counts remain `null`; they are never reported as zero. Shell or sandbox approval is not approval for model session consumption. Do not rerun an unchanged failure, inconclusive judgment, or unstable result merely to seek `PASS`.
+The default operation maximum is eight model sessions. Use `--approved-model-sessions <n>` only after reviewing a known larger maximum. Approval for model session consumption and external shell or sandbox approval are separate decisions.
 
-### Persist evidence with dated pricing
+Only overall `PASS` returns exit code `0`. `FAIL`, `ERROR`, `INCONCLUSIVE`, `INVALID_RED`, and `UNSTABLE` return `1` and block promotion. Do not rerun an unchanged blocking result merely to seek `PASS`.
 
-For a scoped case whose complete mechanical oracle allows the judge to remain disabled, keep the repository's dated pricing snapshot in `evaluation-reports/pricing/` and run the operation normally:
+### Use exploratory and compatibility operations deliberately
 
-```bash
-python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
-  --skill ./candidate-skill \
-  --baseline /tmp/baseline-skill \
-  --impact scoped \
-  --case changed-behavior \
-  --model gpt-5.6-luna \
-  --reasoning-effort medium \
-  --approved-model-sessions 4 \
-  --progress
-```
+The following interfaces remain useful, but they do not replace integrated promotion:
 
-When `evaluation-reports/archive-config.json` exists, a real Codex operation that consumes at least one session writes `evaluation-reports/<skill-name>/operations/<operation-id>/report.json` atomically before successful workspace cleanup and derives `report.md` from that JSON. Use `--no-report` to opt out or `--report-dir` for an explicit destination. `--pricing-file` requires an explicit destination.
+* `run` executes one case or a complete suite for inspection.
+* `verify-change` checks baseline RED and one candidate GREEN for compatibility with older workflows.
+* `stability` repeats one source and rejects divergent normalized verdicts.
 
-Regenerate Markdown after a presentation change without another model session:
-
-```bash
-python3 develop-skill-with-evals/scripts/render_eval_report.py \
-  --input evaluation-reports/<skill-name>/operations/<operation-id>/report.json \
-  --output evaluation-reports/<skill-name>/operations/<operation-id>/report.md
-```
-
-Compare a directory of reports without another model session:
-
-```bash
-python3 develop-skill-with-evals/scripts/compare_model_reports.py \
-  --reports evaluation-reports/<skill-name>/operations \
-  --output-dir evaluation-reports/<skill-name>/comparisons/manual
-```
-
-Treat comparison results as directional. Turn scoped usage cannot establish individual request sizes for long context pricing, and ChatGPT authentication does not expose a per execution charge.
-
-### Use Sol and Terra only for an exceptional broad promotion
-
-Reserve Sol `medium` for an indispensable complex promotion or a capacity failure by Luna demonstrated on a representative task. Use Terra `medium` as judge only when a complete mechanical oracle is impossible:
-
-```bash
-python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
-  --skill ./candidate-skill \
-  --baseline /tmp/baseline-skill \
-  --impact cross-cutting \
-  --case changed-behavior \
-  --model gpt-5.6-sol \
-  --reasoning-effort medium \
-  --judge-model gpt-5.6-terra \
-  --judge-reasoning-effort medium \
-  --approved-model-sessions 14 \
-  --progress
-```
-
-Do not use Sol as an automatic retry after Luna. Stop immediately on any blocking status or infrastructure failure, diagnose it, and create a new plan before spending another session.
-
-### Run one case
-
-Ask Codex interactively:
-
-```text
-Use $develop-skill-with-evals to run only the hidden-invocation-state case for refactor-design from the working tree. Do not modify the skill or fixture sources. Report the executor result, every mechanical check, the judge verdict, changed paths, overall status, exit code, and artifact path.
-```
-
-Or run the case directly:
+Run one case:
 
 ```bash
 python3 develop-skill-with-evals/scripts/run_skill_evals.py run \
@@ -251,15 +284,7 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py run \
   --progress
 ```
 
-### Run every case for one skill
-
-Ask Codex:
-
-```text
-Use $develop-skill-with-evals to run the complete refactor-design eval suite from the working tree. Do not change source files. Treat every status other than PASS as blocking and summarize each case plus retained artifacts.
-```
-
-Or run it directly:
+Run one complete suite:
 
 ```bash
 python3 develop-skill-with-evals/scripts/run_skill_evals.py run \
@@ -269,19 +294,9 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py run \
   --progress
 ```
 
-`--all` means all cases in that skill's `evals/suite.json`; it does not mean all skills in the repository.
+`--all` means every case in one skill's `evals/suite.json`, not every skill in the repository.
 
-Complete suite runs are exploratory compatibility operations. For promotion, use `plan` plus one `validate-change` so affected cases and proportional regression are selected, fingerprinted, budgeted, and enforced together.
-
-### Run every suite in this repository
-
-Ask Codex to discover the suites rather than maintaining a duplicated list:
-
-```text
-Use $develop-skill-with-evals to find every skill at the repository root that has evals/suite.json. Run each complete suite from its working tree, one skill at a time, and continue until every discovered suite has a result. Do not modify sources. Block promotion if any result is not PASS and return a table with skill, status, failed cases, exit code, and artifact path.
-```
-
-From a trusted terminal, run the same policy explicitly:
+Discover and run every persisted suite without maintaining a duplicate list:
 
 ```bash
 (
@@ -298,17 +313,9 @@ From a trusted terminal, run the same policy explicitly:
 )
 ```
 
-At the time of writing, `develop-skill-with-evals` and `refactor-design` contain persisted suites. A skill without `evals/suite.json` can still be structurally validated, but the runner has no behavioral cases to execute for it.
+At this snapshot, `develop-skill-with-evals` and `refactor-design` have persisted suites. A skill without `evals/suite.json` can still receive structural validation, but the runner has no cases to execute for it.
 
-### Compare baseline and candidate
-
-Ask Codex:
-
-```text
-Use $develop-skill-with-evals to verify the changed behavioral case in the target skill. Use git:HEAD as the baseline from before the change and the working tree as the candidate. Require baseline FAIL and candidate PASS under the same model and configuration. Stop with INVALID_RED if the baseline passes.
-```
-
-After adding or changing a case and implementing its candidate behavior, replace `changed-case-id` with that case ID:
+Examples of the two compatibility operations:
 
 ```bash
 python3 develop-skill-with-evals/scripts/run_skill_evals.py verify-change \
@@ -318,18 +325,6 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py verify-change \
   --progress
 ```
 
-Do not use an unchanged skill as both baseline and candidate: a valid existing case is expected to pass both and therefore produce `INVALID_RED`. For a new untracked skill, point `--baseline` to a frozen scaffold directory under `/tmp` instead of `git:HEAD`.
-
-### Run the stability gate
-
-Ask Codex:
-
-```text
-Use $develop-skill-with-evals to run the hidden-invocation-state case for refactor-design three times. Treat any difference in normalized verdicts as UNSTABLE and do not promote the candidate.
-```
-
-Direct command:
-
 ```bash
 python3 develop-skill-with-evals/scripts/run_skill_evals.py stability \
   --skill refactor-design \
@@ -338,195 +333,96 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py stability \
   --progress
 ```
 
-### Understand the result
+Do not use an unchanged skill as both baseline and candidate: an existing valid case should pass both and produce `INVALID_RED`. For an untracked skill, use a frozen baseline directory under `/tmp`.
 
-Only an overall `PASS` returns exit code `0`. `FAIL`, `ERROR`, `INCONCLUSIVE`, `INVALID_RED`, and `UNSTABLE` return `1` and block promotion.
+### Inspect the result
 
-For every report, inspect:
+For every executed report, inspect:
 
-- overall `status`, resolved `runtime`, and runtime sources;
-- `promotion_eligible` and `failure_category`;
-- planned `sessions.total` versus actual `model_sessions.total`;
-- token `usage` completeness and cumulative `campaign` consumption;
-- every case status;
-- executor exit code and structured response;
-- each mechanical check and verification command;
-- each hidden oracle outcome without exposing its source to the executor;
-- judge verdict and rationale;
-- production `changed_paths`;
-- `artifacts`, which points to retained failure evidence.
+* overall `status`, `promotion_eligible`, and `failure_category`;
+* resolved runtime and its sources;
+* planned `sessions.total` versus actual `model_sessions.total`;
+* token `usage` completeness and cumulative `campaign` consumption;
+* every case, executor, mechanical check, oracle, and judge result;
+* production `changed_paths`;
+* retained `artifacts`.
 
-Successful workspaces are removed. Blocking workspaces are kept under `/tmp/skill-eval-artifacts` by default.
+Unknown token counts remain `null`, never zero. Successful workspaces are removed. Blocking workspaces remain under `/tmp/skill-eval-artifacts` by default. Treat environment failures separately from behavioral failures.
 
-If a nested Codex process reports an app server initialization error caused by read-only access, rerun from the interactive TUI and approve the narrowly scoped evaluation command, or invoke the runner directly from a trusted terminal. Do not reinterpret an environment error as a behavioral failure.
+## Archive, pricing, and comparison
 
-## Create a new skill with evals
+Real operations that consume at least one model session automatically persist evidence when `evaluation-reports/archive-config.json` exists. The runner writes canonical JSON atomically to `evaluation-reports/<skill-name>/operations/<operation-id>/report.json`, then derives `report.md` before successful workspace cleanup.
 
-Explicitly invoke `$develop-skill-with-evals`. It composes the official `skill-creator` scaffold with development driven by evaluations, so the workflow creates tests even when the human prompt only describes desired behavior.
+Use `--no-report` to opt out or `--report-dir` to choose an explicit destination. `--pricing-file` is allowed only with an explicit report destination.
 
-Start the interactive CLI in this repository and paste a concrete request:
+### Persist evidence with dated pricing
 
-```text
-Use $develop-skill-with-evals to create a new skill named changelog-writer in this repository.
-
-The skill should turn a supplied list of user-visible changes into one concise Markdown changelog section. It should trigger for requests to write release notes and changelogs, but not for committing, publishing, or inventing changes that were not supplied.
-
-Create the official scaffold first, freeze that untouched scaffold as the baseline, add minimal generic eval cases before implementing the behavior, classify impact, inspect a session plan, demonstrate a real baseline RED, and run proportional candidate stability and regression gates. Validate SKILL.md and agents/openai.yaml. Do not commit, push, or publish anything.
-```
-
-The workflow should produce:
-
-- an official skill scaffold;
-- a preserved baseline;
-- `SKILL.md` and `agents/openai.yaml`;
-- `evals/suite.json` and focused cases;
-- isolated prompts, fixtures, and hidden criteria;
-- evidence from RED, GREEN, stability, proportional regression, and structural validation.
-
-Form that runs from a single command:
+The repository snapshot dated `2026-07-26` contains pricing references for `gpt-5.6-luna`, `gpt-5.6-terra`, and `gpt-5.6-sol`. The following is a dated example for a scoped semantic case with a complete oracle and no judge:
 
 ```bash
-codex exec --ephemeral \
-  -C /home/renanfranca/.codex/skills \
-  --sandbox workspace-write \
-  'Use $develop-skill-with-evals to create changelog-writer from an official scaffold. It must convert supplied user-visible changes into one concise Markdown changelog section, must not invent changes, and must not commit or publish. Create evals first, classify impact, plan session usage, demonstrate baseline RED, implement GREEN, run proportional stability and regression gates, and finish structural validation.'
+python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
+  --skill ./candidate-skill \
+  --baseline /tmp/baseline-skill \
+  --impact scoped \
+  --case changed-behavior \
+  --model gpt-5.6-luna \
+  --reasoning-effort medium \
+  --approved-model-sessions 4 \
+  --progress
 ```
 
-Prefer the interactive form because forward evals may require approvals or human review of a blocking result.
+These model names are examples from the snapshot, not runner defaults. The runner still requires explicit economic runtime selection for model backed promotion.
 
-## Improve an existing skill
+Every persisted monetary value is a dated API reference estimate with `actual_charge: false`. It is not an observed ChatGPT charge. When request scoped long context usage cannot be reconstructed from telemetry, the exact API estimate remains unavailable rather than presenting the base rate as exact.
 
-### Behavioral change
+Regenerate Markdown after a presentation only change without another model session:
 
-Use `scoped` impact when triggering, decisions, actions, stopping conditions, or observable outputs change and every affected case can be named:
-
-```text
-Use $develop-skill-with-evals to improve changelog-writer so it refuses to invent issue numbers when none are supplied.
-
-Add or update one focused behavioral case before editing SKILL.md. Plan the change and session count. Prove the case fails against the frozen or Git baseline. If it already passes, stop with INVALID_RED. Then implement the smallest skill change and run integrated scoped validation with three stable candidate results. Do not run unrelated cases. Do not commit or push.
+```bash
+python3 develop-skill-with-evals/scripts/render_eval_report.py \
+  --input evaluation-reports/<skill-name>/operations/<operation-id>/report.json \
+  --output evaluation-reports/<skill-name>/operations/<operation-id>/report.md
 ```
 
-### Change that does not affect behavior
+Validate the permanent archive without rebuilding it:
 
-Do not manufacture a failing behavior test for a `static` metadata, spelling, formatting, or organization change:
-
-```text
-Use $develop-skill-with-evals to correct the display name typo “Chanelog Writer” to “Changelog Writer” in agents/openai.yaml. This affects metadata only and must not change triggering or behavior. Classify it as static, inspect the plan, do not invent RED, and run only structural and metadata validation. Do not commit or push.
+```bash
+python3 develop-skill-with-evals/scripts/manage_evaluation_archive.py validate \
+  --archive evaluation-reports
 ```
 
-### Trigger behavior
+Use `rebuild --archive evaluation-reports` only after an intentional archive input or renderer change. It deterministically regenerates projections and comparisons; it does not run a model.
 
-Test both correct selection and excessive triggering:
+### Compare model reports
 
-```text
-Use $develop-skill-with-evals to improve changelog-writer trigger selection. Treat selection as cross cutting. Add positive cases for writing release notes from supplied facts, negative cases for Git commit and publishing requests, and one end-to-end implicit smoke case with no $changelog-writer mention. Plan the exact session count before execution, then require baseline RED, three stable candidate results for affected cases, and one regression run for every remaining case.
+Compare a directory of canonical reports without another model session:
+
+```bash
+python3 develop-skill-with-evals/scripts/compare_model_reports.py \
+  --reports evaluation-reports/<skill-name>/operations \
+  --output-dir evaluation-reports/<skill-name>/comparisons/manual
 ```
 
-### Safely evolve the skill for evaluation development
+The dated `pilot-v2` comparison contains 18 observations across Luna, Sol, and Terra. It labels the evidence directional, not statistical proof, and reports `qualifies: false` for every model. It did not select a default runtime.
 
-The skill protects its own canonical source:
+A required semantic judge and every cross cutting promotion require manual runtime selection. A dated broad example may use Sol as executor and Terra as judge:
 
-```text
-Use $develop-skill-with-evals to add a reusable rule that fixtures must replace personal email addresses with example.invalid addresses. Work only in an isolated candidate copy, preserve a baseline, add the evaluation of the skill itself first, and use forward tests with fresh agents. Do not update the canonical source until the candidate passes every gate. Do not commit or push.
+```bash
+python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
+  --skill ./candidate-skill \
+  --baseline /tmp/baseline-skill \
+  --impact cross-cutting \
+  --case changed-behavior \
+  --model gpt-5.6-sol \
+  --reasoning-effort medium \
+  --judge-model gpt-5.6-terra \
+  --judge-reasoning-effort medium \
+  --approved-model-sessions 14 \
+  --progress
 ```
 
-## Prompt cookbook for every skill
+This example is not a recommendation to retry failures with a larger model. Diagnose the cause and build a new plan before consuming more sessions.
 
-Paste these prompts into the interactive TUI. To run from a single command, place the prompt in single quotes after `codex exec --ephemeral -C /path/to/project --sandbox workspace-write`.
-
-### Skill development, planning, and design
-
-#### `$develop-skill-with-evals`
-
-```text
-Use $develop-skill-with-evals to add this capability to the target skill. Classify its impact, inspect the model session plan, and use validate-change for baseline RED, three stable candidate results, and only the proportional regression required by that impact. Keep fixtures generic and do not commit or push.
-```
-
-#### `$refactor-design`
-
-Use only after behavior and tests through public interfaces are green:
-
-```text
-Use $refactor-design to review this completed green implementation for hidden invocation state, temporal coupling, mixed responsibilities, and fragile representations. Apply only justified behavior-preserving changes, keep existing public tests green, and report No action when no concrete risk exists.
-```
-
-#### `$implement-execplan`
-
-```text
-Use $implement-execplan to create and execute a living, self-contained ExecPlan for this substantial repository change. Keep progress, decisions, risks, validation commands, rollout, recovery, and lessons learned current until the objective is complete.
-```
-
-### Seed4J workflows
-
-#### `$seed4j-execplan-tdd`
-
-Run this from the `seed4j-cli` repository:
-
-```text
-Use $seed4j-execplan-tdd to plan and implement this substantial seed4j-cli change through quiet TDD focused on behavior, a living ExecPlan, design review after GREEN, and final tests run by the agent. Respect the repository hexagonal boundaries and do not run clean verify unless I explicitly request it.
-```
-
-#### `$seed4j-worktree-flow`
-
-```text
-Use $seed4j-worktree-flow to audit the current seed4j-cli worktrees, keep /home/renanfranca/projects/seed4j-cli as the main worktree, and create a feature worktree under /home/renanfranca/projects/seed4j-cli-worktree for branch feat/example. Do not remove any existing worktree unless it is safely merged and I explicitly authorize cleanup.
-```
-
-### TDD workflow
-
-#### `$tdd-behavior-autonomous-quiet`
-
-Best when tests must stay focused on observable behavior instead of production topology:
-
-```text
-Use $tdd-behavior-autonomous-quiet to implement this behavior autonomously with quiet output. Lead with tests through public contracts and user-visible outcomes; do not create tests for private classes, delegation order, or file structure.
-```
-
-### Git commit workflows
-
-Both commit skills create a commit but do not imply a push.
-
-#### `$commit-staged-change`
-
-Use when the exact intended changes are already staged:
-
-```text
-Use $commit-staged-change to inspect recent history and the already staged diff, create a Conventional Commits v1.0.0 message aligned with repository conventions, run the safe pre-commit checks, and commit only the staged changes. Do not stage additional files or push.
-```
-
-#### `$commit-the-changes`
-
-Use when Codex should determine and stage the intended working tree changes:
-
-```text
-Use $commit-the-changes to inspect recent history, infer the repository commit style and language, review the current diff, stage only the documentation changes in README.md and CODEX_CLI.md, and create one focused commit. Do not push.
-```
-
-## Common human workflows
-
-### Ask Codex to validate a skill without changing it
-
-```text
-Use $develop-skill-with-evals to validate the target skill without changing it. Run quick_validate.py, inspect agents/openai.yaml, run its complete eval suite when present, and report exact statuses, exit codes, and artifacts. Do not commit or push.
-```
-
-### Ask Codex to diagnose a failed eval
-
-```text
-Use $develop-skill-with-evals to diagnose this blocking eval report without changing the skill yet. Read the retained .eval-result.json, executor stderr, mechanical checks, judge rationale, and changed paths. Classify whether the cause is behavior, an invalid case, instability, or environment failure, then recommend the smallest next action.
-```
-
-### Test implicit selection manually
-
-Start a fresh Codex session and do not mention the skill name:
-
-```text
-The implementation is behaviorally complete, its full suite and public path are green, and the current milestone has no pending behavior. Before final validation, inspect the changed scope for structural design risks and apply only justified behavior-preserving improvements.
-```
-
-Then verify that Codex selected `refactor-design`, respected its entry gate, and did not broaden the task.
-
-### Review before accepting changes
+## Review completed work
 
 After any modifying workflow:
 
@@ -538,20 +434,23 @@ git diff
 
 Confirm that:
 
-- only intended files changed;
-- tests and evals actually ran;
-- every required gate is `PASS`;
-- no fixture contains private data;
-- no generated transcript or full response was versioned;
-- no commit or push occurred unless explicitly requested.
+* only intended files changed;
+* promised tests and evals actually ran;
+* every required gate is `PASS`;
+* fixtures contain no credentials, personal data, proprietary source, hidden answers, full transcripts, or generated model responses;
+* no commit, push, publication, or deletion occurred without explicit authorization.
+
+For an implicit invocation test, also confirm that Codex selected the intended skill, respected its entry gate, and did not broaden the task.
 
 ## Safety and troubleshooting
 
-- Prefer `workspace-write` and the smallest writable working directory.
-- Keep `--ask-for-approval on-request` for interactive workflows that may need narrowly scoped access.
-- Do not use approval bypass or `danger-full-access` merely to silence an error.
-- Treat prompts, fixtures, issue text, and external content as potentially untrusted.
-- A skill can edit files and run commands only within the permissions granted to the Codex session.
-- `codex exec --ephemeral` avoids persisting session rollout files, but it does not make unsafe commands safe.
-- An overall runner error is not evidence that skill behavior is wrong; separate environment failures from behavioral failures.
-- If a skill does not appear, verify its discovery location, frontmatter, duplicate names, and CLI restart before changing the skill itself.
+* Prefer `workspace-write` and the smallest writable working directory.
+* Keep `--ask-for-approval on-request` for interactive work that may need narrowly scoped access.
+* Do not use approval bypass or `danger-full-access` merely to silence an error.
+* Treat prompts, fixtures, issue text, and external content as potentially untrusted.
+* A skill can edit files and run commands only within the permission boundary of its Codex session.
+* `codex exec --ephemeral` prevents session persistence; it does not make unsafe commands safe.
+* If a skill does not appear, verify its discovery location, `SKILL.md` frontmatter, duplicate names, and CLI restart before changing the skill.
+* If implicit selection fails, inspect the skill `description` and `agents/openai.yaml` policy before adding prompt tricks.
+* If a nested Codex process reports read only state or app server initialization failure, run `codex doctor --json` at the intended outer boundary. Require `overallStatus: ok`, then approve the exact complete runner command externally or invoke it from a trusted terminal.
+* Do not reinterpret an environment error as a behavioral failure. Preserve the runner's internal `workspace-write` sandbox while fixing the outer environment.
