@@ -219,7 +219,7 @@ A traceable coverage manifest connects requirements to the observations intended
 
 `complete` and `partial` in `coverage.json` are declared coverage levels, not execution statuses. Representative coverage removes the requirement for one case per rubric item, but it does not authorize skipping cases selected by the applicable suite gates. Semantic qualification requires those gates to execute and pass.
 
-For `refactor-design`, the result is specific: its normative map is declaratively complete and mechanically validated, while its new or modified semantic cases are not qualified. The [dated `refactor-design` state](#example-evaluating-refactor-design) records the detailed evidence and pending gates.
+For `refactor-design`, the result is specific: its normative map is declaratively complete and mechanically validated, while the current full suite audit is observably blocked by two semantic cases. The [dated `refactor-design` state](#example-evaluating-refactor-design) records the detailed evidence and pending promotion gates.
 
 Case count remains a poor proxy for coverage. In `refactor-design`, overlap is useful only when cases declare different observation dimensions, such as explicit invocation, implicit selection, a stop condition, or Java technology. Duplicate scenarios with the same contract and dimension add cost without improving traceability.
 
@@ -411,17 +411,18 @@ Do not retry an unchanged evaluation with a larger model after blocking evidence
 
 The [`refactor-design` suite](refactor-design/evals/suite.json) is a broader example after the minimal `impact-gate-selection` case. Its [`coverage.json`](refactor-design/evals/coverage.json) binds source fingerprints, normative contracts, rubric families, case dimensions, evidence types, guarantee levels, and explicit limitations. The zero session `coverage-contract` case checks those relationships and proves that deliberately stale or inconsistent copies are rejected.
 
-The manifest records declared normative traceability while the semantic cases remain representative samples. The following state was observed on 2026-07-27:
+The manifest records declared normative traceability while the semantic cases remain representative samples. The following state was observed on 2026-07-27 at commit `673dfb98aefc470d7fac3b3c822d87e7e0f6fba4`:
 
 | Evidence | Observed state | Durable basis and limitation |
 | --- | --- | --- |
 | [`coverage-contract`](refactor-design/evals/cases/coverage-contract/case.json) | `PASS`: one RED and three GREEN runs, zero model sessions. | Deterministic contract evidence only. It does not qualify semantic behavior. |
-| Six earlier semantic cases | `PASS` in the [archived report](evaluation-reports/refactor-design/operations/20260727T144730.399249Z-24a76a532c0b/report.md). | Covers the earlier versions of `hidden-invocation-state`, `cohesive-no-action`, `red-suite-gate`, `no-self-modification`, `trigger-selection`, and `implicit-trigger-smoke`, not their later modifications. |
-| Eight new or modified semantic cases in the [current suite](refactor-design/evals/suite.json) | Diagnostic not completed. | No completed diagnostic or promotion result qualifies these versions as `PASS`. |
-| Strengthened [`hidden-invocation-state`](refactor-design/evals/cases/hidden-invocation-state/case.json) negative control | `INVALID_RED`. | The baseline solved the scenario, so the control did not distinguish the candidate. No durable report was archived for this observation. |
-| [Java fixture](refactor-design/evals/cases/java-hexagonal-mapping/fixture/compile_and_test.py) | Local compilation and test `PASS`. | Proves the fixture is executable; it is not a semantic executor or judge result. |
-| [`java-hexagonal-mapping`](refactor-design/evals/cases/java-hexagonal-mapping/case.json) | Not executed semantically. | Its mapping and local fixture checks do not establish a case `PASS`. |
-| Semantic promotion | Not performed. | The suite has no integrated RED, three GREEN, and applicable regression evidence for the new or modified semantic cases. |
+| Complete current suite | `FAIL` in the [full archived report](evaluation-reports/refactor-design/operations/20260727T170755.244350Z-e1c34d62c6a5/report.md): all 12 cases observed with 11 executor and 11 judge sessions. | Sol `medium` executed and Terra `medium` judged the semantic cases. The report is observational and explicitly records `promotion_eligible: false`. |
+| Nine passing semantic cases | `PASS`: `cohesive-no-action`, `hidden-invocation-state`, `implicit-trigger-smoke`, `no-self-modification`, `red-suite-gate`, `trigger-selection`, `exception-gates`, `rubric-lifecycle-calibration`, and `java-hexagonal-mapping`. | Each case passed its mechanical checks and judge; applicable oracles also passed. One observation per case is not stability or promotion evidence. |
+| [`rubric-boundary-calibration`](refactor-design/evals/cases/rubric-boundary-calibration/case.json) | `FAIL`: mechanical checks passed, judge failed. | The executor corrected the fragile enum mapping but did not identify the other required representation risks or record that the ambiguous empty workflow state required a paused public contract decision. |
+| [`rubric-cohesion-calibration`](refactor-design/evals/cases/rubric-cohesion-calibration/case.json) | `FAIL`: mechanical checks passed, judge failed. | The executor addressed the main cohesion risks but also rewrote the single clear direct lookup that the case defines as a false positive. |
+| Earlier six case report | Historical `PASS` in the [archived report](evaluation-reports/refactor-design/operations/20260727T144730.399249Z-24a76a532c0b/report.md). | Preserved as prior evidence only. The complete current suite report above is the current execution state. |
+| Strengthened [`hidden-invocation-state`](refactor-design/evals/cases/hidden-invocation-state/case.json) negative control | Historical `INVALID_RED`. | The baseline solved the scenario, so the control did not distinguish the candidate. No durable report was archived for this observation. |
+| Semantic promotion | Not performed. | An observational `PASS` would not equal promotion, and this audit is `FAIL`. The suite still has no integrated RED, three stable GREEN results, and applicable regression evidence for the current semantic contracts. |
 
 If a change affects only one bounded behavior, plan that case as `scoped`. If shared guidance, safety, or selection may affect several cases, use `cross-cutting` so the remaining suite runs once between affected GREEN 1 and GREEN 2. The [CLI cookbook](CODEX_CLI.md#plan-proportional-gates-first) shows the corresponding command. Do not infer success from executor prose; inspect the structured status and all required evidence.
 
