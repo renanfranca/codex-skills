@@ -208,18 +208,20 @@ See the [evaluation contract](develop-skill-with-evals/references/eval-contract.
 
 ## Coverage as a traceable contract
 
-A traceable coverage manifest connects requirements to the observations intended to protect them. It makes suite scope and maintenance obligations inspectable, but the declaration is not evidence that a semantic case executed or passed.
+A traceable coverage manifest connects requirements to the observations intended to protect them. This section uses `refactor-design` as the running example: its manifest makes suite scope and maintenance obligations inspectable, but the declaration is not evidence that a semantic case executed or passed.
 
-| Layer | What it guarantees | Supporting evidence | What it does not guarantee |
+| Layer | General meaning | In `refactor-design` | What it does not prove |
 | --- | --- | --- | --- |
-| Normative traceability | Every governed instruction is declared and mapped to at least one distinct case dimension and evidence type. | Source fingerprints, contract mappings, guarantee levels, and limitations in `coverage.json`. | That the mapped cases ran, passed, or will generalize to every future task. |
-| Mechanical integrity | Declared fingerprints, suite membership, case IDs, dimensions, evidence compatibility, and structural invariants satisfy the deterministic checker. | The `coverage-contract` case, including rejection of deliberately stale or inconsistent copies. | Contextual judgment such as whether a risk is concrete or a refactor is proportionate. |
-| Semantic behavior | When the applicable gates execute and pass, the evaluated scenario satisfied its public checks, oracle, and judge criteria for those runs. | Structured runner statuses and durable reports from actual executor and judge sessions. | Universal correctness across models, prompts, repositories, technologies, or future runs. |
-| Rubric sampling | Representative signals, risks, false positives, and technologies are mapped without requiring one case for every rubric item. | Rubric family mappings, distinct coverage dimensions, declared limitations, and executed applicable cases. | Permission to skip selected suite cases or a claim that every contextual classification is correct. |
+| Normative traceability | Every governed instruction is declared and mapped to at least one distinct case dimension and evidence type. | The [`refactor-design` manifest](refactor-design/evals/coverage.json) fingerprints `SKILL.md` and both rubric references, then maps their contracts to cases, evidence, guarantee levels, and limitations. | That the mapped `refactor-design` cases ran, passed, or will generalize to every future task. |
+| Mechanical integrity | Declared fingerprints, suite membership, case IDs, dimensions, evidence compatibility, and structural invariants satisfy a deterministic checker. | The [`refactor-design` coverage contract](refactor-design/evals/cases/coverage-contract/case.json) checks those relationships and rejects deliberately stale or inconsistent copies. | That `refactor-design` made correct contextual judgments, such as whether a risk is concrete or a refactor is proportionate. |
+| Semantic behavior | When applicable gates execute and pass, the evaluated scenario satisfied its public checks, oracle, and judge criteria for those runs. | For `refactor-design`, actual semantic evidence comes from structured runner statuses such as the [archived six case report](evaluation-reports/refactor-design/operations/20260727T144730.399249Z-24a76a532c0b/report.md), not from the coverage manifest. | That unexecuted or modified `refactor-design` cases passed, or that results are universal across models, prompts, repositories, technologies, or future runs. |
+| Rubric sampling | Representative signals, risks, false positives, and technologies are mapped without requiring one case for every rubric item. | `refactor-design` groups every rubric section into representative families and distinct case dimensions in its manifest; selected semantic cases still have to run. | Permission to skip selected `refactor-design` suite cases or a claim that every contextual classification is correct. |
 
 `complete` and `partial` in `coverage.json` are declared coverage levels, not execution statuses. Representative coverage removes the requirement for one case per rubric item, but it does not authorize skipping cases selected by the applicable suite gates. Semantic qualification requires those gates to execute and pass.
 
-Case count remains a poor proxy for coverage. Overlap is useful only when cases declare different observation dimensions, such as explicit invocation, implicit selection, a stop condition, or Java technology. Duplicate scenarios with the same contract and dimension add cost without improving traceability.
+For `refactor-design`, the result is specific: its normative map is declaratively complete and mechanically validated, while its new or modified semantic cases are not qualified. The [dated `refactor-design` state](#example-evaluating-refactor-design) records the detailed evidence and pending gates.
+
+Case count remains a poor proxy for coverage. In `refactor-design`, overlap is useful only when cases declare different observation dimensions, such as explicit invocation, implicit selection, a stop condition, or Java technology. Duplicate scenarios with the same contract and dimension add cost without improving traceability.
 
 ## The proof cycle
 
