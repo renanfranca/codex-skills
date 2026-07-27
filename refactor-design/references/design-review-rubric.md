@@ -25,6 +25,10 @@ This rubric is investigative, not a mechanical checklist. Apply a refactoring on
 
 Start from changed behavior and its data flow. For a suspected issue, record the signal, the concrete failure or maintenance risk, and the invariant that a refactor would make explicit. Consider the false positives before classifying it. Prefer `No action` when evidence is weak, the current representation is already local and clear, or the refactor would exceed scope.
 
+Inventory every rubric dimension explicitly requested for the review and classify all of them before editing. Finding one justified refactor does not complete a multidimensional review. Preserve supported findings in the final result when they are blocked by a public contract or authorization gate.
+
+Separate observable contract from implementation representation. Preserve public behavior, types, errors, identity, ordering, and documented lifecycle. Do not preserve transport syntax, framework objects, internal storage, or helper topology merely because the current implementation exposes them internally. Likewise, do not route an independent operation through a new helper solely for reuse; require concrete risk in that operation and verify its complete semantics first.
+
 ## Temporal coupling
 
 - **Signal:** one public operation works only after another method has been called in a particular order.
@@ -132,6 +136,7 @@ Start from changed behavior and its data flow. For a suspected issue, record the
 - **Possible refactors:** build one immutable value-to-position index or introduce an ordering value.
 - **False positives:** collections are tiny and each search has a different semantic condition.
 - **Do not act when:** indexing complicates duplicate semantics or yields no clarity beyond a single lookup.
+- **Independent operations:** limit a consolidation to the operation with demonstrated repeated-search risk. Reuse it from a separate direct lookup only when that lookup has its own concrete risk and the change preserves identity, equality, duplicate, ordering, and not-found behavior.
 
 ## Framework metadata in business types
 

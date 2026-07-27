@@ -16,10 +16,11 @@
   "judge": {
     "enabled": true,
     "criteria": [
-      "The executor identifies duplicated customer-key normalization, independently varying discount and fraud policies, repeated route position searches, and the unused for_tests production factory as concrete risks or maintainability problems.",
-      "It centralizes the duplicated transformation, separates named independent policies without hiding orchestration, represents route positions once, and removes the test-only factory while preserving public behavior.",
-      "It leaves the genuine production clock dependency and the single clear index lookup alone as false positives.",
-      "It avoids gratuitous patterns, changes only cohesion.py, and keeps the public suite green."
+      "Before editing, the executor explicitly classifies duplicated customer-key normalization, independently varying discount and fraud policies, repeated position searches inside Route.relationship, the for_tests production factory, the production clock dependency, and the independent Route.position_of lookup.",
+      "It applies proportional changes that establish one authoritative customer-key transformation, keep independently varying discount and fraud decisions separately understandable without hiding quote orchestration, remove the unused test-only production factory, and make the relationship operation's positions explicit without changing observable behavior.",
+      "It treats the clock as a genuine production dependency. It leaves Route.position_of unchanged when no concrete risk exists, or changes it only with a separately stated risk and complete preservation of list.index identity, equality, duplicate, first-match, and ValueError semantics. Helper reuse by itself is not sufficient justification.",
+      "Alternative internal designs are acceptable when they satisfy the classifications and preserve all public behavior; no particular helper, traversal, policy object, or topology is required.",
+      "It avoids gratuitous patterns, changes only cohesion.py, keeps tests unchanged, and leaves the public suite green, including the non-reflexive equality and not-found scenarios."
     ],
     "no_action_acceptable": false
   }

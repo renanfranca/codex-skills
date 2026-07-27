@@ -1,8 +1,8 @@
 {
   "version": 1,
   "source_fingerprints": {
-    "SKILL.md": "30349f74a27c87e656cbdda8273c13041edab60ebaa2f2b35ea089bcb1f338b7",
-    "references/design-review-rubric.md": "3803f61c2f9b4aaae0b209f68d66c8f1c3b0fbe27c1dbc315e3c080636ea9e47",
+    "SKILL.md": "1aab4946b7c960da08471df945b69e1faccb1e2963c59b0e0b2bf06a48087c03",
+    "references/design-review-rubric.md": "a77f438116bc7afd3153763149d9721202987875f0ecec8778572c32f24a2241",
     "references/java-spring-hexagonal.md": "c5eca8974c7ce30f2735fad108f2bffdf0c32ba3e436eb3710f09d78996eb293"
   },
   "contracts": [

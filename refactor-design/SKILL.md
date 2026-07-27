@@ -37,7 +37,11 @@ Classify each candidate as one of:
 - **Maintainability opportunity:** the improvement is useful but not necessary for the current task.
 - **No action:** evidence, benefit, scope, or confidence does not justify a change.
 
+Before editing, inspect and classify every design dimension requested by the task. Do not end the review after the first actionable finding. Keep supported findings visible even when another finding is fixed first, including risks that cannot be changed within the authorized contract.
+
 For every actionable finding, identify the inadequate dependency, state, responsibility, or representation; explain the concrete risk; consider false positives and cost; and show why the proposed refactor removes that risk. Do not introduce patterns, abstractions, value objects, or extracted classes merely because a checklist suggests them.
+
+Treat stable public behavior, types, errors, identity, and lifecycle guarantees as contracts to preserve. Internal storage, transport spelling, framework objects, and intermediate representations are not automatically public contracts; replace them when evidence shows that they create the risk and the observable contract remains intact. Conversely, do not extend a refactor from one operation to a separate operation merely to reuse a helper. Require an independently demonstrated risk and preserve that operation's full semantics.
 
 ## Refactor while preserving behavior
 
@@ -64,6 +68,7 @@ Pause the review and report the gate when any of these occurs:
 - the same refactoring attempt fails twice consecutively.
 
 Return to behavior-focused TDD for missing behavior. Ask for direction when new authority or a material public or architectural decision is required.
+Continue classifying the remaining in-scope dimensions before the final summary when a gate blocks only one finding. Report the blocked finding as an exception gate instead of silently dropping it or changing the contract.
 
 ## Keep output quiet
 

@@ -13,6 +13,11 @@ class FixedClock:
     return "2026-07-27T12:00:00Z"
 
 
+class NonReflexiveStop:
+  def __eq__(self, other):
+    return False
+
+
 class CohesionTest(unittest.TestCase):
   def test_keeps_customer_keys_consistent(self):
     name = " North & South "
@@ -38,6 +43,14 @@ class CohesionTest(unittest.TestCase):
       route.relationship("A", "B", "H"),
     )
     self.assertEqual(1, route.position_of("H"))
+
+  def test_direct_lookup_preserves_list_index_identity_and_errors(self):
+    stop = NonReflexiveStop()
+    route = Route([stop])
+
+    self.assertEqual(0, route.position_of(stop))
+    with self.assertRaises(ValueError):
+      route.position_of(NonReflexiveStop())
 
 
 if __name__ == "__main__":
