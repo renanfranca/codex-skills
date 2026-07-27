@@ -1,21 +1,23 @@
 # Evaluating Codex Skills
 
-Skill evaluations, or evals, test what a fresh Codex agent actually does and what deterministic code can prove. They complement structural validation: `quick_validate.py` can show that a skill is well formed, while an eval can show that the skill selects the right workflow, changes the right files, preserves protected behavior, and stops at the right safety gate.
+A skill can be structurally valid and still choose the wrong workflow, edit the wrong files, miss a safety gate, or fail a realistic task. Skill evaluations, or evals, collect evidence about those behaviors. If Codex skills are new to you, read [What is a Codex skill?](README.md#what-is-a-codex-skill) first.
 
-This repository provides an evaluation runner in [`develop-skill-with-evals`](develop-skill-with-evals/scripts/run_skill_evals.py). The detailed automation rules live in the [evaluation contract](develop-skill-with-evals/references/eval-contract.md). Plans follow the [plan schema](develop-skill-with-evals/references/eval-plan.schema.json), and executed reports follow the [result schema](develop-skill-with-evals/references/eval-result.schema.json).
-
-If you want commands and prompts ready to copy rather than runner internals, start with [Using Skills with Codex CLI](CODEX_CLI.md).
+This guide explains how to understand and supervise the evidence produced by [`develop-skill-with-evals`](develop-skill-with-evals/SKILL.md). It begins with a real evaluation, then generalizes the parts and the proof workflow. Use [Using Skills with Codex CLI](CODEX_CLI.md) for copyable recipes. The [evaluation contract](develop-skill-with-evals/references/eval-contract.md), [plan schema](develop-skill-with-evals/references/eval-plan.schema.json), and [result schema](develop-skill-with-evals/references/eval-result.schema.json) remain the normative sources.
 
 ## Contents
 
-- [Mental model](#mental-model)
+- [What the automation does](#what-the-automation-does)
+- [A complete evaluation](#a-complete-evaluation)
+- [Anatomy of an evaluation](#anatomy-of-an-evaluation)
+- [Choose the evidence path](#choose-the-evidence-path)
 - [Requirements](#requirements)
 - [Suite structure](#suite-structure)
+- [The proof cycle](#the-proof-cycle)
 - [Choose gates by impact](#choose-gates-by-impact)
-- [Plan model session usage](#plan-model-session-usage)
+- [Plan gates and sessions](#plan-gates-and-sessions)
 - [What happens during a run](#what-happens-during-a-run)
-- [Durable evidence and pricing](#durable-evidence-and-pricing)
 - [Result statuses, progress, and artifacts](#result-statuses-progress-and-artifacts)
+- [Durable evidence and pricing](#durable-evidence-and-pricing)
 - [Command reference](#command-reference)
 - [Optional runtime controls](#optional-runtime-controls)
 - [Economic runtime policy](#economic-runtime-policy)
@@ -26,68 +28,139 @@ If you want commands and prompts ready to copy rather than runner internals, sta
 - [Design principles](#design-principles)
 - [Structural validation](#structural-validation)
 
-## Mental model
+## What the automation does
 
-An evaluation starts with a **skill change** and asks two questions:
+`develop-skill-with-evals` helps Codex create or revise evaluation cases, preserve the prior skill, plan proportional evidence checkpoints, execute approved runs, and produce auditable reports. The runner isolates each case, protects the evaluated skill, counts planned model sessions, detects changed inputs before execution, and retains failure artifacts when work blocks.
 
-1. What evidence can observe this change?
-2. How much evaluation work is proportional to its impact?
+Automation does not decide whether the evaluation represents the maintainer's real intent. A person still needs to supervise:
 
-The baseline is the skill before the change. The candidate is the proposed skill after the change. A trustworthy behavioral eval fails against the baseline and passes against the candidate. A purely mechanical change uses deterministic evidence instead of spending model sessions on semantic cases that cannot observe it.
+- whether the case observes the behavior that matters;
+- whether its public input avoids revealing the expected answer;
+- whether deterministic checks test outcomes rather than implementation details;
+- whether the declared impact covers the possible reach of the change;
+- whether the planned runtime and session cost are authorized;
+- whether every required result supports accepting the change.
 
-The system has five main actors:
+The distinction matters: the runner can enforce a declared contract, but it cannot guarantee that the contract is the right one.
 
-- **Planner:** selects gates from the declared impact and cases, then calculates executions and model sessions before anything runs.
-- **Evaluated skill:** the baseline or candidate `SKILL.md` and its normal resources.
-- **Executor:** a fresh, ephemeral Codex session that receives a realistic task and may edit an isolated fixture.
-- **Mechanical checker:** deterministic code that checks commands, files, changed paths, exit codes, and skill integrity.
-- **Judge:** a separate Codex session that compares executor evidence with semantic criteria hidden from the executor.
+## A complete evaluation
 
-There are two execution paths:
+The real [`impact-gate-selection`](develop-skill-with-evals/evals/cases/impact-gate-selection/) case tests whether a fresh executor plans the correct evidence for a small runner change. **Impact** classifies which evidence can observe a change and how far its effects may reach. This is a useful first example because an agent must understand and perform the task, while code can verify the complete result.
 
-```mermaid
-flowchart TD
-  A[Classify the change] --> B[Build a side effect free plan]
-  B --> C{Case kind}
-  C -->|Semantic| D[Create fixture workspace]
-  D --> E[Install skill without evals]
-  E --> F[Run fresh Codex executor]
-  F --> G[Run public mechanical checks]
-  G --> O[Run hidden oracle]
-  O --> H[Run judge when enabled]
-  C -->|Deterministic| I[Create fixture workspace]
-  I --> J[Expose immutable skill snapshot]
-  J --> K[Run mechanical checks only]
-  H --> L[Aggregate structured result]
-  K --> L
-  L -->|PASS| M[Delete successful workspace]
-  L -->|Blocking status| N[Retain diagnostic artifacts]
+### 1. The executor receives a prompt
+
+A **prompt** is the public request given to a fresh, ephemeral Codex session called the **executor**. The case's [full prompt](develop-skill-with-evals/evals/cases/impact-gate-selection/prompt.md) says, in part:
+
+> The small runner in `target-skill/scripts/target-runner.py` currently writes its JSON status to standard error. I intend to move that JSON to standard output while preserving the exit code and keeping standard error empty.
+
+It asks the executor to choose the impact, invoke the public planning operation exactly once, save three evidence files, and avoid modifying or evaluating either skill. It does not reveal the expected impact or selected case.
+
+### 2. The runner copies a fixture
+
+A **fixture** is the minimal public starting state copied into an isolated workspace. This case's [`fixture/`](develop-skill-with-evals/evals/cases/impact-gate-selection/fixture/) contains:
+
+- `target-skill`, the proposed source, also called the candidate;
+- `target-baseline`, the preserved source before the proposed change, also called the baseline.
+
+The evaluation harness installs `develop-skill-with-evals` separately as the skill under evaluation, including the public planning runner but excluding its `evals/` directory. The executor can inspect the public fixture and installed skill and create evidence in the workspace. It cannot see the case manifest, hidden oracle, or judge criteria.
+
+### 3. The executor produces evidence
+
+The prompt requires:
+
+- `evaluation-plan.json`, containing the plan on standard output;
+- `plan-stderr.log`, containing standard error;
+- `plan-exit-code.txt`, containing the decimal exit code.
+
+These files make the executor's decision observable without relying on its prose summary.
+
+### 4. Code checks the result
+
+The [case manifest](develop-skill-with-evals/evals/cases/impact-gate-selection/case.json) declares two layers of deterministic evidence. **Mechanical checks** are generic observations configured in `case.json`; here they require the three evidence files, expect executor exit code `0`, and forbid changes to either skill or the installed skill directory.
+
+An **oracle** is a case specific deterministic checker stored under `oracle/`. It runs outside the executor's workspace and is never copied into the installed skill. The [oracle for this case](develop-skill-with-evals/evals/cases/impact-gate-selection/oracle/check_plan.py) reads the saved plan and checks the observable contract:
+
+```python
+assert plan["operation"] == "plan"
+assert plan["impact"] == "deterministic"
+assert plan["selected_cases"] == ["runner-output"]
+assert plan["regression_cases"] == []
+assert plan["sessions"]["total"] == 0
+assert plan["approval_required"] is False
+assert plan["execution_blockers"] == []
 ```
 
-A semantic case needs agent judgment because code alone cannot observe the complete outcome. A deterministic case needs no executor or judge because direct checks cover the complete contract.
+It also checks that planning exited `0` and wrote nothing to standard error.
 
-The executor never receives `case.json`, judge criteria, or other answer key material. The evaluated skill is installed without its `evals/` directory, so the executor cannot discover the oracle through the repository scoped installation.
+### 5. The case passes without a judge
+
+A **judge** is a separate Codex session used only when deterministic code cannot interpret the complete semantic contract. This case explicitly disables its judge:
+
+```json
+{
+  "judge": {
+    "enabled": false,
+    "criteria": [],
+    "no_action_acceptable": false
+  }
+}
+```
+
+The case is still semantic because an executor is needed to understand and perform the open task. It does not need semantic judgment because the oracle can decide the complete result. If the mechanical checks and oracle pass, the case returns `PASS` with one executor session and no judge session.
+
+The visibility and order are:
+
+```mermaid
+flowchart LR
+  P[Public prompt] --> E[Fresh executor]
+  F[Public fixture] --> E
+  E --> W[Workspace evidence]
+  W --> M[Mechanical checks]
+  W --> O[Hidden oracle]
+  M --> R[Structured result]
+  O --> R
+  J[Optional hidden judge] -. only when interpretation remains .-> R
+```
+
+## Anatomy of an evaluation
+
+These pieces are complementary rather than competing names for the same checker:
+
+| Piece | Purpose | Visible to executor | Evidence | Model sessions |
+| --- | --- | --- | --- | --- |
+| Prompt | Presents a realistic task. | Yes | Public request and constraints | None by itself |
+| Fixture | Provides the minimal starting workspace. | Yes | Public code, tests, configuration, and generic data | None |
+| Mechanical checks | Apply reusable observations declared in the manifest. | No manifest access | Exit codes, paths, changes, and command results | None |
+| Oracle | Verifies the case specific observable contract. | No | Deterministic assertions over workspace evidence | None |
+| Judge | Interprets criteria that code cannot decide completely. | No | Independent `PASS`, `FAIL`, or `INCONCLUSIVE` verdict | One when executed |
+
+The executor never receives `case.json`, judge criteria, or answer key material. The evaluated skill is installed without `evals/`, and the oracle directory remains runner controlled. This separation lets an evaluation test whether the skill can solve the public task instead of merely reproducing a disclosed answer.
+
+## Choose the evidence path
+
+Start with three questions:
+
+1. Does the task need an agent to perform it?
+2. Can deterministic code observe the complete contract?
+3. If not, what remaining interpretation requires a judge?
+
+A **semantic case** needs an executor to carry out an open task. Its manifest kind is `behavioral`, `non_behavioral`, or `trigger`; omitted `kind` remains compatible with `behavioral`. Use a complete oracle and disable the judge when code can decide the result. Enable a judge only for behavior that still requires semantic interpretation after mechanical and oracle evidence.
+
+A **deterministic case** uses `kind: "deterministic"` when code can perform and verify the complete contract. It has no prompt, executor, or judge and consumes zero model sessions. The runner exposes an immutable skill snapshot through `SKILL_EVAL_SKILL_DIR`, runs direct checks, and verifies that the checker did not alter the snapshot.
+
+Do not label an open task deterministic merely because its final files can be checked. If an agent is necessary to produce those files, the case is semantic even when its verdict is deterministic.
 
 ## Requirements
 
-- Python 3.10 or newer;
-- Git for workspace snapshots and `git:<revision>` sources;
-- an installed and authenticated `codex` CLI for semantic cases;
-- an environment where nested `codex exec` processes can access their normal state and write to the disposable workspace.
-
-Run the commands below from the repository root, `/home/renanfranca/.codex/skills`, unless a command says otherwise.
-
-`plan` and deterministic cases invoke no model. Semantic cases invoke one executor session and may invoke one judge session, so they consume time and model usage. Executed model sessions emit structured JSONL token telemetry.
+Run the evaluation commands from this repository's root. The runner requires Python 3.10 or newer and Git for snapshots and `git:<revision>` sources. Semantic cases also require an installed and authenticated Codex CLI in an environment where nested `codex exec` processes can read their normal state and write to the disposable workspace. Planning and deterministic cases invoke no model.
 
 ## Suite structure
 
-`evals/` is a convention of this repository, not part of the official skill format. It stays outside `references/` so ordinary skill use does not load fixtures or oracles into context.
+`evals/` is a repository convention, not part of the official skill format. It stays outside `references/` so ordinary skill use does not load test fixtures or hidden evidence into context.
 
 ```text
 example-skill/
 ├── SKILL.md
-├── agents/
-│   └── openai.yaml
 └── evals/
     ├── suite.json
     └── cases/
@@ -95,8 +168,6 @@ example-skill/
         │   ├── case.json
         │   ├── prompt.md
         │   ├── fixture/
-        │   │   ├── source-file
-        │   │   └── public-recorder.py
         │   └── oracle/
         │       └── check_contract.py
         └── deterministic-example/
@@ -105,9 +176,7 @@ example-skill/
                 └── check_behavior.py
 ```
 
-### `suite.json`
-
-The suite declares its format version and ordered case IDs:
+`suite.json` declares a format version and ordered case IDs. The order controls `run --all` and the remaining regression cases for cross cutting validation:
 
 ```json
 {
@@ -116,401 +185,163 @@ The suite declares its format version and ordered case IDs:
 }
 ```
 
-Each ID must have a matching directory under `evals/cases/`. `run --all` executes cases in this order. The order also determines the remaining regression cases in a cross cutting validation.
-
-### `case.json`
-
-A case combines runner configuration with the expected contract. `kind` selects one of two contracts:
-
-- `behavioral`, `non_behavioral`, and `trigger` are semantic kinds. When `kind` is omitted, `behavioral` remains the compatible default.
-- `deterministic` runs mechanical checks without an executor or judge.
-
-The most common fields are:
+Each `case.json` combines runner configuration with the expected contract. The fields most useful during supervision are:
 
 | Field | Meaning |
 | --- | --- |
-| `id` | Must equal the case directory name. |
-| `kind` | Records the case intent and selects the deterministic contract when set to `deterministic`. |
-| `prompt_file` | Semantic prompt filename relative to the case directory; defaults to `prompt.md`. |
-| `implicit_skill` | For semantic cases, omits the explicit `$skill-name` instruction when `true`. |
-| `mechanical.expected_exit_code` | Expected exit code from the semantic executor's `codex exec` process. |
-| `mechanical.required_paths` | Paths that must exist after execution, relative to the workspace. |
-| `mechanical.forbidden_changed_paths` | `fnmatch` patterns that must not appear among changed paths. |
-| `mechanical.commands` | Argument arrays run directly without a shell, with expected exit codes. |
-| `oracle.commands` | Hidden checker argv; `{oracle_dir}` resolves to the case oracle directory. |
-| `judge.enabled` | Enables or disables independent semantic judgment. |
+| `id` | Must match the case directory. |
+| `kind` | Records semantic intent or selects the deterministic path. |
+| `prompt_file` | Names the semantic prompt; defaults to `prompt.md`. |
+| `implicit_skill` | Omits the explicit `$skill-name` instruction to test implicit selection. |
+| `mechanical.expected_exit_code` | Expected executor process exit code. |
+| `mechanical.required_paths` | Workspace paths that must exist. |
+| `mechanical.forbidden_changed_paths` | Patterns that must not appear among changed paths. |
+| `mechanical.commands` | Direct argument arrays and their expected exit codes. |
+| `oracle.commands` | Hidden checker argument arrays; `{oracle_dir}` resolves to the protected oracle directory. |
+| `judge.enabled` | Enables independent semantic judgment. |
 | `judge.criteria` | Expected semantic outcomes visible only to the judge. |
-| `judge.no_action_acceptable` | Allows the judge to accept a justified decision not to edit. |
 
-The runner always verifies that the evaluated skill snapshot remains unchanged, even when the case does not explicitly forbid changes under `.agents/skills/**`.
+See the [evaluation contract](develop-skill-with-evals/references/eval-contract.md) and schemas for the complete field rules. Keep fixtures minimal and behaviorally complete. Never include credentials, personal information, proprietary source, customer data, full transcripts, generated model responses, or hidden answers.
 
-### Semantic cases
+## The proof cycle
 
-A semantic case uses an executor and optionally a judge:
+A **baseline** is the preserved skill before the change. A **candidate** is the proposed version. For behavioral work, create the case before implementing the change so the same contract evaluates both sources.
 
-```json
-{
-  "id": "hidden-invocation-state",
-  "kind": "behavioral",
-  "prompt_file": "prompt.md",
-  "implicit_skill": false,
-  "mechanical": {
-    "expected_exit_code": 0,
-    "required_paths": ["report_builder.py", "test_report_builder.py"],
-    "forbidden_changed_paths": ["test_report_builder.py", ".agents/skills/**"],
-    "commands": [
-      {
-        "argv": ["python3", "-m", "unittest", "-q"],
-        "exit_code": 0
-      }
-    ]
-  },
-  "judge": {
-    "enabled": true,
-    "criteria": [
-      "The executor identifies hidden mutable invocation state.",
-      "Only production code changes and observable behavior is preserved."
-    ],
-    "no_action_acceptable": false
-  }
-}
-```
+A **gate** is a required evidence checkpoint. Promotion follows this sequence:
 
-One executor invocation costs one model session. An enabled judge adds one session.
+1. Preserve independent baseline and candidate sources.
+2. Reduce a real task or failure to a minimal case.
+3. Classify the change's impact.
+4. Build a side effect free plan and approve its runtime and session maximum.
+5. Demonstrate **RED**: each affected case must fail on the baseline for the expected reason.
+6. Demonstrate **GREEN**: each affected case must pass on the candidate three times with stable normalized outcomes.
+7. Run regression proportional to the declared impact.
+8. Inspect statuses, evidence, usage, and retained artifacts before promotion.
 
-#### `prompt.md`
+RED proves that the case distinguishes the missing behavior rather than accepting both versions. Three GREEN runs provide bounded stability evidence; they do not prove that model output is deterministic. Regression asks whether the candidate damaged behavior outside the directly affected cases.
 
-Write the raw request exactly as a user could reasonably submit it. Do not include expected findings, judge criteria, diagnoses, or hints that reveal the intended implementation.
-
-For a normal case, the runner prepends an instruction to use the evaluated `$skill-name`. When `implicit_skill` is `true`, the raw prompt is sent unchanged so the case can test whether the skill is selected without an explicit mention.
-
-### Deterministic cases
-
-Use a deterministic case only when code can observe the complete behavior:
-
-```json
-{
-  "id": "runner-json-output",
-  "kind": "deterministic",
-  "mechanical": {
-    "commands": [
-      {
-        "argv": ["python3", "check_runner.py"],
-        "exit_code": 0
-      }
-    ]
-  },
-  "judge": {
-    "enabled": false,
-    "criteria": []
-  }
-}
-```
-
-A deterministic case:
-
-- requires at least one required path, forbidden changed path, or command;
-- does not require `prompt.md`;
-- forbids `prompt_file`, `implicit_skill`, executor configuration, `mechanical.expected_exit_code`, and an enabled judge;
-- creates no executor response;
-- records executor and judge as disabled;
-- consumes zero model sessions;
-- runs commands as direct argument arrays without a shell;
-- sets `SKILL_EVAL_SKILL_DIR` to the absolute immutable skill snapshot being evaluated.
-
-The snapshot hash is checked before and after every deterministic case. A checker may inspect or invoke the snapshot, but it must not modify it.
-
-### `fixture/`
-
-The fixture is copied into a fresh workspace before every run. Keep it minimal but behaviorally complete: include only the source, tests, configuration, and deterministic checker needed to reproduce the scenario.
-
-Never include credentials, personal information, proprietary source, real customer data, full transcripts, generated model responses, or hidden answers. Replace project specific names and values with generic equivalents.
+**Promotion** is the integrated workflow that requires valid RED, three stable GREEN results, and proportional regression. A **diagnostic** is a one pass observation used to understand a defect. A diagnostic can return `PASS`, but it is never promotion eligible.
 
 ## Choose gates by impact
 
-Classify the proposed diff before selecting cases:
+Ask which evidence can observe the proposed change, then how far its effects can reach:
 
 | Impact | Use when | Required gates |
 | --- | --- | --- |
 | `static` | Documentation, comments, formatting, or display text cannot affect selection or behavior. | Structural validation only. |
-| `deterministic` | Code can observe the complete runner, schema, serialization, exit code, or artifact contract. | Baseline once and candidate three times using deterministic cases. |
-| `scoped` | Affected semantic cases can be enumerated confidently. | Baseline RED once and candidate GREEN three times for those cases only. |
-| `cross-cutting` | Selection, safety, central workflow, shared references, or reach is uncertain. | Baseline and candidate GREEN 1 for affected cases, every remaining case once, then affected GREEN 2 and 3. |
+| `deterministic` | Code can observe the complete runner, schema, serialization, exit code, or artifact contract. | Baseline once and candidate three times with deterministic cases. |
+| `scoped` | Every affected semantic case can be named confidently. | Affected baseline RED once and candidate GREEN three times. |
+| `cross-cutting` | Selection, safety, central workflow, shared guidance, or reach cannot be bounded confidently. | Affected RED and GREEN 1, every remaining case once, then affected GREEN 2 and 3. |
 
-Classify the diff, not the file type or the desired cost. A shared reference can be cross cutting even though it is Markdown. Runner behavior can be deterministic when direct checks cover it completely.
+Classify the diff, not merely the file type or desired cost. A shared Markdown reference can be cross cutting, while runner code can be deterministic when direct checks cover it completely. Treat uncertain reach as cross cutting. Underclassification to reduce session cost is a workflow error.
 
-Underclassification is a workflow error. Use `cross-cutting` when the affected boundary cannot be enumerated confidently. Do not run unrelated semantic cases merely because they exist, and do not label semantic behavior deterministic merely to reduce cost.
+## Plan gates and sessions
 
-## Plan model session usage
-
-Run `plan` before any model backed evaluation:
+`plan` validates manifests, selects ordered gates, resolves runtime declarations, and calculates maximum model sessions without creating workspaces, ledgers, artifacts, or model calls:
 
 ```bash
 python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
   --skill ./candidate-skill \
   --baseline /tmp/baseline-skill \
   --impact scoped \
-  --case changed-behavior
+  --case changed-behavior \
+  --model <executor-model> \
+  --reasoning-effort <effort>
 ```
 
-`plan` reads and validates manifests but creates no workspace or artifact and invokes no model. Its JSON reports:
+A **fingerprint** is a hash that binds approved inputs and execution choices. It protects against running changed material under stale approval. Review:
 
-- selected affected cases and remaining regression cases;
-- ordered steps and proposed commands;
+- affected and regression case selection;
 - baseline and candidate execution counts;
-- executor, judge, and total model sessions;
-- the approved limit and whether approval is required;
-- cumulative campaign projection when configured;
-- classification reasons, warnings, and manifest, case, source, runtime and evaluation fingerprints.
+- executor, judge, and total session maximums;
+- runtime values and their sources;
+- approval requirements, blockers, and warnings;
+- manifest, case, source, runtime, and evaluation fingerprints.
 
-`--case` is repeatable. Selection depends on impact:
+Case fingerprints cover manifests, prompts, fixtures, and oracles; source fingerprints cover baseline and candidate; runtime and evaluation fingerprints bind execution choices and selection. The runner recomputes them before execution so a changed input cannot silently use stale approval.
 
-| Impact | Case selection |
-| --- | --- |
-| `static` | Rejects `--case` and proposes structural gates only. |
-| `deterministic` | Selects all deterministic cases when none are supplied; explicit selections must be deterministic. |
-| `scoped` | Requires at least one explicitly affected case and selects no unrelated cases. |
-| `cross-cutting` | Requires affected cases and assigns every remaining suite case to one candidate regression run. |
+A model session is one executor or judge invocation. Semantic cases always plan an executor session and add a judge session when enabled. Deterministic cases add none. The plan counts maximum sessions, not tokens, duration, or price.
 
-A model session is one executor or judge invocation. One semantic case with an enabled judge costs two sessions per execution. A deterministic case costs zero. The plan counts sessions, not tokens, duration or price; executed reports collect tokens when Codex supplies them.
+A **campaign** is a related set of diagnostic and promotion operations. A campaign ledger uses locking and conservative reservations to track actual consumption against one explicitly approved cumulative session limit. Use it when several operations need shared cost supervision. Shell or sandbox approval is not model cost approval.
+
+The default operation limit is eight model sessions. Model backed promotion requires explicit executor model and reasoning effort; a required judge may use explicit values or inherit the complete executor runtime. Missing runtime or insufficient operation or campaign approval appears under `execution_blockers` and prevents execution.
 
 ## What happens during a run
 
-The exact phases depend on the command and case kind, but every executed operation follows the same isolation rules.
-
 ### Common preparation
 
-The runner:
-
-1. Materializes the selected working tree, directory baseline, or Git revision.
-2. Creates a unique operation directory under `/tmp/skill-eval-artifacts` or `--artifacts-dir`.
-3. Copies the case fixture into a new workspace.
-4. Creates an immutable snapshot of the evaluated skill, excluding `evals/`, Python caches, and bytecode.
-5. Initializes workspace state and hashes the initial fixture and skill snapshot.
+The runner materializes the selected source, creates a unique operation directory, copies the fixture to a new workspace, and makes an immutable evaluated skill snapshot that excludes `evals/`, Python caches, and bytecode. It hashes the fixture and skill state before execution.
 
 ### Semantic path
 
 For a semantic case, the runner:
 
-1. Installs the skill under `.agents/skills/<skill-name>`.
-2. Runs `codex exec --json` with an ephemeral session, a workspace write sandbox, and a structured JSON output schema.
-3. Validates the executor response and configured mechanical checks.
-4. Runs verification commands directly, without a shell.
-5. Runs hidden `oracle.commands` from a directory never copied into the workspace.
-6. Invokes a separate judge when enabled, using hidden criteria, executor evidence, mechanical outcomes, and a diff summary.
+1. installs the skill under `.agents/skills/<skill-name>`;
+2. invokes an ephemeral `codex exec --json` in the isolated workspace;
+3. validates the structured executor response and mechanical checks;
+4. runs direct verification commands without a shell;
+5. runs hidden oracle commands outside the executor's view;
+6. invokes a separate judge only when enabled and prior evidence permits it.
 
-The executor response has this shape:
-
-```json
-{
-  "summary": "What was done or why no action was taken.",
-  "classification": "The executor's behavioral or design classification.",
-  "evidence": ["Observable validation evidence."],
-  "files_changed": ["relative/path.py"]
-}
-```
-
-The judge returns `PASS`, `FAIL`, or `INCONCLUSIVE` with a rationale and evidence. A judged semantic case passes only when every mechanical and oracle check passes and the judge returns `PASS`.
+A judged case passes only when every mechanical and oracle check passes and the judge returns `PASS`. A complete oracle can produce `PASS` without a judge.
 
 ### Deterministic path
 
-For a deterministic case, the runner:
+For a deterministic case, the runner skips the executor and judge, exposes the immutable skill snapshot to direct checks, and verifies its hash after execution. It creates no artificial executor response.
 
-1. skips executor installation and invocation;
-2. exposes the immutable snapshot through `SKILL_EVAL_SKILL_DIR`;
-3. checks required and forbidden paths;
-4. runs configured commands directly, without a shell;
-5. verifies that the checker did not modify the skill snapshot.
+### Integrated promotion path
 
-No artificial response is created, and executor and judge phases are recorded as disabled.
+`validate-change` rebuilds the promotion plan. Before any workspace or session, it rejects missing runtime, insufficient budgets, or fingerprint and count mismatches. Once approved, it runs affected baseline cases, affected candidate GREEN 1, remaining cross cutting regressions, and affected GREEN 2 and 3.
 
-### Integrated change validation
+A baseline `PASS` becomes `INVALID_RED`. Divergent normalized candidate outcomes become `UNSTABLE`. There are no automatic retries after blocking evidence.
 
-`validate-change` first builds the same promotion plan as `plan`. If the estimate exceeds the operation or cumulative campaign limit, it prints the plan and stops before creating a ledger or operation directory.
+## Result statuses, progress, and artifacts
 
-When the budget permits execution, it:
+Every status other than `PASS` blocks promotion:
 
-1. snapshots baseline and candidate;
-2. verifies that all evaluation fingerprints and counts still match the plan;
-3. runs every affected case once on baseline and requires `FAIL`;
-4. runs every affected case once on the candidate and requires `PASS`;
-5. for cross cutting changes, runs every remaining case once without repeating affected cases;
-6. runs affected candidate repetitions two and three;
-7. compares the three normalized candidate signatures;
-8. stops on the first blocking candidate or regression result.
+| Status | Meaning | Required response |
+| --- | --- | --- |
+| `PASS` | Every required check and judgment passed. | Continue to the next gate. |
+| `FAIL` | An observable contract failed. | Inspect evidence and correct the case or candidate. |
+| `ERROR` | The runner, manifest, source, or process could not execute reliably. | Fix the environment or configuration. |
+| `INCONCLUSIVE` | A judge could not establish the contract. | Improve the evidence or criteria. |
+| `INVALID_RED` | An affected case passed on the baseline. | Correct the case before implementation. |
+| `UNSTABLE` | Repeated normalized outcomes differed. | Remove the source of instability. |
 
-A passing baseline produces `INVALID_RED`. Divergent passing signatures produce `UNSTABLE`. There are no automatic retries after a failure, inconclusive judgment, or instability. Do not repeat an unchanged evaluation merely to seek PASS.
+Executed evaluations return exit code `0` only for `PASS` and `1` for blocking results. A cost refusal returns `2`, prints the plan with `approval_required: true`, and creates no artifacts. `plan` itself returns `0`, including when it reports blockers.
 
-### Report and cleanup
+Standard output contains only structured plan or report JSON. Progress is written to standard error, follows terminal detection by default, can be forced with `--progress`, and can be suppressed with `--quiet`.
 
-The overall report groups the operation and its case results:
+Successful workspaces are removed and their `artifacts` and `workspace` fields become `null`. Blocking workspaces are retained. Use the top level `artifacts` path to inspect structured responses, standard error, command output, changed files, and `.eval-result.json` files. Retained responses are diagnostic evidence, not fixtures or golden files.
 
-```json
-{
-  "operation": "run",
-  "status": "PASS",
-  "skill": "/absolute/path/to/refactor-design",
-  "model": "configured-default",
-  "results": [
-    {
-      "case_id": "hidden-invocation-state",
-      "status": "PASS",
-      "kind": "behavioral",
-      "executor": {},
-      "mechanical": {},
-      "judge": {},
-      "changed_paths": ["report_builder.py"],
-      "workspace": null
-    }
-  ],
-  "artifacts": null
-}
-```
-
-The shortened nested objects above only show the report hierarchy. Use the linked result schema as the authoritative shape.
-
-Successful operations delete their workspaces and set `artifacts` and each `workspace` to `null`. Blocking operations retain the operation directory for diagnosis.
+Normalized stability compares status, mechanical outcomes, judge verdict, and outcome relevant changed paths. It ignores runner harness files, Python caches, bytecode, and variations in model prose.
 
 ## Durable evidence and pricing
 
-The repository's `evaluation-reports/archive-config.json` enables automatic persistence for real Codex operations that consume at least one session. The runner atomically writes canonical evidence to:
+The repository archive configuration can automatically persist operations that consume real model sessions:
 
 ```text
 evaluation-reports/<skill-name>/operations/<operation-id>/report.json
 evaluation-reports/<skill-name>/operations/<operation-id>/report.md
 ```
 
-The runner persists `report.json` before removing a successful workspace. That JSON is authoritative and includes a SHA-256 digest over its canonical content. `report.md` is a deterministic presentation rendered only from the JSON. Fakes, deterministic operations, and zero session operations do not persist automatically. Without archive configuration, omission preserves the previous stdout and cleanup behavior.
+`report.json` is the canonical evidence and carries a SHA-256 digest over its canonical content. `report.md` is a deterministic projection regenerated from the JSON. Reports record provenance, fingerprints, runtime, planned and actual sessions, timestamps, duration, normalized token telemetry, mechanical facts, oracle and judge outcomes, bounded changed files and diff evidence, truncations, and optional pricing.
 
-`--no-report` disables automatic and explicit persistence. `--report-dir <directory>` selects an explicit destination and takes precedence over the archive. `--pricing-file <json>` is optional, requires an explicit destination, and overrides archive pricing. `--no-report` is incompatible with both options.
+Reports exclude raw JSONL, complete transcripts, private reasoning, credentials, hidden oracle contents, installed skill contents, Git metadata, harness files, Python caches, and bytecode. A persistence failure after session use is blocking and retains diagnostic artifacts.
 
-Use a dated version 1 snapshot:
+Pricing uses an explicit dated API reference. It is an estimate, never an observed ChatGPT charge, and records `actual_charge: false`. Unknown token fields remain `null`, reasoning output is not priced twice, and request scoped long context multipliers are not applied to incompatible aggregate telemetry. When an exact estimate is unsupported, the report retains a labeled base rate reference instead of inventing a value.
 
-```json
-{
-  "version": 1,
-  "effective_date": "2026-07-26",
-  "source": "https://example.test/pricing",
-  "currency": "USD",
-  "unit": "per_million_tokens",
-  "models": {
-    "gpt-5.6-luna": {
-      "input": 1.0,
-      "cached_input": 0.1,
-      "output": 6.0,
-      "long_context": {
-        "input_token_threshold": 272000,
-        "input_multiplier": 2.0,
-        "output_multiplier": 1.5,
-        "applies_per": "request"
-      }
-    }
-  },
-  "limitations": [
-    "Reference pricing is not an observed charge.",
-    "Cache write pricing is unavailable from runner telemetry."
-  ]
-}
-```
-
-The canonical report records operation, workflow, role, repetition, runtime and source fingerprints, planned and executed sessions, timestamps, durations, sanitized CLI and authentication metadata, structured executor declarations, mechanical facts, oracle and judge outcomes, eligible changed files, bounded diffs and fragments, truncations, usage, and optional pricing. It does not persist raw JSONL, complete transcripts, private reasoning, credentials, hidden oracle contents, installed skill contents, `.git`, `.agents/skills`, `.eval-*`, Python caches, or bytecode.
-
-`usage.events` preserves each normalized event in order with its source event type, scope, token fields, and completeness. Missing values remain `null`; the runner never substitutes zero. `reasoning_output_tokens` is reported separately when exposed but is already part of output tokens and is not priced twice.
-
-`turn.completed` usage is turn scoped. It does not prove the input size of any individual request. When a turn aggregate exceeds a long context threshold whose `applies_per` value is `request`, the exact estimate is unavailable. The report retains a labeled base rate reference with status `indeterminate-long-context` instead of applying an unsupported multiplier.
-
-Every calculated amount is an API reference estimate. Reports record the pricing date, source, currency, limitations, sanitized billing mode, and `actual_charge: false`. ChatGPT authentication does not expose a monetary charge for an individual runner execution, so these values must never be described as ChatGPT charges.
-
-Regenerate presentation without invoking a model:
-
-```bash
-python3 develop-skill-with-evals/scripts/render_eval_report.py \
-  --input evaluation-reports/<skill-name>/operations/<operation-id>/report.json \
-  --output evaluation-reports/<skill-name>/operations/<operation-id>/report.md
-```
-
-Compare every canonical report found under a directory:
-
-```bash
-python3 develop-skill-with-evals/scripts/compare_model_reports.py \
-  --reports evaluation-reports/<skill-name>/operations \
-  --output-dir evaluation-reports/<skill-name>/comparisons/manual
-```
-
-The comparator rejects incompatible schemas, invalid digests, duplicate operation IDs, and mixed skill directories. It groups by executor model and case, requires at least three stable `PASS` observations in every represented case for qualification, and summarizes token totals and medians, cache ratio, output and reasoning output, duration, complete API reference cost, base rate reference, effective cost per stable gate, and explanation completeness. Never sum a partial set of exact estimates. Treat a small model matrix as directional evidence, not statistical proof or authority to change runtime defaults automatically.
-
-Rebuild every Markdown projection, manifest, and configured comparison without a model, then validate the complete archive:
-
-```bash
-python3 develop-skill-with-evals/scripts/manage_evaluation_archive.py rebuild \
-  --archive evaluation-reports
-python3 develop-skill-with-evals/scripts/manage_evaluation_archive.py validate \
-  --archive evaluation-reports
-```
-
-The validator checks canonical schema version 1, SHA-256 digests, unique operation IDs, byte identical Markdown replay, pricing semantics, `actual_charge: false`, manifest consistency, forbidden artifact classes, skill separation, and known credential patterns. A persistence failure after session consumption blocks the operation and retains diagnostic artifacts. The runner never stages, commits, pushes, or publishes.
-
-## Result statuses, progress, and artifacts
-
-### Statuses and exit codes
-
-| Status | Meaning | Required response |
-| --- | --- | --- |
-| `PASS` | Every required check and judgment passed. | Continue to the next gate. |
-| `FAIL` | An observable contract failed. | Inspect artifacts and correct the case or candidate. |
-| `ERROR` | The runner, manifest, source, or process could not execute reliably. | Fix the environment or configuration before judging behavior. |
-| `INCONCLUSIVE` | The judge could not establish the contract. | Treat as blocking and gather better evidence. |
-| `INVALID_RED` | An affected case passed on the baseline. | Strengthen or correct the case before implementation. |
-| `UNSTABLE` | Repeated normalized outcomes differed. | Remove the nondeterminism before promotion. |
-
-Executed evaluations return exit code `0` only for `PASS`. Blocking executed operations return `1`. A cost refusal returns `2`, prints the plan with `approval_required: true`, and creates no artifacts. `plan` itself returns `0`.
-
-Stop the campaign immediately on `FAIL`, `ERROR`, `INCONCLUSIVE`, `INVALID_RED`, `UNSTABLE`, or any infrastructure, authentication, quota, or subprocess failure. Diagnose the cause before another execution. Do not retry an unchanged evaluation to seek a favorable result; a new attempt requires a material correction or a new hypothesis, refreshed fingerprints when applicable, a new plan or explicit amendment, and new session approval when the maximum changes.
-
-Normalized stability signatures compare status, mechanical check names and outcomes, judge verdict, and outcome relevant changed paths. They ignore runner `.eval-*` files and generated `__pycache__` or `.pyc` files. They do not require identical model prose.
-
-### Progress output
-
-Standard output contains only the JSON plan or report. Progress uses standard error and flushes immediately:
-
-- with no progress option, output follows `stderr.isatty()`;
-- `--progress` forces progress when a monitoring process captures standard error;
-- `--quiet` suppresses progress even in a terminal;
-- the two options are mutually exclusive;
-- progress never requests input, approval, or confirmation.
-
-### Diagnostic artifacts
-
-Use the overall `artifacts` path from a blocking JSON report. It contains fixture workspaces, structured responses, standard error, command output, and `.eval-result.json` files.
-
-Retained responses are diagnostic evidence, not golden files. Do not copy full transcripts or generated model responses into version control.
+Archive rebuilding, validation, report rendering, pricing examples, and model comparison recipes are in [Using Skills with Codex CLI](CODEX_CLI.md#persist-evidence-with-dated-pricing). The normative persistence and pricing rules are in the [evaluation contract](develop-skill-with-evals/references/eval-contract.md#durable-evidence-reports).
 
 ## Command reference
 
-The examples below may omit `--progress` because standard error TTY detection enables progress automatically in a terminal. Add it when Codex CLI or another process captures standard error.
+Use one side effect free `plan` for supervision, then one integrated operation for the intended purpose:
 
-### Plan proportional gates
+- `probe-change` runs one diagnostic pass and is never promotion eligible;
+- `validate-change` enforces promotion gates, stability, regression, runtime declarations, and budgets;
+- `run`, `verify-change`, and `stability` remain focused exploratory or compatibility operations.
 
-```bash
-python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
-  --skill ./candidate-skill \
-  --baseline /tmp/baseline-skill \
-  --impact scoped \
-  --case changed-behavior \
-  --workflow promotion \
-  --model gpt-5.6-luna \
-  --reasoning-effort medium
-```
-
-Planning is side effect free and always exits zero. It accepts `static`, `deterministic`, `scoped`, and `cross-cutting`, plus `diagnostic` or `promotion` workflow. It resolves executor and judge runtimes, fingerprints manifests, prompts, fixtures, oracles, both sources and runtime, and reports every execution blocker without creating ledgers, artifacts or subprocesses.
-
-### Diagnose a change once
-
-Plan `--workflow diagnostic`, inspect its authoritative session maximum, then run `probe-change` with the same selection and runtime. It executes affected baseline, affected candidate and proportional regressions once each. Contract failures are collected; infrastructure, authentication, quota and subprocess failures stop immediately. A diagnostic can be `PASS`, but it always has `promotion_eligible: false`.
-
-Use `--campaign-ledger <path>` with `--approved-cumulative-model-sessions <n>` to reserve and record diagnostic plus promotion sessions under one cumulative approval. Do not repeat an unchanged complete diagnostic.
-
-### Validate a change as one operation
+The shortest promotion path is:
 
 ```bash
 python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
@@ -518,308 +349,132 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   --baseline /tmp/baseline-skill \
   --impact scoped \
   --case changed-behavior \
-  --model gpt-5.6-luna \
-  --reasoning-effort medium \
-  --campaign-ledger /tmp/my-skill-campaign.json \
-  --approved-cumulative-model-sessions 26 \
+  --model <executor-model> \
+  --reasoning-effort <effort> \
   --progress
 ```
 
-Model-backed promotion requires executor model and reasoning effort explicitly from CLI. A required judge can use its own CLI values or inherit that complete executor runtime. The default approved maximum is eight model sessions. Missing runtime, unresolved judge runtime, or an estimate above the limit returns all blockers with exit code 2 before a workspace, artifact, or model call. Approve a known larger maximum explicitly:
-
-```bash
-python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
-  --skill ./candidate-skill \
-  --baseline /tmp/baseline-skill \
-  --impact cross-cutting \
-  --case changed-behavior \
-  --model gpt-5.6-sol \
-  --reasoning-effort medium \
-  --judge-model gpt-5.6-terra \
-  --judge-reasoning-effort medium \
-  --approved-model-sessions 14 \
-  --progress
-```
-
-This option approves up to the supplied operation session count. `sessions.total` is the planned maximum; top-level `model_sessions.total` in an executed report is actual consumption. `usage` aggregates executor and judge token events from `codex exec --json`, preserving unknown values as `null` with `complete: false`. `campaign` reports cumulative consumption. Shell or sandbox approval is not model cost approval. `validate-change` rejects `static` because static changes require only the structural gates shown by `plan`.
-
-### Run one focused case
-
-```bash
-python3 develop-skill-with-evals/scripts/run_skill_evals.py run \
-  --skill refactor-design \
-  --case hidden-invocation-state \
-  --source working-tree
-```
-
-### Run the complete suite
-
-```bash
-python3 develop-skill-with-evals/scripts/run_skill_evals.py run \
-  --skill refactor-design \
-  --all \
-  --source working-tree
-```
-
-This is an exploratory compatibility operation. Promotion uses `plan` plus one `validate-change`, which selects proportional regression and binds it to the runtime and manifest fingerprints.
-
-### Compare baseline RED with candidate GREEN
-
-With an explicit frozen baseline directory:
-
-```bash
-python3 develop-skill-with-evals/scripts/run_skill_evals.py verify-change \
-  --skill refactor-design \
-  --case hidden-invocation-state \
-  --baseline /tmp/refactor-design-baseline
-```
-
-With the skill as tracked at the current Git revision:
-
-```bash
-python3 develop-skill-with-evals/scripts/run_skill_evals.py verify-change \
-  --skill refactor-design \
-  --case hidden-invocation-state \
-  --baseline git:HEAD
-```
-
-If `--baseline` is omitted, `verify-change` defaults to `git:HEAD`. The case definition always comes from the candidate named by `--skill`, so a newly added case does not need to exist in the baseline tree.
-
-### Check stability
-
-```bash
-python3 develop-skill-with-evals/scripts/run_skill_evals.py stability \
-  --skill refactor-design \
-  --case hidden-invocation-state \
-  --runs 3 \
-  --source working-tree
-```
-
-`stability` defaults to three runs and requires at least two. Prefer `plan` plus `validate-change` for change validation because they enforce proportional selection and budget as one workflow.
+Do not run `validate-change` for `static` work; execute the structural gates shown by its plan. For complete commands, campaign options, explicit report destinations, archive maintenance, and compatibility operations, use the [CLI cookbook](CODEX_CLI.md#validate-the-planned-change).
 
 ## Optional runtime controls
 
-Options are intentionally scoped to the commands that can use them:
+Choose controls according to the decision being supervised:
 
-| Option | Commands | Default and effect |
-| --- | --- | --- |
-| `--progress` | `run`, `verify-change`, `stability`, `probe-change`, `validate-change` | Forces immediate progress on standard error. |
-| `--quiet` | `run`, `verify-change`, `stability`, `probe-change`, `validate-change` | Suppresses progress; cannot be combined with `--progress`. |
-| `--model <model>` | All operations | Declares the executor model and is required from CLI for model-backed promotion. |
-| `--reasoning-effort <effort>` | All operations | Declares executor reasoning effort and is required from CLI for model-backed promotion. |
-| `--judge-model <model>` | All operations | Overrides the judge model; otherwise it inherits the executor. |
-| `--judge-reasoning-effort <effort>` | All operations | Overrides judge reasoning effort; otherwise it inherits the executor. |
-| `CODEX_MODEL` | Commands with model execution | Resolves and propagates an exploratory executor model when `--model` is absent, but is not promotion quality. |
-| `--source working-tree` | `run`, `stability` | Evaluates current files and is the default. |
-| `--source git:<revision>` | `run`, `stability` | Materializes the tracked skill from a Git revision. |
-| `--baseline <directory>` | `plan`, `probe-change`, `validate-change` | Required frozen baseline directory. |
-| `--baseline <directory or git:revision>` | `verify-change` | Uses an explicit directory or Git snapshot; defaults to `git:HEAD`. |
-| `--case <id>` | All operations | Selects one case for legacy commands; repeatable for planning and integrated workflows. |
-| `--all` | `run` | Runs the complete ordered suite instead of one case. |
-| `--impact <level>` | `plan`, `probe-change`, `validate-change` | Selects proportional gates; executed workflows exclude `static`. |
-| `--workflow <workflow>` | `plan` | Selects `diagnostic` or `promotion`; defaults to `promotion`. |
-| `--approved-model-sessions <n>` | `probe-change`, `validate-change` | Sets explicit operation approval for up to `n` sessions; defaults to `8`. |
-| `--campaign-ledger <path>` | `plan`, `probe-change`, `validate-change` | Selects a locked cumulative campaign ledger; requires cumulative approval. |
-| `--approved-cumulative-model-sessions <n>` | `plan`, `probe-change`, `validate-change` | Approves the cumulative campaign maximum; requires a ledger path. |
-| `--runs <n>` | `stability` | Sets repetitions; defaults to `3` and must be at least `2`. |
-| `--artifacts-dir <path>` | Executed operations | Changes the artifact parent from `/tmp/skill-eval-artifacts`. |
-| `--report-dir <path>` | Executed operations | Overrides the automatic archive and persists canonical `report.json` plus deterministic `report.md` under an operation directory. |
-| `--pricing-file <json>` | Executed operations | Applies an explicit dated API pricing reference; requires `--report-dir`. |
-| `--no-report` | Executed operations | Disables automatic and explicit persistence; incompatible with report and pricing options. |
-| `--codex-command <path>` | Executed operations | Replaces `codex`, primarily for deterministic runner tests. |
+| Need | Controls |
+| --- | --- |
+| Declare auditable executor runtime | `--model`, `--reasoning-effort` |
+| Override inherited judge runtime | `--judge-model`, `--judge-reasoning-effort` |
+| Select proportional evidence | `--impact`, repeatable `--case`, `--workflow` |
+| Authorize operation sessions | `--approved-model-sessions` |
+| Authorize a cumulative campaign | `--campaign-ledger`, `--approved-cumulative-model-sessions` |
+| Control monitoring output | `--progress`, `--quiet` |
+| Select evidence persistence | `--report-dir`, `--pricing-file`, `--no-report` |
 
-`plan` accepts runtime selection controls precisely because it runs no model. It exposes the future argv and audit quality before execution. The runner never reads `config.toml`; unknown configured defaults remain `null` in `runtime` and use `configured-default` in the compatibility top-level `model` field.
-
-For `run` and `stability`, the case manifest always comes from the current skill directory named by `--skill`, even when `--source git:<revision>` installs an older skill snapshot. This allows a newly added case to evaluate an older source.
+`plan` accepts runtime controls because it invokes no model and can show the future command before approval. The runner does not read global `config.toml`; promotion quality requires explicit runtime declarations. See [Run skill evaluations](CODEX_CLI.md#run-skill-evaluations) for command scope, source selection, defaults, and compatibility behavior.
 
 ## Economic runtime policy
 
-Keep evaluation cost proportional to evidence needs:
+Keep cost proportional to the evidence:
 
-| Change or role | Durable policy |
+| Change or role | Policy |
 | --- | --- |
-| `static` or fully `deterministic` | Use structural checks, tests, schemas, mechanical oracles, fake Codex, report replay, and deterministic comparison. Maximum real model sessions: zero. |
-| `scoped` semantic change | Use `gpt-5.6-luna` with `medium` reasoning effort as the explicit executor after a side effect free plan. For one case with a complete oracle, the normal ceiling is four executor sessions: one baseline RED and three candidate GREEN runs. |
-| Semantic judge | Prefer a complete mechanical oracle. When interpretation is unavoidable, use `gpt-5.6-terra` with `medium` reasoning effort as judge under an explicit maximum. |
-| Indispensable broad promotion | Use `gpt-5.6-sol` with `medium` reasoning effort only when complexity justifies it or Luna has a demonstrated capacity failure on a representative task. Keep Terra `medium` as judge only where semantic judgment remains necessary. |
+| `static` or fully `deterministic` | Use structural checks, tests, schemas, oracles, fakes, replay, and deterministic comparison. Real model sessions: zero. |
+| `scoped` semantic change | Use the approved executor runtime after planning. With one complete oracle and no judge, the normal promotion path is one RED plus three GREEN executor sessions. |
+| Semantic judge | Prefer a complete deterministic oracle. Add a separately declared or inherited judge only when interpretation is unavoidable. |
+| Broad promotion | Use a more capable runtime only when task complexity or diagnostic evidence justifies it, under an explicit maximum. |
 
-Do not use Sol as an automatic retry after Luna. Escalation requires a diagnosis, a material change or new hypothesis, and a new plan. Split cross cutting work when doing so reduces the regression surface. Keep `medium` reasoning effort until a representative comparison justifies another value.
-
-The runner never reads the global `config.toml`. Model and reasoning effort must be selected explicitly for auditable promotion, so this policy does not change a global Sol `medium` default.
+Do not retry an unchanged evaluation with a larger model after blocking evidence. Escalation needs a diagnosis, a material correction or new hypothesis, a refreshed plan, and approval for any changed maximum. Model and reasoning choices must remain explicit so reports can attribute evidence and cost correctly.
 
 ## Example: evaluating `refactor-design`
 
-The [`refactor-design` suite](refactor-design/evals/suite.json) contains complementary cases:
+The [`refactor-design` suite](refactor-design/evals/suite.json) is a broader example after the minimal `impact-gate-selection` case. Its cases cover a needed refactor, a justified no action decision, a red entry suite that must stop work, protection against skill self modification, explicit trigger boundaries, and implicit selection.
 
-| Case | What it proves |
-| --- | --- |
-| `hidden-invocation-state` | Finds mutable state stored for each invocation, refactors only production, and keeps public behavior green. |
-| `cohesive-no-action` | Leaves a small cohesive implementation unchanged instead of inventing abstractions. |
-| `red-suite-gate` | Stops before editing when the entry test suite is already red. |
-| `no-self-modification` | Reports reusable learning without modifying the installed skill or its references. |
-| `trigger-selection` | Selects the skill for design work after GREEN but not for missing behavior or initial implementation. |
-| `implicit-trigger-smoke` | Exercises implicit selection without mentioning `$refactor-design` in the prompt. |
-
-Suppose a change affects only the guidance exercised by `hidden-invocation-state`. Preserve a baseline, then inspect the plan:
-
-```bash
-python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
-  --skill refactor-design \
-  --baseline /tmp/refactor-design-baseline \
-  --impact scoped \
-  --case hidden-invocation-state \
-  --model gpt-5.6-luna \
-  --reasoning-effort medium \
-  --judge-model gpt-5.6-terra \
-  --judge-reasoning-effort medium
-```
-
-If the case has an executor and enabled judge, one baseline plus three candidate executions cost eight model sessions. After confirming the plan, run:
-
-```bash
-python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
-  --skill refactor-design \
-  --baseline /tmp/refactor-design-baseline \
-  --impact scoped \
-  --case hidden-invocation-state \
-  --model gpt-5.6-luna \
-  --reasoning-effort medium \
-  --judge-model gpt-5.6-terra \
-  --judge-reasoning-effort medium \
-  --progress
-```
-
-Do not add the unrelated cases merely to make the run look more rigorous. If the changed guidance is shared across the skill, affects selection or safety, or cannot be bounded confidently, classify it as cross cutting. The plan will then add each remaining suite case once as regression and show the resulting session count before execution.
-
-Do not read success from executor prose alone. Check the overall status, every mechanical check, the judge verdict, changed paths, model selection, plan counts, and whether `artifacts` is `null`.
+If a change affects only one bounded behavior, plan that case as `scoped`. If shared guidance, safety, or selection may affect several cases, use `cross-cutting` so the remaining suite runs once between affected GREEN 1 and GREEN 2. The [CLI cookbook](CODEX_CLI.md#plan-proportional-gates-first) shows the corresponding command. Do not infer success from executor prose; inspect the structured status and all required evidence.
 
 ## Adding evals to another skill
 
-### 1. Classify the change
+`develop-skill-with-evals` can create or revise the suite, cases, fixtures, oracles, plans, and promotion runs. A maintainer should review the following decisions rather than manually reproduce every runner step:
 
-Classify the proposed diff as `static`, `deterministic`, `scoped`, or `cross-cutting`. Treat uncertain reach as cross cutting. Do not create an artificial RED for a static change.
+1. **Intent:** Does the case represent a real user journey or failure?
+2. **Separation:** Does the prompt stay realistic and free of hidden answers?
+3. **Observability:** Do checks prove public outcomes without coupling to private topology or exact prose?
+4. **Evidence path:** Does the task require an executor, and can an oracle replace a judge?
+5. **RED:** Does the preserved baseline fail for the intended reason?
+6. **Impact:** Are affected and regression cases proportional to the possible reach?
+7. **Runtime and cost:** Do the plan, fingerprints, session maximum, and campaign approval match the intended execution?
+8. **Promotion:** Are all affected GREEN results stable and every required regression `PASS`?
 
-### 2. Preserve baseline and candidate
+For deterministic behavior, create a manifest and direct checker without a prompt or model configuration. For semantic behavior, create `case.json`, a realistic `prompt.md`, and the minimal public fixture. Put complete code observable contracts under `oracle/`; add a judge only for interpretation code cannot cover. Append the case ID to `suite.json`.
 
-Freeze the untouched source before implementation. Develop behavioral changes in an isolated candidate so evaluation work cannot alter or contaminate the baseline.
-
-### 3. Reduce a real example
-
-Start from an observed task or failure, then remove everything unnecessary to reproduce it. Preserve the public behavior, relevant risk, and validation command. Replace real identifiers and data with generic values.
-
-### 4. Add the case before implementation
-
-For semantic behavior, create `case.json`, `prompt.md`, and the minimal public fixture. Put a complete code observable expected contract under `oracle/` and declare `oracle.commands`; the executor never receives that directory. Keep a semantic judge when the contract still requires interpretation. For deterministic behavior, create a manifest and direct checker without a prompt or model configuration. Append the case ID to `evals/suite.json`.
-
-Keep assertions observable: files, command results, public outputs, explicit stopping behavior, and semantic evidence. Avoid assertions about private class topology, collaborator call order, or exact prose.
-
-### 5. Inspect the plan
-
-Run `plan` before any model-backed evaluation. Check impact, workflow, selected and regression cases, baseline and candidate executions, session counts, campaign projection, resolved runtime sources, all fingerprints, execution blockers, warnings, and proposed commands.
-
-If the estimate exceeds eight sessions, obtain explicit approval for the estimated count before running `validate-change`.
-
-### 6. Demonstrate RED and GREEN
-
-When a diagnostic is justified, plan and run `probe-change` once. It is evidence for correction, never promotion. Then run `validate-change` once. Affected cases must fail on the baseline and pass three stable candidate executions. Deterministic cases use the same RED and GREEN logic with zero model sessions.
-
-If the baseline passes, `INVALID_RED` must stop implementation until the case is corrected. If candidate or regression evaluation blocks, diagnose the evidence and change the cause before evaluating again.
-
-### 7. Apply proportional regression
-
-A scoped change stops after its affected cases and structural gates. A cross cutting change runs every remaining case once after affected GREEN 1 and before affected GREEN 2 and 3. Affected cases are never duplicated in the regression phase.
-
-### 8. Finish structural validation and forward testing
-
-Validate the skill structure, check `agents/openai.yaml`, inspect the diff for leaked fixtures or transcripts, and run deterministic runner tests when runner behavior changed.
-
-Forward test significant skill changes with a fresh agent before promotion. Give it only a realistic task and the isolated candidate, never the expected answer, judge criteria, or prior diagnosis.
-
-Do not commit, push, publish, or promote a candidate unless that separate action is authorized.
+Never create an artificial RED for a static change. Do not commit, push, publish, or promote unless that separate action is authorized.
 
 ## Trigger evaluations
 
-Trigger behavior is cross cutting because it changes when the skill enters a workflow. It needs two kinds of evidence:
+Trigger behavior is cross cutting because it changes when a skill enters a workflow. It needs:
 
-1. A routing case presents positive and negative requests and checks whether the skill description leads to the correct selection boundaries.
-2. An end to end smoke case sets `implicit_skill` to `true`, installs a skill copy scoped to the repository, sends a realistic prompt without `$skill-name`, and verifies the resulting behavior.
+1. a routing case with plausible positive and neighboring negative requests;
+2. an end to end smoke case with `implicit_skill: true`, a realistic prompt that omits `$skill-name`, and observable resulting behavior.
 
-Keep positive prompts close to the skill's intended use. Negative prompts should be plausible neighboring tasks, such as missing behavior or a red suite for a refactoring skill intended for work after GREEN. Avoid obviously unrelated negatives that cannot reveal excessive triggering.
+Negative prompts should test a genuine boundary, such as missing behavior versus design review after GREEN. Obviously unrelated negatives do not reveal excessive selection.
 
 ## Troubleshooting
 
 ### Approval required
 
-An executed workflow found at least one runtime, operation budget or cumulative campaign blocker. Inspect `execution_blockers`, `runtime`, `sessions`, `campaign`, selected cases, regression cases, fingerprints and warnings in the returned plan. Supply the missing explicit runtime. If classification and selection are correct but the maximum exceeds a limit, obtain explicit approval and pass the operation count through `--approved-model-sessions` and the cumulative count through the paired campaign options.
-
-Do not reduce the impact merely to fit the default limit. Shell or sandbox permission does not authorize model usage.
+Inspect `execution_blockers`, runtime sources, session totals, campaign projection, case selection, fingerprints, and warnings. Supply missing runtime or obtain explicit approval for the correct maximum. Do not lower impact merely to fit a limit.
 
 ### Invalid deterministic manifest
 
-The case contains semantic fields, enables a judge, lacks a mechanical observation, or otherwise cannot run without a model. Remove forbidden configuration only when direct checks genuinely cover the complete behavior. Otherwise classify the case as semantic.
+The case contains semantic fields, enables a judge, or lacks a direct observation. Remove those fields only when code genuinely covers the complete contract; otherwise use a semantic kind.
 
 ### `INVALID_RED`
 
-The baseline already satisfies an affected case. Confirm that the fixture represents the missing behavior and that criteria distinguish baseline from candidate. Do not weaken the status policy or continue without a real RED.
+The baseline already satisfies the case. Confirm that the fixture reproduces missing behavior and that the contract distinguishes baseline from candidate.
 
 ### `UNSTABLE`
 
-Compare retained `.eval-result.json` files. Mechanical outcomes, judge verdicts, and production changed paths must be stable. Model wording may vary without causing instability.
+Compare retained `.eval-result.json` files. Mechanical outcomes, judge verdicts, and production changed paths must be stable; model wording need not be identical.
 
 ### `INCONCLUSIVE`
 
-Check judge standard error, authentication, structured response, and available evidence. A judge process failure is not a behavioral failure and must not be converted into `PASS`.
-
-### Read only access or app server initialization errors
-
-An outer sandbox may prevent a nested Codex client from accessing required state even though the fixture workspace is writable. Run the evaluation from an authorized environment where `codex exec` can initialize normally. Do not bypass safeguards or broaden filesystem access beyond the disposable workspace merely to force a result.
+Inspect judge standard error, authentication, structured output, criteria, and available evidence. A judge process failure is not a behavioral failure and cannot become `PASS`.
 
 ### Missing Git baseline
 
-`git:<revision>` works only when the skill is inside a Git repository and tracked at that revision. Use an explicit frozen directory for a new, untracked skill or scaffold.
+`git:<revision>` requires a tracked skill in a Git repository. Use an explicit frozen directory for a new or untracked skill. `plan` and integrated workflows require baseline directory paths.
 
-`plan` and `validate-change` intentionally require baseline directory paths. Materialize a Git revision into an isolated directory before using those commands.
+### Read only or initialization errors
+
+Nested Codex needs access to its normal authenticated state and a writable disposable workspace. Use an authorized environment. Do not bypass safeguards or broaden access beyond what the evaluation requires.
 
 ### Preserving failure evidence
 
-Use the overall `artifacts` path from the JSON report. Blocking workspaces remain available for diagnosis; successful ones are intentionally removed. Never promote retained transcripts or complete model responses to fixtures or golden files.
+Use the report's top level `artifacts` path. Do not copy complete transcripts or generated responses into version control.
 
 ## Design principles
 
 - Test observable behavior and safe decisions, not wording or implementation topology.
-- Choose evidence that can observe the change, then apply gates proportional to its impact.
-- Treat uncertain reach as cross cutting; reducing declared impact merely to reduce cost is invalid.
-- Keep executor input separate from judge criteria, expected answers and hidden oracles.
-- Use deterministic checks when they cover the complete contract; use semantic judgment when they do not.
-- Treat every executed status other than `PASS` as a reason to block promotion.
+- Define each public input separately from hidden expected evidence.
+- Use deterministic checks when they cover the complete contract and semantic judgment only when they do not.
+- Choose evidence that can observe the change, then apply gates proportional to impact.
+- Treat uncertain reach as cross cutting and every non `PASS` status as blocking.
 - Use the same declared executor and judge runtime for baseline and candidate.
-- Treat planned sessions as a maximum and report actual executor and judge subprocess consumption, token completeness and cumulative campaign consumption separately.
-- Record manifest, case, source, runtime and evaluation fingerprints for auditability without claiming deterministic model output.
-- Do not retry unchanged evaluations opportunistically after a blocking result.
+- Treat planned sessions as a maximum and actual sessions, tokens, duration, and campaign consumption as separate observations.
+- Use fingerprints for auditability without claiming deterministic model output.
+- Do not retry unchanged blocking evaluations.
 - Keep fixtures minimal, generic, reproducible, and free of confidential data.
-- Preserve detailed artifacts only for failures and keep generated responses out of version control.
-- Require a fresh agent validation before promoting a significant skill behavior change.
+- Retain detailed artifacts only for failures and keep generated responses out of version control.
+- Use a fresh agent for forward validation before promoting significant skill behavior.
 
 ## Structural validation
 
 For a skill documentation or metadata change:
 
 ```bash
-python3 .system/skill-creator/scripts/quick_validate.py \
-  ./skill-name
-
+python3 .system/skill-creator/scripts/quick_validate.py ./skill-name
 git diff --check
 ```
 
-When runner behavior or schemas change, also run:
-
-```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
-  -s develop-skill-with-evals/scripts/tests \
-  -v
-
-python3 -m json.tool develop-skill-with-evals/references/eval-plan.schema.json
-python3 -m json.tool develop-skill-with-evals/references/eval-result.schema.json
-```
+When runner behavior or schemas change, also run the deterministic unit tests and validate both schemas. See [Safety and troubleshooting](CODEX_CLI.md#safety-and-troubleshooting) for the surrounding operational guidance.
 
 Do not commit, push, publish, or promote unless that separate action is authorized.

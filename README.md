@@ -4,6 +4,14 @@ Personal [Codex](https://openai.com/codex/) skills for test-driven development, 
 
 Each skill directory at the repository root is self-contained. For portable Codex CLI discovery, copy or symlink the skills you need into `$HOME/.agents/skills` for personal use or `<repository>/.agents/skills` for use within a repository. Then invoke one explicitly with `$skill-name`. Skills may also support implicit activation, but explicit invocation is the most reliable entry point.
 
+## What is a Codex skill?
+
+A Codex skill is a reusable workflow that teaches Codex how to handle a particular kind of task. Each skill is a directory whose required `SKILL.md` describes when to use the workflow and how to perform it. The directory may also contain references, scripts, templates, and other resources that support the work.
+
+Codex initially sees a skill's name and description. It loads the complete instructions and then any relevant supporting resources only when the task calls for that skill. This progressive disclosure keeps ordinary context focused. You can select a skill explicitly with `$skill-name`, or Codex can select it implicitly when a request matches the description.
+
+See the official [Build skills documentation](https://learn.chatgpt.com/docs/build-skills) for the general model. This repository's [evaluation guide](EVALUATIONS.md) explains how to test the behavior of a skill and supervise the resulting evidence.
+
 ## Skill catalog
 
 ### Skill development and design
@@ -66,7 +74,7 @@ Evaluation fixtures and oracles belong under `evals/`, not in normal skill refer
 
 ## Skill evaluations
 
-See [Evaluating Codex Skills](EVALUATIONS.md) for the complete guide to suites, isolated fixtures, hidden mechanical oracles, diagnostic probes, cumulative campaign budgets, promotion gates, and the real `refactor-design` examples. Real Codex evaluations can automatically persist canonical JSON plus deterministic Markdown in `evaluation-reports/`, retain normalized usage telemetry, apply a dated API pricing reference, rebuild and validate the archive, and compare model reports without another model session; see [Durable evidence and pricing](EVALUATIONS.md#durable-evidence-and-pricing), [Economic runtime policy](EVALUATIONS.md#economic-runtime-policy), and the [copyable CLI recipes](CODEX_CLI.md#persist-evidence-with-dated-pricing).
+See [Evaluating Codex Skills](EVALUATIONS.md) to understand what an evaluation proves, how the evidence pieces fit together, and what a maintainer must supervise before promotion. Real Codex evaluations can automatically persist canonical JSON plus deterministic Markdown in `evaluation-reports/`, retain normalized usage telemetry, apply a dated API pricing reference, rebuild and validate the archive, and compare model reports without another model session; see [Durable evidence and pricing](EVALUATIONS.md#durable-evidence-and-pricing), [Economic runtime policy](EVALUATIONS.md#economic-runtime-policy), and the [copyable CLI recipes](CODEX_CLI.md#persist-evidence-with-dated-pricing).
 
 ## Developing a skill
 
