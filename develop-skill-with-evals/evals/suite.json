@@ -7,11 +7,14 @@
     "non-behavioral-no-artificial-red",
     "full-regression-gate",
     "self-evolution-candidate",
+    "self-evolution-oracle-contract",
     "runner-progress-output",
     "impact-gate-selection",
     "auditable-runtime-contract",
     "explicit-runtime-promotion-workflow",
     "cost-efficient-runtime-contract",
+    "nested-codex-outer-sandbox-contract",
+    "economic-runtime-guidance",
     "execution-evidence-report",
     "persistent-evaluation-archive"
   ]

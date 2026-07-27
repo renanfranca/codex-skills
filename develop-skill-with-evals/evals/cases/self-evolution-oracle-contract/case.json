@@ -1,0 +1,19 @@
+{
+  "id": "self-evolution-oracle-contract",
+  "kind": "deterministic",
+  "mechanical": {
+    "commands": [
+      {
+        "argv": [
+          "python3",
+          "check_self_evolution_oracle.py"
+        ],
+        "exit_code": 0
+      }
+    ]
+  },
+  "judge": {
+    "enabled": false,
+    "criteria": []
+  }
+}

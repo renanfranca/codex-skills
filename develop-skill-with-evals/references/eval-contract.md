@@ -48,6 +48,8 @@ The runner creates a disposable workspace, installs the evaluated skill under `.
 
 Place a checker under `<case>/oracle/` only when it covers the complete expected contract. Use `{oracle_dir}` in `oracle.commands` argv or read `SKILL_EVAL_ORACLE_DIR`. The runner fingerprints oracle modes and bytes, resolves the placeholder to an absolute runner controlled path and never copies that directory into the executor workspace. A manifest without `oracle` remains valid.
 
+A hidden oracle may require literal text only when the public prompt requires that same literal text. If wording may vary and code can completely bound the required concepts, use controlled lexical equivalence and retain exact structural checks. Do not accept unrestricted paraphrases.
+
 One executor invocation is one model session. An enabled judge adds one planned session, but is skipped without consumption when mechanical or oracle checks fail. The executor response includes the compatibility fields `summary`, `classification`, `evidence`, and `files_changed` plus `diagnosis`, `approach`, `decisions`, `rejected_alternatives`, `key_changes`, and `validation`. The added arrays may be empty. Record concise decisions actually made; never request private reasoning or reconstructed chain of thought.
 
 ## Deterministic cases
@@ -109,6 +111,16 @@ The runner does not read `config.toml`. Unknown defaults are `null` in the runti
 A promotion runtime is complete when every model-backed plan has executor model and effort from CLI and every required judge field is either supplied by judge CLI options or inherited from that complete executor. `CODEX_MODEL` is propagated for compatibility but produces exploratory, not promotion, audit quality.
 
 `runtime_fingerprint` hashes canonical JSON containing the manifest fingerprint, role requirements, resolved values, and sources. It excludes paths, budget, and derived fields. `evaluation_fingerprint` adds case and source inputs plus workflow and selection. These values record intended execution without claiming deterministic model output.
+
+## Economic runtime guidance
+
+Every plan contains an informative `economic_runtime` object with policy version 1. It never changes explicit runtime values, planned commands, blockers, CLI defaults or session approval.
+
+`zero-session` applies to static and deterministic plans and recommends neither role. `scoped-complete-oracle` applies only when every selected scoped case is semantic, declares at least one `oracle.commands` entry and disables the judge; it recommends `gpt-5.6-luna` with `medium` for the executor. Every other model backed plan uses `manual-selection` for the executor. A required judge independently recommends `gpt-5.6-terra` with `medium`.
+
+`matches_explicit_runtime` is `null` when no recommendation exists or the corresponding role lacks a complete CLI declaration. A complete declaration that differs from the recommendation sets it to `false` and adds a warning without adding a blocker. The runtime supplied by the user remains in the planned command.
+
+Bind the complete `economic_runtime` object into `evaluation_fingerprint`, but not `runtime_fingerprint`. Recompute and compare it with the original plan after materializing baseline and candidate snapshots.
 
 ## Diagnostic workflow
 

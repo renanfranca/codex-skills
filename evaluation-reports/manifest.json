@@ -1,7 +1,7 @@
 {
   "version": 1,
   "canonical_format": "report.json",
-  "report_count": 23,
+  "report_count": 28,
   "reports": [
     {
       "skill": "develop-skill-with-evals",
@@ -420,6 +420,101 @@
       "duration_ms": 1771521,
       "digest": "99b5603a64f694d5e5eefd037bda93117ec6d9d3e5343cdfb5cb8525a81c6949",
       "path": "develop-skill-with-evals/operations/20260726T161420.645412Z-e164c11ef470/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260727T115714.421313Z-0c834a4e91a3",
+      "operation": "validate-change",
+      "status": "ERROR",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": null,
+        "cached_input": null,
+        "output": null,
+        "reasoning_output": null,
+        "total": null
+      },
+      "duration_ms": 314,
+      "digest": "5ad4e7101fda8336b6079bff24e0e054e590234276cfd282150b353d63ac52d8",
+      "path": "develop-skill-with-evals/operations/20260727T115714.421313Z-0c834a4e91a3/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260727T120220.939832Z-6d9ff181411a",
+      "operation": "validate-change",
+      "status": "ERROR",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": null,
+        "cached_input": null,
+        "output": null,
+        "reasoning_output": null,
+        "total": null
+      },
+      "duration_ms": 288,
+      "digest": "ddcaa5ff4e8e9b07183ca74451073917d615a870d2360233759d3c212b625a8f",
+      "path": "develop-skill-with-evals/operations/20260727T120220.939832Z-6d9ff181411a/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260727T121835.379099Z-1076d0881b03",
+      "operation": "validate-change",
+      "status": "FAIL",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 2,
+      "tokens": {
+        "input": 792336,
+        "cached_input": 687104,
+        "output": 12132,
+        "reasoning_output": 1911,
+        "total": 804468
+      },
+      "duration_ms": 293107,
+      "digest": "a047f7ef6757a2fb47f3dc28e9166b5cecac99198a586b4ab2121fdd9bd796b9",
+      "path": "develop-skill-with-evals/operations/20260727T121835.379099Z-1076d0881b03/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260727T123055.036794Z-1963f50be95e",
+      "operation": "validate-change",
+      "status": "FAIL",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 11,
+      "tokens": {
+        "input": 3198315,
+        "cached_input": 2792704,
+        "output": 36087,
+        "reasoning_output": 9727,
+        "total": 3234402
+      },
+      "duration_ms": 1199710,
+      "digest": "bd0a54a0b21e05925ffb0677ca0ad48b000582088879f77221ca8cc32d0de628",
+      "path": "develop-skill-with-evals/operations/20260727T123055.036794Z-1963f50be95e/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260727T132448.821094Z-1fcd91faa06a",
+      "operation": "validate-change",
+      "status": "PASS",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 16,
+      "tokens": {
+        "input": 5517597,
+        "cached_input": 4828928,
+        "output": 65687,
+        "reasoning_output": 15932,
+        "total": 5583284
+      },
+      "duration_ms": 1778061,
+      "digest": "26c0f53f77375d0ec6d655f2ae7b010f39b1d9fa5e4d60641442287f4118109b",
+      "path": "develop-skill-with-evals/operations/20260727T132448.821094Z-1fcd91faa06a/report.json"
     },
     {
       "skill": "sample-skill",

@@ -50,6 +50,18 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
 
 Planning is side effect free and uses no model. Inspect selected and regression cases, commands, executor and judge session counts, runtime, case, source, runtime and evaluation fingerprints, campaign projection, execution blockers, reasons, and warnings before executing. Runtime declarations do not make model output deterministic; they make the intended execution auditable.
 
+## Select runtime economically
+
+Inspect `economic_runtime` before declaring or executing a model runtime:
+
+- use zero real sessions for `static` and `deterministic` changes;
+- recommend `gpt-5.6-luna` with `medium` only for a `scoped` semantic plan where every selected case declares `oracle.commands` and disables the judge;
+- recommend `gpt-5.6-terra` with `medium` for a required judge, while selecting the executor from justified task evidence;
+- select the executor manually for `cross-cutting` changes or whenever a selected case lacks a complete oracle declaration;
+- reserve `gpt-5.6-sol` with `medium` for an indispensable promotion whose complexity justifies it or after Luna demonstrates a capacity failure on a representative task.
+
+Always preserve a runtime explicitly chosen by the user. When the agent or an ExecPlan chose a runtime that differs from `economic_runtime`, disclose the mismatch before starting any session. Treat the mismatch warning as advice, not a blocker. Never use Sol as an automatic retry after Luna; require diagnosis, a material change or new hypothesis, a new plan, and fresh approval.
+
 ## Apply proportional gates
 
 For `static`, apply only the structural gates listed by the plan. Do not invent RED or run semantic cases incapable of observing the change.
@@ -76,6 +88,10 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
 When the plan includes model sessions, `validate-change` requires the executor model and reasoning effort explicitly from CLI. A required judge may declare its own CLI values or inherit the complete executor runtime. The runner never reads `config.toml`. `CODEX_MODEL` remains compatible with exploratory commands but is not sufficient for promotion.
 
 The default approved limit is eight model sessions. Missing promotion runtime, unresolved required judge runtime, an estimate above the operation limit, or a campaign projection above cumulative approval returns the complete plan with exit code 2 before workspaces, artifacts, ledger creation, or model calls. `--approved-model-sessions` approves one operation. The paired campaign options bind diagnostic and promotion consumption to one locked, atomically written ledger under an explicit cumulative maximum. Shell, sandbox, or command approval is not cost approval.
+
+Before the first nested model backed operation, run `codex doctor --json` at the same permission boundary that will launch the runner and require `overallStatus: ok`. Starting the interactive TUI with `--ask-for-approval on-request` does not automatically elevate its noninteractive subprocesses. If the preflight reports that `CODEX_HOME` is read only or that network access is unavailable, request external approval for the complete runner command. Keep every nested executor and judge in the runner's internal `workspace-write` sandbox. Do not use `danger-full-access`, bypass approval, or copy authentication state into `/tmp`.
+
+Obtain model session cost authorization separately from shell approval. Cost authorization limits executor and judge consumption; external approval permits the exact runner process to access its normal Codex state and network. Neither authorization implies the other.
 
 A model session is one executor or judge invocation. `sessions.total` is the planned maximum; top-level `model_sessions.total` is actual consumption. A judge skipped after mechanical or oracle failure consumes no session and reports `executed: false` with `verdict: SKIPPED`. `usage` aggregates JSONL token events from `codex exec --json` and preserves ordered normalized event counts, source types, scopes, and token fields without retaining raw JSONL. Missing token fields remain `null` with `complete: false`.
 
@@ -149,6 +165,8 @@ Plan with `--workflow diagnostic`, then run the proposed `probe-change` command 
 Use the diagnostic to collect problems, not as promotion evidence. After fixing mechanically reproducible defects, plan `--workflow promotion` and run one `validate-change`. Do not repeat an unchanged full diagnostic.
 
 Keep mechanical expected contracts under each case's `oracle/` directory when code can cover the complete semantic criterion. Declare them through `oracle.commands`; the runner fingerprints them and executes them outside the executor workspace. Never copy or expose the oracle directory to the executor. Keep a judge only when interpretation remains genuinely semantic.
+
+Require literal text in a hidden oracle only when the public prompt requires that same literal text. When wording may vary but the required concepts are mechanically bounded, use controlled lexical equivalence while keeping structural checks exact; do not accept free paraphrases.
 
 ## Treat every blocking result as evidence
 

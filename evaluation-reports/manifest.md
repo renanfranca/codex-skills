@@ -1,6 +1,6 @@
 # Evaluation report archive
 
-- Canonical reports: `23`
+- Canonical reports: `28`
 - Canonical format: `report.json`
 - Markdown and comparisons are deterministic projections.
 
@@ -28,4 +28,9 @@
 | develop-skill-with-evals | 20260726T152233.746420Z-9c8ebe8313e0 | run | FAIL | gpt-5.6-terra | 1 | 541285 | 129516 | e3f6268cb1d8b0bf259fa19f2c0b4fe99f5358f0ed62316d07b92e06a5b29bd5 | develop-skill-with-evals/operations/20260726T152233.746420Z-9c8ebe8313e0/report.json |
 | develop-skill-with-evals | 20260726T154034.751426Z-1b55504205b5 | validate-change | FAIL | gpt-5.6-sol | 11 | 5265904 | 1669037 | b9be4c59a4cae6c3bbb0a33707cb20a4b0c1c4c5e02fc41e9ea97fd0e09a294e | develop-skill-with-evals/operations/20260726T154034.751426Z-1b55504205b5/report.json |
 | develop-skill-with-evals | 20260726T161420.645412Z-e164c11ef470 | validate-change | PASS | gpt-5.6-sol | 15 | 4985365 | 1771521 | 99b5603a64f694d5e5eefd037bda93117ec6d9d3e5343cdfb5cb8525a81c6949 | develop-skill-with-evals/operations/20260726T161420.645412Z-e164c11ef470/report.json |
+| develop-skill-with-evals | 20260727T115714.421313Z-0c834a4e91a3 | validate-change | ERROR | gpt-5.6-sol | 1 | unknown | 314 | 5ad4e7101fda8336b6079bff24e0e054e590234276cfd282150b353d63ac52d8 | develop-skill-with-evals/operations/20260727T115714.421313Z-0c834a4e91a3/report.json |
+| develop-skill-with-evals | 20260727T120220.939832Z-6d9ff181411a | validate-change | ERROR | gpt-5.6-sol | 1 | unknown | 288 | ddcaa5ff4e8e9b07183ca74451073917d615a870d2360233759d3c212b625a8f | develop-skill-with-evals/operations/20260727T120220.939832Z-6d9ff181411a/report.json |
+| develop-skill-with-evals | 20260727T121835.379099Z-1076d0881b03 | validate-change | FAIL | gpt-5.6-sol | 2 | 804468 | 293107 | a047f7ef6757a2fb47f3dc28e9166b5cecac99198a586b4ab2121fdd9bd796b9 | develop-skill-with-evals/operations/20260727T121835.379099Z-1076d0881b03/report.json |
+| develop-skill-with-evals | 20260727T123055.036794Z-1963f50be95e | validate-change | FAIL | gpt-5.6-sol | 11 | 3234402 | 1199710 | bd0a54a0b21e05925ffb0677ca0ad48b000582088879f77221ca8cc32d0de628 | develop-skill-with-evals/operations/20260727T123055.036794Z-1963f50be95e/report.json |
+| develop-skill-with-evals | 20260727T132448.821094Z-1fcd91faa06a | validate-change | PASS | gpt-5.6-sol | 16 | 5583284 | 1778061 | 26c0f53f77375d0ec6d655f2ae7b010f39b1d9fa5e4d60641442287f4118109b | develop-skill-with-evals/operations/20260727T132448.821094Z-1fcd91faa06a/report.json |
 | sample-skill | 20260726T164753.664573Z-215f15542437 | run | PASS | fixture-model | 1 | 28 | 71 | ae65c37788b6c598f5ef566f87acf433a94d199233caf7dc3b668b7c0466e7b3 | sample-skill/operations/20260726T164753.664573Z-215f15542437/report.json |

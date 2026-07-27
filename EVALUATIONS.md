@@ -154,6 +154,8 @@ Do not label an open task deterministic merely because its final files can be ch
 
 Run the evaluation commands from this repository's root. The runner requires Python 3.10 or newer and Git for snapshots and `git:<revision>` sources. Semantic cases also require an installed and authenticated Codex CLI in an environment where nested `codex exec` processes can read their normal state and write to the disposable workspace. Planning and deterministic cases invoke no model.
 
+Before the first model backed operation, run `codex doctor --json` at the same permission boundary that will launch the runner and require `overallStatus: ok`. An interactive TUI started with `--ask-for-approval on-request` does not automatically elevate a noninteractive subprocess. When `CODEX_HOME` is read only or network access is unavailable, request external approval for the exact complete runner command. Preserve the runner's internal `workspace-write` sandbox for every executor and judge. Do not use `danger-full-access`, bypass approval, or move authentication state into `/tmp`.
+
 ## Suite structure
 
 `evals/` is a repository convention, not part of the official skill format. It stays outside `references/` so ordinary skill use does not load test fixtures or hidden evidence into context.
@@ -237,7 +239,7 @@ Classify the diff, not merely the file type or desired cost. A shared Markdown r
 
 ## Plan gates and sessions
 
-`plan` validates manifests, selects ordered gates, resolves runtime declarations, and calculates maximum model sessions without creating workspaces, ledgers, artifacts, or model calls:
+`plan` validates manifests, selects ordered gates, resolves runtime declarations, reports `economic_runtime`, and calculates maximum model sessions without creating workspaces, ledgers, artifacts, or model calls. The recommendation is informative and never replaces explicit runtime parameters:
 
 ```bash
 python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
@@ -255,14 +257,15 @@ A **fingerprint** is a hash that binds approved inputs and execution choices. It
 - baseline and candidate execution counts;
 - executor, judge, and total session maximums;
 - runtime values and their sources;
+- economic recommendations, match state, and reasons;
 - approval requirements, blockers, and warnings;
 - manifest, case, source, runtime, and evaluation fingerprints.
 
-Case fingerprints cover manifests, prompts, fixtures, and oracles; source fingerprints cover baseline and candidate; runtime and evaluation fingerprints bind execution choices and selection. The runner recomputes them before execution so a changed input cannot silently use stale approval.
+Case fingerprints cover manifests, prompts, fixtures, and oracles; source fingerprints cover baseline and candidate; runtime and evaluation fingerprints bind execution choices, economic guidance, and selection. The runner recomputes them before execution so a changed input cannot silently use stale approval.
 
 A model session is one executor or judge invocation. Semantic cases always plan an executor session and add a judge session when enabled. Deterministic cases add none. The plan counts maximum sessions, not tokens, duration, or price.
 
-A **campaign** is a related set of diagnostic and promotion operations. A campaign ledger uses locking and conservative reservations to track actual consumption against one explicitly approved cumulative session limit. Use it when several operations need shared cost supervision. Shell or sandbox approval is not model cost approval.
+A **campaign** is a related set of diagnostic and promotion operations. A campaign ledger uses locking and conservative reservations to track actual consumption against one explicitly approved cumulative session limit. Use it when several operations need shared cost supervision. Obtain model session cost authorization separately from external approval of the exact runner command; neither approval implies the other.
 
 The default operation limit is eight model sessions. Model backed promotion requires explicit executor model and reasoning effort; a required judge may use explicit values or inherit the complete executor runtime. Missing runtime or insufficient operation or campaign approval appears under `execution_blockers` and prevents execution.
 
@@ -379,11 +382,12 @@ Keep cost proportional to the evidence:
 | Change or role | Policy |
 | --- | --- |
 | `static` or fully `deterministic` | Use structural checks, tests, schemas, oracles, fakes, replay, and deterministic comparison. Real model sessions: zero. |
-| `scoped` semantic change | Use the approved executor runtime after planning. With one complete oracle and no judge, the normal promotion path is one RED plus three GREEN executor sessions. |
-| Semantic judge | Prefer a complete deterministic oracle. Add a separately declared or inherited judge only when interpretation is unavoidable. |
-| Broad promotion | Use a more capable runtime only when task complexity or diagnostic evidence justifies it, under an explicit maximum. |
+| `scoped` semantic change with complete oracle and judge disabled | Recommend `gpt-5.6-luna` with `medium` reasoning effort as the explicit executor after a side effect free plan. Every selected case must declare `oracle.commands`. With one eligible case, the normal promotion path is one RED plus three GREEN executor sessions. |
+| Semantic judge | Prefer a complete deterministic oracle. When interpretation is unavoidable, recommend `gpt-5.6-terra` with `medium` reasoning effort as judge under an explicit maximum and select the executor manually. |
+| `cross-cutting` change or incomplete oracle | Select the executor manually from justified task evidence. Do not infer Luna from the impact label alone. |
+| Indispensable complex promotion | Use `gpt-5.6-sol` with `medium` reasoning effort only when complexity or representative diagnostic evidence justifies it. Keep Terra `medium` as judge only where semantic judgment remains necessary. |
 
-Do not retry an unchanged evaluation with a larger model after blocking evidence. Escalation needs a diagnosis, a material correction or new hypothesis, a refreshed plan, and approval for any changed maximum. Model and reasoning choices must remain explicit so reports can attribute evidence and cost correctly.
+Do not retry an unchanged evaluation with a larger model after blocking evidence. Escalation needs a diagnosis, a material correction or new hypothesis, a refreshed plan, and approval for any changed maximum. Model and reasoning choices must remain explicit so reports can attribute evidence and cost correctly. `economic_runtime` reports the recommendation, its reasons, and whether it matches a complete explicit declaration. A mismatch adds a warning, never a blocker, and preserves the explicit command.
 
 ## Example: evaluating `refactor-design`
 
@@ -421,7 +425,7 @@ Negative prompts should test a genuine boundary, such as missing behavior versus
 
 ### Approval required
 
-Inspect `execution_blockers`, runtime sources, session totals, campaign projection, case selection, fingerprints, and warnings. Supply missing runtime or obtain explicit approval for the correct maximum. Do not lower impact merely to fit a limit.
+Inspect `execution_blockers`, runtime sources, session totals, campaign projection, case selection, fingerprints, and warnings. Supply missing runtime or obtain explicit approval for the correct maximum. Do not lower impact merely to fit a limit. Cost authorization and external shell approval are independent.
 
 ### Invalid deterministic manifest
 
@@ -445,7 +449,9 @@ Inspect judge standard error, authentication, structured output, criteria, and a
 
 ### Read only or initialization errors
 
-Nested Codex needs access to its normal authenticated state and a writable disposable workspace. Use an authorized environment. Do not bypass safeguards or broaden access beyond what the evaluation requires.
+An outer sandbox may prevent a nested Codex client from accessing `CODEX_HOME` or the network even when the fixture workspace is writable. Run `codex doctor --json` at the same permission boundary intended for the runner and require `overallStatus: ok`. Starting the TUI with `--ask-for-approval on-request` does not automatically elevate the noninteractive runner subprocess.
+
+If the preflight fails for filesystem or network access, request external approval for the exact complete runner command. Keep each executor and judge in the runner's internal `workspace-write` sandbox. Do not use `danger-full-access`, bypass approval, or move credentials into `/tmp`. Approve model session cost separately because shell approval and cost authorization do not imply one another.
 
 ### Preserving failure evidence
 

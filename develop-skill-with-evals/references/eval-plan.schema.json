@@ -23,6 +23,7 @@
     "case_fingerprints",
     "source_fingerprints",
     "evaluation_fingerprint",
+    "economic_runtime",
     "runtime",
     "runtime_fingerprint",
     "campaign",
@@ -102,6 +103,7 @@
       "additionalProperties": false
     },
     "evaluation_fingerprint": {"$ref": "#/$defs/fingerprint"},
+    "economic_runtime": {"$ref": "#/$defs/economicRuntime"},
     "runtime": {"$ref": "#/$defs/runtime"},
     "runtime_fingerprint": {
       "type": "string",
@@ -164,6 +166,48 @@
         "affected": {"type": "integer", "minimum": 0},
         "regression": {"type": "integer", "minimum": 0},
         "total": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "economicRuntime": {
+      "type": "object",
+      "required": [
+        "policy_version",
+        "mode",
+        "executor",
+        "judge",
+        "reasons"
+      ],
+      "properties": {
+        "policy_version": {"const": 1},
+        "mode": {
+          "enum": [
+            "zero-session",
+            "scoped-complete-oracle",
+            "manual-selection"
+          ]
+        },
+        "executor": {"$ref": "#/$defs/economicRuntimeRole"},
+        "judge": {"$ref": "#/$defs/economicRuntimeRole"},
+        "reasons": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "economicRuntimeRole": {
+      "type": "object",
+      "required": [
+        "recommended_model",
+        "recommended_reasoning_effort",
+        "matches_explicit_runtime"
+      ],
+      "properties": {
+        "recommended_model": {"type": ["string", "null"]},
+        "recommended_reasoning_effort": {"type": ["string", "null"]},
+        "matches_explicit_runtime": {"type": ["boolean", "null"]}
       },
       "additionalProperties": false
     },

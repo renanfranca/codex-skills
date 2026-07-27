@@ -1,4 +1,4 @@
 interface:
   display_name: "Develop Skill with Evals"
   short_description: "Diagnose and promote skill eval changes"
-  default_prompt: "Use $develop-skill-with-evals to diagnose and promote a skill change with proportional gates and cumulative cost controls."
+  default_prompt: "Use $develop-skill-with-evals to diagnose and promote a skill change with proportional gates, explicit economic runtime selection, and cumulative cost controls."

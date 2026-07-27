@@ -66,6 +66,10 @@ with tempfile.TemporaryDirectory(dir=fixture_root) as temporary:
   assert diagnostic_plan["case_fingerprints"]
   assert diagnostic_plan["evaluation_fingerprint"]
   assert diagnostic_plan["source_fingerprints"]
+  assert diagnostic_plan["economic_runtime"]["policy_version"] == 1
+  assert diagnostic_plan["economic_runtime"]["mode"] == "manual-selection"
+  assert diagnostic_plan["economic_runtime"]["executor"]["recommended_model"] is None
+  assert diagnostic_plan["economic_runtime"]["judge"]["recommended_model"] is None
 
   probe = subprocess.run(
     [
