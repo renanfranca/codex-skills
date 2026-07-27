@@ -1,16 +1,25 @@
 {
-  "id": "load-skill-creator-first",
+  "id": "load-skill-creator-before-scaffold",
   "kind": "behavioral",
   "prompt_file": "prompt.md",
   "mechanical": {
     "expected_exit_code": 0,
     "required_paths": [
+      "creation-evidence.json",
       "weather-brief/SKILL.md",
-      "creation-evidence.json"
+      "weather-brief/agents/openai.yaml"
     ],
     "forbidden_changed_paths": [
       ".agents/skills/**",
-      "weather-brief/creation-evidence.json"
+      "weather-brief/creation-evidence.json",
+      "weather-brief/evals/**",
+      "weather-brief/scripts/**",
+      "weather-brief/references/**",
+      "weather-brief/assets/**",
+      "baseline/**",
+      "candidate/**",
+      "eval-reports/**",
+      "evaluation-reports/**"
     ]
   },
   "oracle": {

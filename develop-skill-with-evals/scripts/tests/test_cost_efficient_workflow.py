@@ -481,7 +481,7 @@ class CostEfficientWorkflowTest(unittest.TestCase):
         "plan-exit-code.txt": "2\n",
         "plan-stderr.log": "plan rejected required arguments\n",
       },
-      "load-skill-creator-first": {
+      "load-skill-creator-before-scaffold": {
         "weather-brief/SKILL.md": "---\nname: weather-brief\ndescription: Test.\n---\n",
       },
       "eval-before-behavior": {
@@ -699,7 +699,12 @@ class CostEfficientWorkflowTest(unittest.TestCase):
 
   def test_skill_creator_evidence_location_is_unambiguous(self):
     skill_root = Path(__file__).parents[2]
-    case_dir = skill_root / "evals" / "cases" / "load-skill-creator-first"
+    case_dir = (
+      skill_root
+      / "evals"
+      / "cases"
+      / "load-skill-creator-before-scaffold"
+    )
     manifest = json.loads((case_dir / "case.json").read_text(encoding="utf-8"))
     prompt = (case_dir / "prompt.md").read_text(encoding="utf-8")
 
