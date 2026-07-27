@@ -23,7 +23,7 @@ cp -R /path/to/codex-skills/refactor-design "$HOME/.agents/skills/"
 For a skill shared by one project, copy it to `<repository>/.agents/skills` instead. Then invoke the installed skill directly:
 
 ```text
-Use $refactor-design to review this completed implementation.
+Use $refactor-design to review this completed green change. Limit work to the changed scope, preserve its public contract, apply only the smallest justified refactor, rerun the relevant suite and public checkpoint, and pause at any exception gate.
 ```
 
 ## Skill catalog

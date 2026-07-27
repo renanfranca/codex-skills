@@ -1,14 +1,20 @@
 import unittest
 
-from report_builder import ReportBuilder
+from report_builder import export_customer_key, notification_customer_key
 
 
-class ReportBuilderTest(unittest.TestCase):
-  def test_builds_report_repeatedly_through_public_path(self):
-    builder = ReportBuilder()
+class CustomerKeyTest(unittest.TestCase):
+  def test_both_public_paths_share_the_same_customer_key_contract(self):
+    names = [" Acme, Inc. ", "North & South", "Already-Safe"]
 
-    self.assertEqual("- one\n- two", builder.build_report(["one", "two"]))
-    self.assertEqual("- next", builder.build_report(["next"]))
+    self.assertEqual(
+      ["acme-inc", "north-south", "already-safe"],
+      [export_customer_key(name) for name in names],
+    )
+    self.assertEqual(
+      ["acme-inc", "north-south", "already-safe"],
+      [notification_customer_key(name) for name in names],
+    )
 
 
 if __name__ == "__main__":

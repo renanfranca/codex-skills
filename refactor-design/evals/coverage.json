@@ -1,0 +1,314 @@
+{
+  "version": 1,
+  "source_fingerprints": {
+    "SKILL.md": "30349f74a27c87e656cbdda8273c13041edab60ebaa2f2b35ea089bcb1f338b7",
+    "references/design-review-rubric.md": "3803f61c2f9b4aaae0b209f68d66c8f1c3b0fbe27c1dbc315e3c080636ea9e47",
+    "references/java-spring-hexagonal.md": "c5eca8974c7ce30f2735fad108f2bffdf0c32ba3e436eb3710f09d78996eb293"
+  },
+  "contracts": [
+    {
+      "id": "entry-gate",
+      "statement": "Start design review only after requested behavior, the relevant suite, the public checkpoint, and the current milestone are complete and green.",
+      "guarantee": "complete",
+      "mappings": [
+        {
+          "case_id": "red-suite-gate",
+          "dimension": "red-relevant-suite",
+          "evidence": ["mechanical", "judge", "executor_response"]
+        },
+        {
+          "case_id": "exception-gates",
+          "dimension": "incomplete-behavior-and-red-public-checkpoint",
+          "evidence": ["judge", "executor_response"]
+        }
+      ]
+    },
+    {
+      "id": "bounded-review-scope",
+      "statement": "Review changed files, crossed contracts, and adjacent code with new responsibility without unrelated cleanup.",
+      "guarantee": "complete",
+      "mappings": [
+        {
+          "case_id": "hidden-invocation-state",
+          "dimension": "explicit-invocation-protected-unrelated-file",
+          "evidence": ["mechanical", "oracle", "judge", "changed_paths"]
+        },
+        {
+          "case_id": "exception-gates",
+          "dimension": "material-scope-expansion",
+          "evidence": ["judge", "executor_response"]
+        }
+      ]
+    },
+    {
+      "id": "conditional-reference-loading",
+      "statement": "Read the general rubric for every review and load the Java reference only for Java, Spring, or hexagonal scope.",
+      "guarantee": "partial",
+      "limitation": "Installed reference reads are internal model actions; the cases can observe technology appropriate decisions but cannot prove every read event directly.",
+      "mappings": [
+        {
+          "case_id": "rubric-lifecycle-calibration",
+          "dimension": "non-java-general-rubric",
+          "evidence": ["judge", "executor_response"]
+        },
+        {
+          "case_id": "java-hexagonal-mapping",
+          "dimension": "java-hexagonal-reference",
+          "evidence": ["mechanical", "oracle", "judge", "changed_paths"]
+        }
+      ]
+    },
+    {
+      "id": "finding-classification",
+      "statement": "Classify candidates as defect, design risk, maintainability opportunity, or no action before editing.",
+      "guarantee": "complete",
+      "mappings": [
+        {
+          "case_id": "cohesive-no-action",
+          "dimension": "no-action",
+          "evidence": ["mechanical", "judge", "executor_response"]
+        },
+        {
+          "case_id": "rubric-boundary-calibration",
+          "dimension": "mixed-actionable-and-false-positive",
+          "evidence": ["mechanical", "judge", "executor_response"]
+        }
+      ]
+    },
+    {
+      "id": "evidence-before-patterns",
+      "statement": "Require a concrete risk, consider false positives and cost, and avoid checklist driven abstractions.",
+      "guarantee": "complete",
+      "mappings": [
+        {
+          "case_id": "cohesive-no-action",
+          "dimension": "small-cohesive-implementation",
+          "evidence": ["mechanical", "judge", "changed_paths"]
+        },
+        {
+          "case_id": "rubric-cohesion-calibration",
+          "dimension": "cohesion-signals-with-counterexamples",
+          "evidence": ["mechanical", "judge", "executor_response"]
+        }
+      ]
+    },
+    {
+      "id": "smallest-behavior-preserving-refactor",
+      "statement": "Apply one smallest coherent structural change at a time while preserving observable behavior.",
+      "guarantee": "complete",
+      "mappings": [
+        {
+          "case_id": "hidden-invocation-state",
+          "dimension": "explicit-hidden-invocation-state",
+          "evidence": ["mechanical", "oracle", "judge", "changed_paths"]
+        },
+        {
+          "case_id": "implicit-trigger-smoke",
+          "dimension": "implicit-duplicated-transformation",
+          "evidence": ["mechanical", "judge", "changed_paths"]
+        },
+        {
+          "case_id": "java-hexagonal-mapping",
+          "dimension": "java-cross-context-enum-mapping",
+          "evidence": ["mechanical", "judge", "changed_paths"]
+        }
+      ]
+    },
+    {
+      "id": "reuse-public-behavior-protection",
+      "statement": "Reuse behavior tests and the public checkpoint, rerun validation after significant changes, and avoid topology focused tests.",
+      "guarantee": "complete",
+      "mappings": [
+        {
+          "case_id": "hidden-invocation-state",
+          "dimension": "python-public-path",
+          "evidence": ["mechanical", "oracle", "judge", "changed_paths"]
+        },
+        {
+          "case_id": "java-hexagonal-mapping",
+          "dimension": "java-public-api",
+          "evidence": ["mechanical", "judge", "changed_paths"]
+        }
+      ]
+    },
+    {
+      "id": "exception-gates",
+      "statement": "Pause for incomplete behavior, public contract changes, material architecture decisions, insufficient protection, scope expansion, or two consecutive failed attempts.",
+      "guarantee": "complete",
+      "mappings": [
+        {
+          "case_id": "exception-gates",
+          "dimension": "all-six-stop-conditions",
+          "evidence": ["judge", "executor_response"]
+        }
+      ]
+    },
+    {
+      "id": "quiet-output",
+      "statement": "Use a short opening and communicate only exception gates, concrete risks needing judgment, meaningful changes, failures, and the compact final summary.",
+      "guarantee": "partial",
+      "limitation": "A judge can assess the visible response, but evaluation cannot prove the absence of every routine internal narration across all runs.",
+      "mappings": [
+        {
+          "case_id": "hidden-invocation-state",
+          "dimension": "successful-review-output",
+          "evidence": ["judge", "executor_response"]
+        },
+        {
+          "case_id": "exception-gates",
+          "dimension": "paused-review-output",
+          "evidence": ["judge", "executor_response"]
+        }
+      ]
+    },
+    {
+      "id": "learning-without-self-modification",
+      "statement": "Discard contextual learning, report repository specific enforcement candidates, propose reusable learning as a separate evolution task, and never self modify during an ordinary review.",
+      "guarantee": "complete",
+      "mappings": [
+        {
+          "case_id": "no-self-modification",
+          "dimension": "three-learning-classes",
+          "evidence": ["mechanical", "judge", "changed_paths", "executor_response"]
+        }
+      ]
+    },
+    {
+      "id": "trigger-boundary",
+      "statement": "Select the skill for completed green structural review, not missing behavior or initial implementation.",
+      "guarantee": "complete",
+      "mappings": [
+        {
+          "case_id": "trigger-selection",
+          "dimension": "routing-boundary",
+          "evidence": ["judge", "executor_response"]
+        },
+        {
+          "case_id": "implicit-trigger-smoke",
+          "dimension": "implicit-end-to-end",
+          "evidence": ["mechanical", "judge", "changed_paths"]
+        }
+      ]
+    }
+  ],
+  "rubric_families": [
+    {
+      "id": "lifecycle-and-state",
+      "source": "references/design-review-rubric.md",
+      "guarantee": "partial",
+      "limitation": "The case samples representative lifecycle designs and counterexamples; it cannot establish correct classification for every repository or framework lifecycle.",
+      "sections": [
+        "How to use the rubric",
+        "Temporal coupling",
+        "Hidden invocation state",
+        "Request state in long-lived objects",
+        "Side-effecting builders and factories",
+        "Metadata read at different times"
+      ],
+      "mappings": [
+        {
+          "case_id": "rubric-lifecycle-calibration",
+          "dimension": "python-lifecycle-calibration",
+          "evidence": ["mechanical", "judge", "executor_response"]
+        },
+        {
+          "case_id": "hidden-invocation-state",
+          "dimension": "focused-state-refactor",
+          "evidence": ["mechanical", "oracle", "judge", "changed_paths"]
+        }
+      ]
+    },
+    {
+      "id": "boundaries-and-representations",
+      "source": "references/design-review-rubric.md",
+      "guarantee": "partial",
+      "limitation": "The fixture samples common boundary leaks and legitimate primitives; semantic ownership still depends on project context.",
+      "sections": [
+        "Preformatted business diagnostics",
+        "Interface syntax leaking into the domain",
+        "Fragile mappings between models",
+        "Empty values used as workflow status",
+        "Framework metadata in business types",
+        "Generic or primitive types hiding concepts"
+      ],
+      "mappings": [
+        {
+          "case_id": "rubric-boundary-calibration",
+          "dimension": "python-boundary-calibration",
+          "evidence": ["mechanical", "judge", "executor_response"]
+        },
+        {
+          "case_id": "java-hexagonal-mapping",
+          "dimension": "java-fragile-mapping",
+          "evidence": ["mechanical", "judge", "changed_paths"]
+        }
+      ]
+    },
+    {
+      "id": "cohesion-and-testability",
+      "source": "references/design-review-rubric.md",
+      "guarantee": "partial",
+      "limitation": "The case distinguishes selected cohesive and independent policies, but no fixture can exhaust all valid abstractions or performance tradeoffs.",
+      "sections": [
+        "Duplicated transformations",
+        "Classes accumulating independent policies",
+        "Repeated searches hiding position",
+        "Abstractions created only for tests"
+      ],
+      "mappings": [
+        {
+          "case_id": "rubric-cohesion-calibration",
+          "dimension": "python-cohesion-calibration",
+          "evidence": ["mechanical", "judge", "executor_response"]
+        },
+        {
+          "case_id": "cohesive-no-action",
+          "dimension": "cohesive-counterexample",
+          "evidence": ["mechanical", "judge", "changed_paths"]
+        }
+      ]
+    },
+    {
+      "id": "java-lifecycle-and-values",
+      "source": "references/java-spring-hexagonal.md",
+      "guarantee": "partial",
+      "limitation": "The Java case exercises cross-context translation, while the other listed Java and Spring lifecycle sections are mapped as review coverage rather than exhaustively executed examples.",
+      "sections": [
+        "Spring singleton state",
+        "Framework lifecycle and temporal coupling",
+        "Constructor injection and object lifetime",
+        "Records and defensive copies",
+        "Optional.get and explicit invariants",
+        "Object as a business value"
+      ],
+      "mappings": [
+        {
+          "case_id": "java-hexagonal-mapping",
+          "dimension": "java-lifecycle-and-values-review",
+          "evidence": ["mechanical", "judge", "executor_response"]
+        }
+      ]
+    },
+    {
+      "id": "java-boundaries-and-architecture",
+      "source": "references/java-spring-hexagonal.md",
+      "guarantee": "partial",
+      "limitation": "The executable fixture proves one enum adapter refactor and asks for contextual false-positive analysis; it does not prove every architecture boundary or Spring composition choice.",
+      "sections": [
+        "Enums across bounded contexts",
+        "Cross-context adapters",
+        "Domain ports and technical seams",
+        "Composition before Spring",
+        "Presentation and technical metadata",
+        "Executable architecture rules"
+      ],
+      "mappings": [
+        {
+          "case_id": "java-hexagonal-mapping",
+          "dimension": "java-hexagonal-boundary",
+          "evidence": ["mechanical", "judge", "changed_paths"]
+        }
+      ]
+    }
+  ]
+}

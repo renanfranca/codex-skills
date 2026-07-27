@@ -1,0 +1,27 @@
+{
+  "id": "rubric-boundary-calibration",
+  "kind": "behavioral",
+  "prompt_file": "prompt.md",
+  "mechanical": {
+    "expected_exit_code": 0,
+    "required_paths": ["boundary.py", "test_boundary.py"],
+    "forbidden_changed_paths": ["test_boundary.py", ".agents/skills/**"],
+    "commands": [
+      {
+        "argv": ["python3", "-m", "unittest", "-q"],
+        "exit_code": 0
+      }
+    ]
+  },
+  "judge": {
+    "enabled": true,
+    "criteria": [
+      "The executor identifies preformatted validation diagnostics, CLI option spelling in a core filter, name-based enum translation, ambiguous empty workflow state, and live framework metadata in a business object as boundary or representation risks.",
+      "It keeps public rendering and parsing behavior stable while moving presentation or transport policy to the boundary, making mapping exhaustive, and snapshotting only required metadata.",
+      "It recognizes that Batch.status cannot distinguish pending from a completed empty result, but pauses that finding because making the state observable requires a new public contract that was not authorized.",
+      "It treats the exact audit phrase as a deliberate contractual artifact and the local line-number integer as a clear primitive false positive.",
+      "It avoids speculative value objects or framework abstractions, changes only boundary.py, and keeps the public suite green."
+    ],
+    "no_action_acceptable": false
+  }
+}

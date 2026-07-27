@@ -1,4 +1,4 @@
 interface:
   display_name: "Refactor Design"
   short_description: "Review post-green design and refactor safely."
-  default_prompt: "Use $refactor-design to review this completed implementation and apply behavior-preserving design improvements."
+  default_prompt: "Use $refactor-design on this completed green change. Review only the changed scope, preserve public contracts, apply the smallest justified refactor, rerun the suite and public checkpoint, and pause at exception gates."

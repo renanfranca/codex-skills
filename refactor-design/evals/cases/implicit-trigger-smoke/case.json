@@ -13,7 +13,8 @@
     "enabled": true,
     "criteria": [
       "Without an explicit skill mention, the executor applies a post-green design review to the completed green change.",
-      "It removes the hidden invocation state while preserving behavior and keeping existing tests green."
+      "It identifies the two equivalent customer-key transformations as one policy at risk of divergence.",
+      "It keeps one authoritative transformation, preserves both public functions, and keeps the existing suite green."
     ],
     "no_action_acceptable": false
   }

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "canonical_format": "report.json",
-  "report_count": 29,
+  "report_count": 30,
   "reports": [
     {
       "skill": "develop-skill-with-evals",
@@ -534,6 +534,25 @@
       "duration_ms": 309182,
       "digest": "8fbe3c4297fa5d0f3b2dda77656e734ab2c8e97eaaf39c0f295b42d92a18925c",
       "path": "refactor-design/operations/20260727T144730.399249Z-24a76a532c0b/report.json"
+    },
+    {
+      "skill": "refactor-design",
+      "operation_id": "20260727T160511.110609Z-1cf9aa1bccaf",
+      "operation": "probe-change",
+      "status": "ERROR",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": null,
+        "cached_input": null,
+        "output": null,
+        "reasoning_output": null,
+        "total": null
+      },
+      "duration_ms": 325,
+      "digest": "91df6fdba4518e996ab34bcd300761ea4a1f08a430c886d117a59be4de0506ea",
+      "path": "refactor-design/operations/20260727T160511.110609Z-1cf9aa1bccaf/report.json"
     },
     {
       "skill": "sample-skill",

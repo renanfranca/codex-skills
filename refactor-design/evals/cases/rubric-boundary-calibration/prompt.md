@@ -1,0 +1,1 @@
+The behavior in `boundary.py` is complete. Its suite and all public paths are green. Review only this file for presentation leaks, interface syntax, model mappings, workflow state, framework metadata, and hidden concepts. The fixture includes legitimate counterexamples. Apply only justified behavior-preserving changes and rerun the existing suite.

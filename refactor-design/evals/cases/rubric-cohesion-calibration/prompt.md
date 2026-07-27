@@ -1,0 +1,1 @@
+The behavior in `cohesion.py` is complete. Its suite and public paths are green. Review only this file for duplicated transformations, independent policies, repeated position searches, and abstractions created only for tests. Some similar looking code is intentionally legitimate. Apply only the smallest coherent behavior-preserving changes and rerun the existing suite.

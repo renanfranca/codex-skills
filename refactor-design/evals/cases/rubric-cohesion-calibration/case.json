@@ -1,0 +1,26 @@
+{
+  "id": "rubric-cohesion-calibration",
+  "kind": "behavioral",
+  "prompt_file": "prompt.md",
+  "mechanical": {
+    "expected_exit_code": 0,
+    "required_paths": ["cohesion.py", "test_cohesion.py"],
+    "forbidden_changed_paths": ["test_cohesion.py", ".agents/skills/**"],
+    "commands": [
+      {
+        "argv": ["python3", "-m", "unittest", "-q"],
+        "exit_code": 0
+      }
+    ]
+  },
+  "judge": {
+    "enabled": true,
+    "criteria": [
+      "The executor identifies duplicated customer-key normalization, independently varying discount and fraud policies, repeated route position searches, and the unused for_tests production factory as concrete risks or maintainability problems.",
+      "It centralizes the duplicated transformation, separates named independent policies without hiding orchestration, represents route positions once, and removes the test-only factory while preserving public behavior.",
+      "It leaves the genuine production clock dependency and the single clear index lookup alone as false positives.",
+      "It avoids gratuitous patterns, changes only cohesion.py, and keeps the public suite green."
+    ],
+    "no_action_acceptable": false
+  }
+}

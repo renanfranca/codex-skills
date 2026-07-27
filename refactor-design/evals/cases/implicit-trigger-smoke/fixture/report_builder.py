@@ -1,9 +1,10 @@
-class ReportBuilder:
-  def __init__(self):
-    self._lines = []
+import re
 
-  def build_report(self, facts):
-    self._lines.clear()
-    for fact in facts:
-      self._lines.append(f"- {fact}")
-    return "\n".join(self._lines)
+
+def export_customer_key(name):
+  return re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
+
+
+def notification_customer_key(name):
+  normalized = name.strip().lower()
+  return re.sub(r"[^a-z0-9]+", "-", normalized).strip("-")

@@ -1,0 +1,48 @@
+{
+  "id": "java-hexagonal-mapping",
+  "kind": "behavioral",
+  "prompt_file": "prompt.md",
+  "mechanical": {
+    "expected_exit_code": 0,
+    "required_paths": [
+      "src/main/java/adapter/StatusAdapter.java",
+      "src/main/java/billing/BillingStatus.java",
+      "src/main/java/sales/OrderStatus.java",
+      "src/test/java/StatusAdapterTest.java"
+    ],
+    "forbidden_changed_paths": [
+      "src/main/java/billing/BillingStatus.java",
+      "src/main/java/sales/OrderStatus.java",
+      "src/main/java/schema/GeneratedParityMapper.java",
+      "src/main/java/schema/GeneratedSource.java",
+      "src/main/java/schema/GeneratedTarget.java",
+      "src/test/java/StatusAdapterTest.java",
+      ".agents/skills/**"
+    ],
+    "commands": [
+      {
+        "argv": ["python3", "compile_and_test.py"],
+        "exit_code": 0
+      }
+    ]
+  },
+  "oracle": {
+    "commands": [
+      {
+        "argv": ["python3", "{oracle_dir}/check_mapping.py"],
+        "exit_code": 0
+      }
+    ]
+  },
+  "judge": {
+    "enabled": true,
+    "criteria": [
+      "The executor identifies valueOf(source.name()) between independently evolving sales and billing contexts as a fragile mapping.",
+      "It replaces only StatusAdapter's name-based conversion with an exhaustive explicit mapping owned by the adapter.",
+      "It preserves the public StatusAdapter API, both context enums, public tests, and behavior for every current value.",
+      "It leaves GeneratedParityMapper unchanged because its generated types share an explicitly documented authoritative schema and parity check.",
+      "It does not invent a domain port, Spring component, new public contract, or topology-focused test."
+    ],
+    "no_action_acceptable": false
+  }
+}

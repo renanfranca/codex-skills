@@ -1,0 +1,345 @@
+{
+  "schema_version": 1,
+  "operation": {
+    "id": "20260727T160511.110609Z-1cf9aa1bccaf",
+    "type": "probe-change",
+    "status": "ERROR",
+    "workflow": "diagnostic",
+    "promotion_eligible": false,
+    "failure_category": "infrastructure"
+  },
+  "provenance": "executed",
+  "started_at": "2026-07-27T16:05:11.110609Z",
+  "finished_at": "2026-07-27T16:05:11.342435Z",
+  "duration_ms": 325,
+  "skill": {
+    "path": "/home/renanfranca/.codex/skills/refactor-design",
+    "name": "refactor-design"
+  },
+  "fingerprints": {
+    "manifest": "9b180576343e8e69a9e66483fa4ddb2c5445dee48384193ac1ab3e778d5b1fef",
+    "cases": {
+      "coverage-contract": "fc821faa2972b6ce473ad9c3093954035157ea24a8737fd9609b2b0c3d31f6a1",
+      "cohesive-no-action": "75debf496882fe1f995330b2081a8b28a00da7acb9254571187fb40dc8f67640",
+      "hidden-invocation-state": "dde2bbbe275eb490da2ec3fc9cb03a85c7d99206691f620c96408ab245246a8c",
+      "implicit-trigger-smoke": "e45edc7e3ebfcf79b87c571f9f6bd462e10056f714b819c560f60f2eb092bdbb",
+      "no-self-modification": "5749160dca0181f4318e1368c293f4348b8c5c90a53b56c9f037161cbd35a9e3",
+      "red-suite-gate": "2b1a99877f7586e8142e535867e9fc82b5e8123fa7e2546bf34e40342149fdb5",
+      "trigger-selection": "a7397d4f9c873af8fde6a7b1c62561e0cbc799d6294910e7c1b07b2c0e346728",
+      "exception-gates": "a7c923efa771a3f1be3761ef61a7fefea6e972bdd7783c702a5895ec98f156a0",
+      "rubric-lifecycle-calibration": "524b8bdb4bcbc56f1c57429c702d7953c3b8b391197505354200834f81a788b4",
+      "rubric-boundary-calibration": "7507d16cbc0c0b8eedca19d16130faf83d7e486272035eb10e40be981c75b450",
+      "rubric-cohesion-calibration": "fa40a20808313be7eeb784b93920b2648f708f1522a9be42341787bae873fd74",
+      "java-hexagonal-mapping": "01e776fd5b6695098eb4991bf86690896683f6f917f46f75763112879083842f"
+    },
+    "sources": {
+      "baseline": "27a9c2dcfca933283c0daf996271fc56c8c626ab63e00f79d13d78c5935b1bda",
+      "candidate": "fa40f81e6e96d97dcf03a89030350405234d2315e28ab567a264d00ca7c562f4"
+    },
+    "runtime": "2344a717075309a517a5b6e8305d8fa9a3c182042fd2ad79fcb51a770daff3a5",
+    "evaluation": "a1f025d756f857587c8f577e20be7c47720bbfba3dfee7ebff28f56fc74d74b6"
+  },
+  "environment": {
+    "codex_cli": {
+      "status": "available",
+      "version": "codex-cli 0.145.0"
+    },
+    "authentication": {
+      "status": "available",
+      "mode": "unknown"
+    },
+    "runner": {
+      "path": "/home/renanfranca/.codex/skills/develop-skill-with-evals/scripts/run_skill_evals.py",
+      "sha256": "30f579584ba4eb2c9d21a68786aaae41f336a012c01cad35f4079e72a1e640e5"
+    }
+  },
+  "billing": {
+    "mode": "chatgpt-plan-or-unknown",
+    "actual_charge_observed": false
+  },
+  "runtime": {
+    "required": true,
+    "complete": true,
+    "audit_quality": "promotion",
+    "executor": {
+      "required": true,
+      "model": "gpt-5.6-sol",
+      "model_source": "cli",
+      "reasoning_effort": "medium",
+      "reasoning_effort_source": "cli"
+    },
+    "judge": {
+      "required": true,
+      "model": "gpt-5.6-terra",
+      "model_source": "cli",
+      "reasoning_effort": "medium",
+      "reasoning_effort_source": "cli"
+    }
+  },
+  "sessions": {
+    "planned": {
+      "executor": 16,
+      "judge": 16,
+      "total": 32
+    },
+    "executed": {
+      "executor": 1,
+      "judge": 0,
+      "total": 1
+    },
+    "provenance": "executed"
+  },
+  "usage": {
+    "input_tokens": null,
+    "cached_input_tokens": null,
+    "output_tokens": null,
+    "reasoning_output_tokens": null,
+    "total_tokens": null,
+    "complete": false,
+    "reasoning_output_tokens_complete": false,
+    "events": [],
+    "event_count": 0,
+    "events_complete": false
+  },
+  "pricing": {
+    "applied": true,
+    "snapshot": {
+      "version": 1,
+      "effective_date": "2026-07-26",
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol; https://developers.openai.com/api/docs/models/gpt-5.6-terra; https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+      "currency": "USD",
+      "unit": "per_million_tokens",
+      "models": {
+        "gpt-5.6-sol": {
+          "input": 5.0,
+          "cached_input": 0.5,
+          "output": 30.0,
+          "long_context": {
+            "input_token_threshold": 272000,
+            "input_multiplier": 2.0,
+            "output_multiplier": 1.5,
+            "applies_per": "request"
+          }
+        },
+        "gpt-5.6-terra": {
+          "input": 2.5,
+          "cached_input": 0.25,
+          "output": 15.0,
+          "long_context": {
+            "input_token_threshold": 272000,
+            "input_multiplier": 2.0,
+            "output_multiplier": 1.5,
+            "applies_per": "request"
+          }
+        },
+        "gpt-5.6-luna": {
+          "input": 1.0,
+          "cached_input": 0.1,
+          "output": 6.0,
+          "long_context": {
+            "input_token_threshold": 272000,
+            "input_multiplier": 2.0,
+            "output_multiplier": 1.5,
+            "applies_per": "request"
+          }
+        }
+      },
+      "limitations": [
+        "This dated table is an API reference and is not an observed ChatGPT charge.",
+        "Prompts above 272,000 input tokens use the documented higher rates; an exact estimate is unavailable when normalized telemetry does not expose request scoped input.",
+        "Cache write charges are not estimated because Codex JSONL usage does not identify cache writes.",
+        "Reasoning output tokens are reported separately but are already included in output tokens."
+      ]
+    },
+    "limitations": [
+      "This dated table is an API reference and is not an observed ChatGPT charge.",
+      "Prompts above 272,000 input tokens use the documented higher rates; an exact estimate is unavailable when normalized telemetry does not expose request scoped input.",
+      "Cache write charges are not estimated because Codex JSONL usage does not identify cache writes.",
+      "Reasoning output tokens are reported separately but are already included in output tokens."
+    ]
+  },
+  "api_reference_estimate": {
+    "available": false,
+    "status": "unavailable",
+    "currency": "USD",
+    "amount": null,
+    "base_rate_amount": null,
+    "actual_charge": false,
+    "billing_mode": "chatgpt-plan-or-unknown",
+    "calculation": null,
+    "long_context_assessment": null,
+    "limitations": [
+      "This is an API reference estimate, not an observed charge.",
+      "This dated table is an API reference and is not an observed ChatGPT charge.",
+      "Prompts above 272,000 input tokens use the documented higher rates; an exact estimate is unavailable when normalized telemetry does not expose request scoped input.",
+      "Cache write charges are not estimated because Codex JSONL usage does not identify cache writes.",
+      "Reasoning output tokens are reported separately but are already included in output tokens.",
+      "Observed token usage is incomplete."
+    ]
+  },
+  "observations": [
+    {
+      "case_id": "hidden-invocation-state",
+      "status": "ERROR",
+      "kind": "behavioral",
+      "role": "baseline",
+      "repetition": 1,
+      "provenance": "executed",
+      "started_at": "2026-07-27T16:05:11.159939Z",
+      "finished_at": "2026-07-27T16:05:11.341049Z",
+      "duration_ms": 181,
+      "prompt": "The requested report-building behavior is complete, the entire test suite is green, and the public `build_report` path is green. Review only this completed change for structural design risks, apply any justified behavior-preserving refactor, and validate it.\n",
+      "executor": {
+        "enabled": true,
+        "executed": true,
+        "exit_code": 1,
+        "duration_ms": 150,
+        "response": null,
+        "usage": {
+          "input_tokens": null,
+          "cached_input_tokens": null,
+          "output_tokens": null,
+          "reasoning_output_tokens": null,
+          "total_tokens": null,
+          "complete": false,
+          "reasoning_output_tokens_complete": false,
+          "events": [],
+          "event_count": 0,
+          "events_complete": false
+        }
+      },
+      "mechanical": {
+        "passed": false,
+        "checks": [
+          {
+            "name": "executor exit code",
+            "passed": false,
+            "detail": "expected 0, got 1"
+          },
+          {
+            "name": "executor response schema",
+            "passed": false,
+            "detail": "structured response present and valid"
+          },
+          {
+            "name": "required path: report_builder.py",
+            "passed": true,
+            "detail": "report_builder.py"
+          },
+          {
+            "name": "required path: test_report_builder.py",
+            "passed": true,
+            "detail": "test_report_builder.py"
+          },
+          {
+            "name": "forbidden changed path: release_notes.md",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "forbidden changed path: test_report_builder.py",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "forbidden changed path: .agents/skills/**",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "evaluated skill remained unchanged",
+            "passed": true,
+            "detail": "repository-scoped skill hash comparison"
+          },
+          {
+            "name": "command: python3 -m unittest -q",
+            "passed": true,
+            "detail": "expected 0, got 0"
+          }
+        ],
+        "commands": [
+          {
+            "argv": [
+              "python3",
+              "-m",
+              "unittest",
+              "-q"
+            ],
+            "exit_code": 0,
+            "stdout": "",
+            "stderr": "----------------------------------------------------------------------\nRan 1 test in 0.000s\n\nOK\n"
+          }
+        ]
+      },
+      "oracle": {
+        "enabled": false,
+        "passed": true,
+        "commands": []
+      },
+      "judge": {
+        "enabled": true,
+        "executed": false,
+        "verdict": "SKIPPED",
+        "rationale": "Semantic judge skipped because executor infrastructure failed.",
+        "evidence": [],
+        "duration_ms": 0,
+        "usage": {
+          "input_tokens": null,
+          "cached_input_tokens": null,
+          "output_tokens": null,
+          "reasoning_output_tokens": null,
+          "total_tokens": null,
+          "complete": false,
+          "reasoning_output_tokens_complete": false,
+          "events": [],
+          "event_count": 0,
+          "events_complete": false
+        },
+        "failure_category": "infrastructure"
+      },
+      "sessions": {
+        "executor": 1,
+        "judge": 0,
+        "total": 1
+      },
+      "usage": {
+        "input_tokens": null,
+        "cached_input_tokens": null,
+        "output_tokens": null,
+        "reasoning_output_tokens": null,
+        "total_tokens": null,
+        "complete": false,
+        "reasoning_output_tokens_complete": false,
+        "events": [],
+        "event_count": 0,
+        "events_complete": false
+      },
+      "evidence": {
+        "changed_files": [],
+        "diff": "",
+        "fragments": [],
+        "truncated": false,
+        "truncations": [],
+        "limits": {
+          "capture_bytes_per_file": 32768,
+          "diff_bytes_per_file": 12000,
+          "diff_bytes_per_report": 64000,
+          "fragment_bytes": 2000
+        }
+      },
+      "workspace": {
+        "original_path": "/tmp/skill-eval-artifacts/probe-change-_hyq5vuw/hidden-invocation-state-exq72wq1",
+        "retention": "retained"
+      }
+    }
+  ],
+  "limitations": [
+    "No raw Codex JSONL or complete transcript is persisted.",
+    "Structured executor fields record concise declared decisions, not private reasoning.",
+    "Diffs and text fragments are sanitized and bounded."
+  ],
+  "report_digest": {
+    "algorithm": "sha256",
+    "value": "91df6fdba4518e996ab34bcd300761ea4a1f08a430c886d117a59be4de0506ea"
+  }
+}

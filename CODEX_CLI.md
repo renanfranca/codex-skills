@@ -70,7 +70,7 @@ Use `codex exec` when the request and permission boundary are known in advance a
 codex exec --ephemeral \
   -C /path/to/project \
   --sandbox workspace-write \
-  'Use $refactor-design to review this completed green implementation.'
+  'Use $refactor-design on this completed green change. Review only the changed scope, preserve its public contract, apply the smallest justified refactor, rerun the suite and public checkpoint, and pause at exception gates.'
 ```
 
 In POSIX shells, single quotes prevent `$refactor-design` from being expanded as an environment variable. `--ephemeral` avoids persisting session rollout files; use it only when you do not intend to resume the run.
@@ -80,7 +80,7 @@ By default, `codex exec` streams progress to standard error and prints the final
 ```bash
 codex exec --ephemeral --json \
   -C /path/to/project \
-  'Use $refactor-design to review this completed green implementation.'
+  'Use $refactor-design on this completed green change. Review only the changed scope, preserve its public contract, apply the smallest justified refactor, rerun the suite and public checkpoint, and pause at exception gates.'
 ```
 
 Use `-o/--output-last-message` when a script needs the final response in a file. The response is still printed to standard output:
@@ -106,13 +106,13 @@ The CLI exposes many other commands and flags. They are outside this repository'
 Explicit selection is the reliable default. Name the skill with `$skill-name` and describe the concrete outcome, scope, stopping conditions, and validation:
 
 ```text
-Use $refactor-design to review this completed green implementation. Apply only justified behavior-preserving changes, keep public tests green, and report No action when no concrete design risk exists.
+Use $refactor-design on this completed green change. Review only the changed scope, preserve its public contract, apply the smallest justified refactor, rerun the relevant suite and public checkpoint, and pause at exception gates. Report No action when no concrete design risk exists.
 ```
 
 Codex can also select a skill implicitly when the task matches its frontmatter `description`. This is useful when testing discovery or natural triggering:
 
 ```text
-The implementation and public tests are green. Inspect the changed scope for structural design risks and apply only justified behavior-preserving improvements.
+The requested behavior, relevant suite, and public checkpoint are green. Inspect only the changed scope for structural design risks, preserve the public contract, apply the smallest justified refactor, rerun both validations, and pause at exception gates.
 ```
 
 After an implicit test, verify which skill was selected and whether it respected its entry conditions. `agents/openai.yaml` may disable implicit invocation, and its `default_prompt` is presentation metadata, not a replacement for `SKILL.md`.

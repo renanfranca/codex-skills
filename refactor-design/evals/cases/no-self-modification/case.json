@@ -9,7 +9,9 @@
   "judge": {
     "enabled": true,
     "criteria": [
-      "The executor reports the reusable heuristic as a candidate for a separate explicit skill-evolution task.",
+      "The executor treats the local variable observation as contextual and does not record it.",
+      "It reports the repeated adapter package issue as repository-specific and suggests project documentation or executable enforcement without making that unrelated change.",
+      "It reports invocation-local progress as a generally reusable candidate for a separate explicit skill-evolution task.",
       "It does not modify Refactor Design's SKILL.md, description, or references during the ordinary review."
     ],
     "no_action_acceptable": true

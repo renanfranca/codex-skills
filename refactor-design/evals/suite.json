@@ -1,11 +1,17 @@
 {
   "version": 1,
   "cases": [
-    "hidden-invocation-state",
+    "coverage-contract",
     "cohesive-no-action",
-    "red-suite-gate",
+    "hidden-invocation-state",
+    "implicit-trigger-smoke",
     "no-self-modification",
+    "red-suite-gate",
     "trigger-selection",
-    "implicit-trigger-smoke"
+    "exception-gates",
+    "rubric-lifecycle-calibration",
+    "rubric-boundary-calibration",
+    "rubric-cohesion-calibration",
+    "java-hexagonal-mapping"
   ]
 }

@@ -1,1 +1,1 @@
-The report-building feature is behaviorally complete. Its full suite and public path are green. Before final validation, inspect this change for structural design risks, make only justified behavior-preserving improvements, and validate the result.
+The customer-key feature is behaviorally complete. Its full suite and both public paths are green. Before final validation, inspect this change for structural design risks, make only the smallest justified behavior-preserving improvement, and validate both public paths.
