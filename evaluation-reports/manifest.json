@@ -1,7 +1,7 @@
 {
   "version": 1,
   "canonical_format": "report.json",
-  "report_count": 38,
+  "report_count": 41,
   "reports": [
     {
       "skill": "develop-skill-with-evals",
@@ -517,6 +517,44 @@
       "path": "develop-skill-with-evals/operations/20260727T132448.821094Z-1fcd91faa06a/report.json"
     },
     {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260728T104228.600043Z-ac887a5415d6",
+      "operation": "validate-change",
+      "status": "FAIL",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 2,
+      "tokens": {
+        "input": 809349,
+        "cached_input": 707584,
+        "output": 14201,
+        "reasoning_output": 3215,
+        "total": 823550
+      },
+      "duration_ms": 310629,
+      "digest": "abb505e69a5f48ed9e270545ef31fceb0cd2eb48cb0add06078b27b7b3bc54fc",
+      "path": "develop-skill-with-evals/operations/20260728T104228.600043Z-ac887a5415d6/report.json"
+    },
+    {
+      "skill": "develop-skill-with-evals",
+      "operation_id": "20260728T113254.537174Z-d01790d9d1d6",
+      "operation": "validate-change",
+      "status": "FAIL",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 13,
+      "tokens": {
+        "input": 3578303,
+        "cached_input": 3020544,
+        "output": 42440,
+        "reasoning_output": 9735,
+        "total": 3620743
+      },
+      "duration_ms": 1239588,
+      "digest": "75d867f3edfa359aabda64cc51890efe2a7604959229d50d9bf8e5a1af10c42a",
+      "path": "develop-skill-with-evals/operations/20260728T113254.537174Z-d01790d9d1d6/report.json"
+    },
+    {
       "skill": "refactor-design",
       "operation_id": "20260727T144730.399249Z-24a76a532c0b",
       "operation": "run",
@@ -572,6 +610,25 @@
       "duration_ms": 845621,
       "digest": "8e0da479584a0183390a863639b70080a2470f68232e799545b963d6d634337d",
       "path": "refactor-design/operations/20260727T170755.244350Z-e1c34d62c6a5/report.json"
+    },
+    {
+      "skill": "refactor-design",
+      "operation_id": "20260728T130719.976097Z-a86fbb5eb809",
+      "operation": "run",
+      "status": "FAIL",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 22,
+      "tokens": {
+        "input": 1930302,
+        "cached_input": 1376256,
+        "output": 25816,
+        "reasoning_output": 8520,
+        "total": 1956118
+      },
+      "duration_ms": 876033,
+      "digest": "d238d178570c3e50059b7f7b0f4ca0b1e74d800461aa25b05ddd050094db6f1e",
+      "path": "refactor-design/operations/20260728T130719.976097Z-a86fbb5eb809/report.json"
     },
     {
       "skill": "restructure-documentation",
