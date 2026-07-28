@@ -7,6 +7,11 @@ node_modules/
 npm-debug.log.*
 /.awcache/*
 /.cache-loader/*
+/.generated/
+/.vitepress/cache/
+/.vitepress/dist/
+/playwright-report/
+/test-results/
 
 ######################
 # SASS

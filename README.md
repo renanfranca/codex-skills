@@ -4,6 +4,8 @@ Reusable [Codex](https://openai.com/codex/) workflows for skill development, exe
 
 This repository keeps each workflow self contained, inspectable, and ready to install where Codex can discover it.
 
+Browse the skills and their archived evaluation evidence at [renanfranca.github.io/codex-skills](https://renanfranca.github.io/codex-skills/).
+
 ## What is a Codex skill?
 
 A Codex skill is a reusable workflow stored in a directory with a required `SKILL.md`. That file defines the skill's name, when Codex should use it, and the instructions to follow. A skill may also include references, scripts, templates, and optional `agents/openai.yaml` interface metadata.

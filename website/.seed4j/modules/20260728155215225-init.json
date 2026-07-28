@@ -1,11 +1,11 @@
 {
-  "module" : "init",
-  "date" : "2026-07-28T15:52:15.225713349Z",
-  "properties" : {
-    "help" : false,
-    "projectName" : "Codex Skills",
-    "nodePackageManager" : "npm",
-    "version" : false,
-    "baseName" : "codexSkills"
+  "module": "init",
+  "date": "2026-07-28T15:52:15.225713349Z",
+  "properties": {
+    "help": false,
+    "projectName": "Codex Skills",
+    "nodePackageManager": "npm",
+    "version": false,
+    "baseName": "codexSkills"
   }
 }

@@ -1,11 +1,11 @@
 {
-  "module" : "prettier",
-  "date" : "2026-07-28T15:54:04.324604215Z",
-  "properties" : {
-    "help" : false,
-    "projectName" : "Codex Skills",
-    "nodePackageManager" : "npm",
-    "version" : false,
-    "baseName" : "codexSkills"
+  "module": "prettier",
+  "date": "2026-07-28T15:54:04.324604215Z",
+  "properties": {
+    "help": false,
+    "projectName": "Codex Skills",
+    "nodePackageManager": "npm",
+    "version": false,
+    "baseName": "codexSkills"
   }
 }

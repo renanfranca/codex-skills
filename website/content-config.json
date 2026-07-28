@@ -1,0 +1,4 @@
+{
+  "base": "/codex-skills/",
+  "disabledSkills": ["tdd", "tdd-strict-autonomous", "tdd-strict-autonomous-quiet", "tdd-strict-cycle-confirmation"]
+}

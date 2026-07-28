@@ -1,5 +1,8 @@
 target
 build
+/.generated/
+/.vitepress/cache/
+/.vitepress/dist/
 package-lock.json
 gradle
 .gradle
