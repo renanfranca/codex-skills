@@ -46,81 +46,136 @@ The distinction matters: the runner can enforce a declared contract, but it cann
 
 ## A complete evaluation
 
-The real [`impact-gate-selection`](develop-skill-with-evals/evals/cases/impact-gate-selection/) case tests whether a fresh executor plans the correct evidence for a small runner change. **Impact** classifies which evidence can observe a change and how far its effects may reach. This is a useful first example because an agent must understand and perform the task, while code can verify the complete result.
-
-### 1. The executor receives a prompt
-
-A **prompt** is the public request given to a fresh, ephemeral Codex session called the **executor**. The case's [full prompt](develop-skill-with-evals/evals/cases/impact-gate-selection/prompt.md) says, in part:
-
-> The small runner in `target-skill/scripts/target-runner.py` currently writes its JSON status to standard error. I intend to move that JSON to standard output while preserving the exit code and keeping standard error empty.
-
-It asks the executor to choose the impact, invoke the public planning operation exactly once, save three evidence files, and avoid modifying or evaluating either skill. It does not reveal the expected impact or selected case.
-
-### 2. The runner copies a fixture
-
-A **fixture** is the minimal public starting state copied into an isolated workspace. This case's [`fixture/`](develop-skill-with-evals/evals/cases/impact-gate-selection/fixture/) contains:
-
-- `target-skill`, the proposed source, also called the candidate;
-- `target-baseline`, the preserved source before the proposed change, also called the baseline.
-
-The evaluation harness installs `develop-skill-with-evals` separately as the skill under evaluation, including the public planning runner but excluding its `evals/` directory. The executor can inspect the public fixture and installed skill and create evidence in the workspace. It cannot see the case manifest, hidden oracle, or judge criteria.
-
-### 3. The executor produces evidence
-
-The prompt requires:
-
-- `evaluation-plan.json`, containing the plan on standard output;
-- `plan-stderr.log`, containing standard error;
-- `plan-exit-code.txt`, containing the decimal exit code.
-
-These files make the executor's decision observable without relying on its prose summary.
-
-### 4. Code checks the result
-
-The [case manifest](develop-skill-with-evals/evals/cases/impact-gate-selection/case.json) declares two layers of deterministic evidence. **Mechanical checks** are generic observations configured in `case.json`; here they require the three evidence files, expect executor exit code `0`, and forbid changes to either skill or the installed skill directory.
-
-An **oracle** is a case specific deterministic checker stored under `oracle/`. It runs outside the executor's workspace and is never copied into the installed skill. The [oracle for this case](develop-skill-with-evals/evals/cases/impact-gate-selection/oracle/check_plan.py) reads the saved plan and checks the observable contract:
+The real [`hidden-invocation-state`](refactor-design/evals/cases/hidden-invocation-state/) case tests whether `refactor-design` can recognize and remove mutable operation state from a reusable object without changing public behavior. Its starting `ReportBuilder` keeps the lines for the current report on the instance:
 
 ```python
-assert plan["operation"] == "plan"
-assert plan["impact"] == "deterministic"
-assert plan["selected_cases"] == ["runner-output"]
-assert plan["regression_cases"] == []
-assert plan["sessions"]["total"] == 0
-assert plan["approval_required"] is False
-assert plan["execution_blockers"] == []
+class ReportBuilder:
+  def __init__(self):
+    self._lines = []
+
+  def build_report(self, sections):
+    self._lines.clear()
+    # Build this report by mutating self._lines.
 ```
 
-It also checks that planning exited `0` and wrote nothing to standard error.
+The public test calls the same builder twice and passes, but overlapping or reentrant calls could still interfere through `_lines`. This is a useful first example because tests can prove the output remains green and code can detect instance writes, while deciding whether the agent understood the risk and made a proportionate design change still requires semantic interpretation.
 
-### 5. The case passes without a judge
+### 1. The public request starts a fresh agent
 
-A **judge** is a separate Codex session used only when deterministic code cannot interpret the complete semantic contract. This case explicitly disables its judge:
+A **prompt** is the public request given to a fresh, ephemeral Codex session called the **executor**. The case's [full prompt](refactor-design/evals/cases/hidden-invocation-state/prompt.md) says:
+
+> The requested report-building behavior is complete, the entire test suite is green, and the public `build_report` path is green. Perform the post-green design review, apply any justified behavior-preserving refactor, and validate it.
+
+The runner adds the explicit instruction to use the repository-scoped `refactor-design` installation. The prompt does not reveal the expected diagnosis, implementation, hidden checks, or semantic criteria.
+
+### 2. The runner copies the starting workspace
+
+A **fixture** is the minimal public starting state copied into an isolated workspace. This case's [`fixture/`](refactor-design/evals/cases/hidden-invocation-state/fixture/) contains:
+
+- `report_builder.py` and its public behavior test;
+- an unrelated index and its test;
+- release notes that are outside the authorized review scope.
+
+The evaluation harness installs `refactor-design` separately without its `evals/` directory. The executor can inspect the public fixture and installed skill, edit the fixture, run tests, and return a structured response. It cannot see `case.json`, hidden check code, or semantic criteria.
+
+### 3. The executor performs the review
+
+In the [archived observation](evaluation-reports/refactor-design/operations/20260727T170755.244350Z-e1c34d62c6a5/report.md#observation-3-hidden-invocation-state), the executor diagnosed hidden invocation state, moved report assembly into local variables, preserved `build_report` output, changed only `report_builder.py`, and ran the existing suite. Its structured response recorded the diagnosis, approach, decisions, rejected alternatives, key changes, validation, and changed files.
+
+This response is evidence, not a self-awarded verdict. The runner checks it together with the workspace.
+
+### 4. Code checks observable facts
+
+The [case manifest](refactor-design/evals/cases/hidden-invocation-state/case.json) declares two deterministic layers.
+
+**Mechanical checks** are generic observations configured in `case.json`. Here they require a valid structured response, run the complete `unittest` suite, require the report builder and its existing test to remain present, and forbid changes to the test, unrelated files, release notes, or installed skill. They also verify that the evaluated skill itself remained unchanged.
+
+An **oracle** is a case specific deterministic checker stored under `oracle/`. It is never copied into the executor's workspace or installed skill. This case's [hidden oracle](refactor-design/evals/cases/hidden-invocation-state/oracle/check_invocation_state.py) parses `report_builder.py` and fails if production code still writes invocation progress through `self`:
+
+```python
+if instance_writes:
+  raise SystemExit(
+    "ReportBuilder still stores invocation progress on the instance: "
+    + ", ".join(sorted(set(instance_writes)))
+  )
+```
+
+Together, these checks can prove that tests pass, scope is bounded, and instance writes are gone. They cannot completely decide whether the executor identified the concrete design risk, preserved the intended contract for the right reason, or avoided an unjustified abstraction.
+
+### 5. A second session interprets the remaining contract
+
+A **judge** is a second Codex session that independently evaluates criteria which deterministic code cannot interpret completely. It does not perform the refactor or repair the executor's work. This case enables it with criteria hidden from the executor:
+
+Its scope is the case contract, not every possible improvement in the workspace. It asks whether the executor's action or decision to take no action satisfies the declared criteria. It does not conduct an open-ended design review, search for additional opportunities, or certify that the implementation is optimal and needs no further work.
 
 ```json
 {
   "judge": {
-    "enabled": false,
-    "criteria": [],
+    "enabled": true,
+    "criteria": [
+      "Identify mutable invocation progress as a concrete design risk.",
+      "Make invocation progress local while preserving observable output.",
+      "Reuse behavior tests without adding topology-focused tests.",
+      "Leave unrelated files unchanged."
+    ],
     "no_action_acceptable": false
   }
 }
 ```
 
-The case is still semantic because an executor is needed to understand and perform the open task. It does not need semantic judgment because the oracle can decide the complete result. If the mechanical checks and oracle pass, the case returns `PASS` with one executor session and no judge session.
+The runner invokes the judge only when it is enabled and both mechanical checks and oracle have passed. Its formal payload has this shape:
+
+```json
+{
+  "task": "Independently judge an authorized skill evaluation. Use only the supplied evidence.",
+  "criteria": ["case-specific semantic criteria"],
+  "no_action_acceptable": false,
+  "executor_response": {"summary": "...", "diagnosis": "..."},
+  "mechanical": {"passed": true, "checks": []}
+}
+```
+
+The payload does not include the public prompt or oracle result. Oracle success is a prerequisite for invoking the judge, not evidence sent to it. `no_action_acceptable` tells the model whether making no change can satisfy the case; Python does not turn that value into an automatic verdict.
+
+For example, [`cohesive-no-action`](refactor-design/evals/cases/cohesive-no-action/case.json) sets `no_action_acceptable` to `true` and asks the judge to recognize that a small cohesive implementation should remain unchanged. A `PASS` there means that taking no action satisfied those criteria, not that no improvement could exist anywhere else. In `hidden-invocation-state`, the field is `false` and the criteria require evidence of the bounded refactor. In both cases, the criteria and evidence determine the verdict; the flag alone does not.
+
+The judge must return exactly a verdict, rationale, and evidence:
+
+```json
+{
+  "verdict": "PASS",
+  "rationale": "All four criteria are supported by the supplied evidence.",
+  "evidence": ["The diagnosis identifies mutable instance state as an invocation risk."]
+}
+```
+
+Allowed verdicts are:
+
+- `PASS` when the supplied evidence demonstrates the semantic criteria;
+- `FAIL` when the evidence demonstrates that a criterion was not met;
+- `INCONCLUSIVE` when the evidence is insufficient for a reliable decision.
+
+In the archived observation, mechanical checks, oracle, and judge all returned `PASS`. This qualifies the four declared criteria for that observation; it does not prove that `ReportBuilder` or the repository has no other design opportunities. The case therefore passed with one executor session and one judge session. If mechanical checks or oracle had failed, the case would have returned `FAIL`, marked the judge `SKIPPED`, and consumed no judge session. Executor or judge infrastructure failure produces `ERROR`; a judge verdict of `INCONCLUSIVE` makes the case `INCONCLUSIVE`.
+
+> **Current isolation limitation:** the runner instructs the judge to use only the supplied payload, but starts it in the same evaluation workspace with `workspace-write` access. The judge can technically read or modify workspace files even though that is not its authorized role. Workspace evidence and changed paths are captured before the judge runs, so later judge writes would not appear in those observations. Treat the payload as the intended evidence boundary, not a structurally enforced read-only sandbox.
 
 The visibility and order are:
 
 ```mermaid
-flowchart LR
+flowchart TD
   P[Public prompt] --> E[Fresh executor]
   F[Public fixture] --> E
   E --> W[Workspace evidence]
   W --> M[Mechanical checks]
   W --> O[Hidden oracle]
-  M --> R[Structured result]
-  O --> R
-  J[Optional hidden judge] -. only when interpretation remains .-> R
+  M --> G{Mechanical and oracle pass?}
+  O --> G
+  G -- No --> S[FAIL; judge SKIPPED]
+  G -- Yes --> J[Independent hidden judge]
+  J --> V{Judge verdict}
+  V -- PASS --> R[PASS]
+  V -- FAIL --> X[FAIL]
+  V -- INCONCLUSIVE --> I[INCONCLUSIVE]
 ```
 
 ## Anatomy of an evaluation
@@ -133,7 +188,7 @@ These pieces are complementary rather than competing names for the same checker:
 | Fixture | Provides the minimal starting workspace. | Yes | Public code, tests, configuration, and generic data | None |
 | Mechanical checks | Apply reusable observations declared in the manifest. | No manifest access | Exit codes, paths, changes, and command results | None |
 | Oracle | Verifies the case specific observable contract. | No | Deterministic assertions over workspace evidence | None |
-| Judge | Interprets criteria that code cannot decide completely. | No | Independent `PASS`, `FAIL`, or `INCONCLUSIVE` verdict | One when executed |
+| Judge | Evaluates whether the executor's action or decision to take no action satisfies bounded semantic criteria. | No | Independent `PASS`, `FAIL`, or `INCONCLUSIVE` verdict | One when executed |
 
 The executor never receives `case.json`, judge criteria, or answer key material. The evaluated skill is installed without `evals/`, and the oracle directory remains runner controlled. This separation lets an evaluation test whether the skill can solve the public task instead of merely reproducing a disclosed answer.
 
@@ -148,6 +203,8 @@ Start with three questions:
 A **semantic case** needs an executor to carry out an open task. Its manifest kind is `behavioral`, `non_behavioral`, or `trigger`; omitted `kind` remains compatible with `behavioral`. Use a complete oracle and disable the judge when code can decide the result. Enable a judge only for behavior that still requires semantic interpretation after mechanical and oracle evidence.
 
 A **deterministic case** uses `kind: "deterministic"` when code can perform and verify the complete contract. It has no prompt, executor, or judge and consumes zero model sessions. The runner exposes an immutable skill snapshot through `SKILL_EVAL_SKILL_DIR`, runs direct checks, and verifies that the checker did not alter the snapshot.
+
+The walkthrough's `hidden-invocation-state` case needs both an executor and judge because part of its contract is contextual. By contrast, [`impact-gate-selection`](develop-skill-with-evals/evals/cases/impact-gate-selection/) still needs an executor to understand and perform an open planning task, but its complete oracle can decide the final contract without a judge.
 
 Do not label an open task deterministic merely because its final files can be checked. If an agent is necessary to produce those files, the case is semantic even when its verdict is deterministic.
 
@@ -412,7 +469,7 @@ Do not retry an unchanged evaluation after blocking evidence. A new attempt need
 
 ## Example: evaluating `refactor-design`
 
-The [`refactor-design` suite](refactor-design/evals/suite.json) is a broader example after the minimal `impact-gate-selection` case. Its [`coverage.json`](refactor-design/evals/coverage.json) binds source fingerprints, normative contracts, rubric families, case dimensions, evidence types, guarantee levels, and explicit limitations. The zero session `coverage-contract` case checks those relationships and proves that deliberately stale or inconsistent copies are rejected.
+The [`refactor-design` suite](refactor-design/evals/suite.json) broadens the single-case walkthrough into a traceable suite audit. Its [`coverage.json`](refactor-design/evals/coverage.json) binds source fingerprints, normative contracts, rubric families, case dimensions, evidence types, guarantee levels, and explicit limitations. The zero session `coverage-contract` case checks those relationships and proves that deliberately stale or inconsistent copies are rejected.
 
 The manifest records declared normative traceability while the semantic cases remain representative samples. The following state was observed on 2026-07-27 at commit `673dfb98aefc470d7fac3b3c822d87e7e0f6fba4`:
 
