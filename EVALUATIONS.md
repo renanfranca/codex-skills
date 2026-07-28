@@ -217,9 +217,19 @@ A traceable coverage manifest connects requirements to the observations intended
 | Semantic behavior | When applicable gates execute and pass, the evaluated scenario satisfied its public checks, oracle, and judge criteria for those runs. | For `refactor-design`, actual semantic evidence comes from structured runner statuses such as the [archived six case report](evaluation-reports/refactor-design/operations/20260727T144730.399249Z-24a76a532c0b/report.md), not from the coverage manifest. | That unexecuted or modified `refactor-design` cases passed, or that results are universal across models, prompts, repositories, technologies, or future runs. |
 | Rubric sampling | Representative signals, risks, false positives, and technologies are mapped without requiring one case for every rubric item. | `refactor-design` groups every rubric section into representative families and distinct case dimensions in its manifest; selected semantic cases still have to run. | Permission to skip selected `refactor-design` suite cases or a claim that every contextual classification is correct. |
 
+A testing analogy helps distinguish these layers, although it is not an exact equivalence:
+
+| Evaluation choice or result | Testing analogy | Interpretation |
+| --- | --- | --- |
+| A case mirrors each instruction sentence, rubric entry, or internal action. | A test coupled to implementation details. | Case count can grow without protecting a new observable outcome. |
+| A scenario observes a decision, public result, stop condition, or false positive. | A behavior test. | The case protects a distinct outcome or observation dimension while allowing internal variation. |
+| Every normative contract is mapped to evidence. | Traceability from requirements to tests. | This is not the same as exhaustive line, branch, input, or contextual coverage. |
+| A rubric family has a `partial` guarantee. | Representative classes of behavior. | The selected cases may execute completely, but they cannot prove correct judgment for every repository, technology, prompt, or future run. |
+| A selected semantic case returns `FAIL`. | A covered behavior fails its test. | This is a behavioral failure, not a coverage gap. |
+
 `complete` and `partial` in `coverage.json` are declared coverage levels, not execution statuses. Representative coverage removes the requirement for one case per rubric item, but it does not authorize skipping cases selected by the applicable suite gates. Semantic qualification requires those gates to execute and pass.
 
-For `refactor-design`, the result is specific: its normative map is declaratively complete and mechanically validated, while the current full suite audit is observably blocked by two semantic cases. The [dated `refactor-design` state](#example-evaluating-refactor-design) records the detailed evidence and pending promotion gates.
+For `refactor-design`, the result is specific: its normative map is declaratively complete and mechanically validated, its semantic coverage uses representative scenarios, and the current full suite audit is observably blocked by failures in two covered semantic cases. The [dated `refactor-design` state](#example-evaluating-refactor-design) records the detailed evidence and pending promotion gates.
 
 Case count remains a poor proxy for coverage. In `refactor-design`, overlap is useful only when cases declare different observation dimensions, such as explicit invocation, implicit selection, a stop condition, or Java technology. Duplicate scenarios with the same contract and dimension add cost without improving traceability.
 
