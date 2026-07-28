@@ -1,0 +1,18 @@
+{
+  "name": "codex-skills",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Codex Skills",
+  "license": "UNLICENSED",
+  "packageManager": "npm@11.7.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "9.1.7",
+    "lint-staged": "16.2.7"
+  }
+}
