@@ -50,17 +50,11 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
 
 Planning is side effect free and uses no model. Inspect selected and regression cases, commands, executor and judge session counts, runtime, case, source, runtime and evaluation fingerprints, campaign projection, execution blockers, reasons, and warnings before executing. Runtime declarations do not make model output deterministic; they make the intended execution auditable.
 
-## Select runtime economically
+## Select runtime explicitly
 
-Inspect `economic_runtime` before declaring or executing a model runtime:
+Use zero real sessions for `static` and `deterministic` changes. For model backed evaluations in this repository, recommend `gpt-5.6-sol` with `medium` reasoning effort for both executor and judge. Declare the executor explicitly; a required judge may inherit that complete runtime or receive the same values through its own flags.
 
-- use zero real sessions for `static` and `deterministic` changes;
-- recommend `gpt-5.6-luna` with `medium` only for a `scoped` semantic plan where every selected case declares `oracle.commands` and disables the judge;
-- recommend `gpt-5.6-terra` with `medium` for a required judge, while selecting the executor from justified task evidence;
-- select the executor manually for `cross-cutting` changes or whenever a selected case lacks a complete oracle declaration;
-- reserve `gpt-5.6-sol` with `medium` for an indispensable promotion whose complexity justifies it or after Luna demonstrates a capacity failure on a representative task.
-
-Always preserve a runtime explicitly chosen by the user. When the agent or an ExecPlan chose a runtime that differs from `economic_runtime`, disclose the mismatch before starting any session. Treat the mismatch warning as advice, not a blocker. Never use Sol as an automatic retry after Luna; require diagnosis, a material change or new hypothesis, a new plan, and fresh approval.
+This recommendation is guidance, not a runner default. Always preserve a runtime explicitly chosen by the user. Do not retry an unchanged blocking evaluation; require diagnosis, a material change or new hypothesis, a new plan, and fresh cost approval.
 
 ## Apply proportional gates
 

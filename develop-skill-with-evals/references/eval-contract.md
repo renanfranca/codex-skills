@@ -112,15 +112,11 @@ A promotion runtime is complete when every model-backed plan has executor model 
 
 `runtime_fingerprint` hashes canonical JSON containing the manifest fingerprint, role requirements, resolved values, and sources. It excludes paths, budget, and derived fields. `evaluation_fingerprint` adds case and source inputs plus workflow and selection. These values record intended execution without claiming deterministic model output.
 
-## Economic runtime guidance
+## Repository runtime recommendation
 
-Every plan contains an informative `economic_runtime` object with policy version 1. It never changes explicit runtime values, planned commands, blockers, CLI defaults or session approval.
+Static and deterministic changes use zero real model sessions. For model backed evaluations in this repository, recommend `gpt-5.6-sol` with `medium` reasoning effort for executor and judge. This recommendation is documentation, not a runner default, and never overrides an explicit user choice.
 
-`zero-session` applies to static and deterministic plans and recommends neither role. `scoped-complete-oracle` applies only when every selected scoped case is semantic, declares at least one `oracle.commands` entry and disables the judge; it recommends `gpt-5.6-luna` with `medium` for the executor. Every other model backed plan uses `manual-selection` for the executor. A required judge independently recommends `gpt-5.6-terra` with `medium`.
-
-`matches_explicit_runtime` is `null` when no recommendation exists or the corresponding role lacks a complete CLI declaration. A complete declaration that differs from the recommendation sets it to `false` and adds a warning without adding a blocker. The runtime supplied by the user remains in the planned command.
-
-Bind the complete `economic_runtime` object into `evaluation_fingerprint`, but not `runtime_fingerprint`. Recompute and compare it with the original plan after materializing baseline and candidate snapshots.
+Promotion still requires executor model and effort from CLI. A required judge may declare the same values explicitly or inherit the complete executor runtime. The plan records only the resolved `runtime`; it does not emit a separate advisory recommendation object.
 
 ## Diagnostic workflow
 

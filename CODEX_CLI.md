@@ -227,7 +227,7 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
   --reasoning-effort <effort>
 ```
 
-Inspect the selected cases and regressions, session maximum, resolved runtime, `economic_runtime`, fingerprints, blockers, and warnings. Economic guidance is informative and never fills in a missing runtime. A complete explicit mismatch remains in the proposed command with a warning.
+Inspect the selected cases and regressions, session maximum, resolved runtime, fingerprints, blockers, and warnings. Repository guidance never fills in a missing runtime or overrides an explicit user choice.
 
 Planning always exits zero, including when it reports blockers. A deterministic case consumes no model sessions. A static plan requires no RED or model execution.
 
@@ -358,7 +358,7 @@ Use `--no-report` to opt out or `--report-dir` to choose an explicit destination
 
 ### Persist evidence with dated pricing
 
-The repository snapshot dated `2026-07-26` contains pricing references for `gpt-5.6-luna`, `gpt-5.6-terra`, and `gpt-5.6-sol`. The following is a dated example for a scoped semantic case with a complete oracle and no judge:
+The repository snapshot dated `2026-07-26` contains pricing references for `gpt-5.6-luna`, `gpt-5.6-terra`, and `gpt-5.6-sol`. The following uses the repository recommendation for a scoped semantic case with a complete oracle and no judge:
 
 ```bash
 python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
@@ -366,13 +366,13 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   --baseline /tmp/baseline-skill \
   --impact scoped \
   --case changed-behavior \
-  --model gpt-5.6-luna \
+  --model gpt-5.6-sol \
   --reasoning-effort medium \
   --approved-model-sessions 4 \
   --progress
 ```
 
-These model names are examples from the snapshot, not runner defaults. The runner still requires explicit economic runtime selection for model backed promotion.
+The recommendation is not a runner default. The runner still requires explicit runtime selection for model backed promotion.
 
 Every persisted monetary value is a dated API reference estimate with `actual_charge: false`. It is not an observed ChatGPT charge. When request scoped long context usage cannot be reconstructed from telemetry, the exact API estimate remains unavailable rather than presenting the base rate as exact.
 
@@ -405,7 +405,7 @@ python3 develop-skill-with-evals/scripts/compare_model_reports.py \
 
 The dated `pilot-v2` comparison contains 18 observations across Luna, Sol, and Terra. It labels the evidence directional, not statistical proof, and reports `qualifies: false` for every model. It did not select a default runtime.
 
-A required semantic judge and every cross cutting promotion require manual runtime selection. A dated broad example may use Sol as executor and Terra as judge:
+A required semantic judge and every cross cutting promotion require explicit runtime selection. The repository recommends Sol medium for both roles:
 
 ```bash
 python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
@@ -415,7 +415,7 @@ python3 develop-skill-with-evals/scripts/run_skill_evals.py validate-change \
   --case changed-behavior \
   --model gpt-5.6-sol \
   --reasoning-effort medium \
-  --judge-model gpt-5.6-terra \
+  --judge-model gpt-5.6-sol \
   --judge-reasoning-effort medium \
   --approved-model-sessions 14 \
   --progress

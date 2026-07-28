@@ -172,7 +172,12 @@ class SkillEvalRunnerTest(unittest.TestCase):
 
     self.assertEqual(0, plan_completed.returncode, plan_completed.stderr)
     self.assertEqual(0, result_completed.returncode, result_completed.stderr)
-    Draft202012Validator(plan_schema).validate(json.loads(plan_completed.stdout))
+    plan = json.loads(plan_completed.stdout)
+    self.assertNotIn("economic_runtime", plan)
+    Draft202012Validator(plan_schema).validate(plan)
+    retired_contract = {**plan, "economic_runtime": {}}
+    with self.assertRaises(Exception):
+      Draft202012Validator(plan_schema).validate(retired_contract)
     Draft202012Validator(result_schema).validate(json.loads(result_completed.stdout))
 
   def test_plan_reports_runtime_sources_inheritance_and_stable_fingerprint(self):

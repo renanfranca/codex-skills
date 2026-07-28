@@ -59,7 +59,6 @@ STABLE_PLAN_FIELDS = (
   "manifest_fingerprint",
   "case_fingerprints",
   "source_fingerprints",
-  "economic_runtime",
   "runtime_fingerprint",
   "evaluation_fingerprint",
 )
@@ -1522,143 +1521,6 @@ def runtime_fingerprint(
   return hashlib.sha256(encoded).hexdigest()
 
 
-def economic_runtime_match(
-  role: RoleRuntime,
-  recommended_model: str | None,
-  recommended_reasoning_effort: str | None,
-  explicit_runtime_complete: bool,
-) -> bool | None:
-  if recommended_model is None or recommended_reasoning_effort is None:
-    return None
-  if not explicit_runtime_complete:
-    return None
-  return (
-    role.model == recommended_model
-    and role.reasoning_effort == recommended_reasoning_effort
-  )
-
-
-def economic_runtime_guidance(
-  impact: str,
-  selected_cases: list[str],
-  manifests: dict[str, dict[str, Any]],
-  runtime: EvaluationRuntime,
-  judge_required: bool,
-) -> dict[str, Any]:
-  reasons = []
-  executor_model = None
-  executor_effort = None
-  judge_model = None
-  judge_effort = None
-  executor_explicit = (
-    runtime.executor.model is not None
-    and runtime.executor.model_source == "cli"
-    and runtime.executor.reasoning_effort is not None
-    and runtime.executor.reasoning_effort_source == "cli"
-  )
-  judge_explicit = (
-    runtime.judge.model is not None
-    and runtime.judge.reasoning_effort is not None
-    and runtime.judge.model_source in {"cli", "executor"}
-    and runtime.judge.reasoning_effort_source in {"cli", "executor"}
-    and (
-      runtime.judge.model_source == "cli"
-      or executor_explicit
-    )
-    and (
-      runtime.judge.reasoning_effort_source == "cli"
-      or executor_explicit
-    )
-  )
-
-  if impact in {"static", "deterministic"}:
-    mode = "zero-session"
-    reasons.append(
-      "Static and deterministic changes use structural or mechanical evidence with zero real model sessions."
-    )
-  else:
-    complete_oracle = bool(selected_cases) and all(
-      manifests[case_id].get("kind") != "deterministic"
-      and bool(manifests[case_id].get("oracle", {}).get("commands"))
-      and not manifests[case_id].get("judge", {}).get("enabled", False)
-      for case_id in selected_cases
-    )
-    if impact == "scoped" and complete_oracle:
-      mode = "scoped-complete-oracle"
-      executor_model = "gpt-5.6-luna"
-      executor_effort = "medium"
-      reasons.append(
-        "Every selected scoped case is semantic, declares oracle.commands, and disables the judge."
-      )
-    else:
-      mode = "manual-selection"
-      if impact == "cross-cutting":
-        reasons.append(
-          "Cross-cutting reach requires a justified executor selection."
-        )
-      if any(
-        not manifests[case_id].get("oracle", {}).get("commands")
-        for case_id in selected_cases
-      ):
-        reasons.append(
-          "At least one selected case lacks a complete mechanical oracle declaration."
-        )
-      if judge_required:
-        reasons.append(
-          "A required semantic judge makes executor selection context dependent."
-        )
-      if not reasons:
-        reasons.append(
-          "The selected cases do not satisfy the safe automatic executor recommendation."
-        )
-
-  if judge_required:
-    judge_model = "gpt-5.6-terra"
-    judge_effort = "medium"
-    reasons.append(
-      "Required semantic judgment recommends gpt-5.6-terra with medium reasoning effort."
-    )
-
-  return {
-    "policy_version": 1,
-    "mode": mode,
-    "executor": {
-      "recommended_model": executor_model,
-      "recommended_reasoning_effort": executor_effort,
-      "matches_explicit_runtime": economic_runtime_match(
-        runtime.executor,
-        executor_model,
-        executor_effort,
-        executor_explicit,
-      ),
-    },
-    "judge": {
-      "recommended_model": judge_model,
-      "recommended_reasoning_effort": judge_effort,
-      "matches_explicit_runtime": economic_runtime_match(
-        runtime.judge,
-        judge_model,
-        judge_effort,
-        judge_explicit,
-      ),
-    },
-    "reasons": reasons,
-  }
-
-
-def economic_runtime_warnings(guidance: dict[str, Any]) -> list[str]:
-  warnings = []
-  if guidance["executor"]["matches_explicit_runtime"] is False:
-    warnings.append(
-      "Explicit executor runtime differs from the economic runtime recommendation; the explicit runtime is preserved."
-    )
-  if guidance["judge"]["matches_explicit_runtime"] is False:
-    warnings.append(
-      "Explicit judge runtime differs from the economic runtime recommendation; the explicit runtime is preserved."
-    )
-  return warnings
-
-
 def execution_blockers(
   runtime: EvaluationRuntime,
   total_sessions: int,
@@ -1745,13 +1607,6 @@ def build_eval_plan(
     executor_required=executor_sessions > 0,
     judge_required=judge_sessions > 0,
   )
-  economic_runtime = economic_runtime_guidance(
-    impact,
-    selected,
-    manifests,
-    runtime,
-    judge_sessions > 0,
-  )
   reasons = {
     "static": ["Only structural gates are proposed because the change cannot affect skill behavior."],
     "deterministic": ["Selected behavior is fully observable by direct mechanical checks."],
@@ -1764,7 +1619,7 @@ def build_eval_plan(
   warnings = [
     "Session counts exclude tokens, duration, and financial cost.",
     "Sandbox or shell approval is not approval for model session consumption.",
-  ] + economic_runtime_warnings(economic_runtime)
+  ]
   if impact != "cross-cutting":
     warnings.append("Underclassifying an uncertain change is a workflow error; use cross-cutting when reach is unclear.")
   plan = {
@@ -1832,7 +1687,6 @@ def build_eval_plan(
       "baseline": tree_fingerprint(baseline),
       "candidate": tree_fingerprint(skill),
     },
-    "economic_runtime": economic_runtime,
     "runtime": runtime.as_dict(),
     "runtime_fingerprint": runtime_fingerprint(
       manifest_fingerprint(manifests),
@@ -1853,7 +1707,6 @@ def build_eval_plan(
     "regression_cases": remaining,
     "case_fingerprints": plan["case_fingerprints"],
     "source_fingerprints": plan["source_fingerprints"],
-    "economic_runtime": plan["economic_runtime"],
     "runtime_fingerprint": plan["runtime_fingerprint"],
   })
   validate_eval_plan(plan)
@@ -1882,7 +1735,6 @@ def validate_eval_plan(plan: dict[str, Any]) -> None:
     "case_fingerprints",
     "source_fingerprints",
     "evaluation_fingerprint",
-    "economic_runtime",
     "runtime",
     "runtime_fingerprint",
     "execution_blockers",
@@ -1915,32 +1767,6 @@ def validate_eval_plan(plan: dict[str, Any]) -> None:
     raise ValueError("Evaluation plan approval flag is inconsistent with its session limit")
   if not isinstance(plan["execution_blockers"], list):
     raise ValueError("Evaluation plan blockers must be a list")
-  economic_runtime = plan["economic_runtime"]
-  if (
-    not isinstance(economic_runtime, dict)
-    or economic_runtime.get("policy_version") != 1
-    or economic_runtime.get("mode")
-    not in {"zero-session", "scoped-complete-oracle", "manual-selection"}
-    or not isinstance(economic_runtime.get("reasons"), list)
-  ):
-    raise ValueError("Evaluation plan economic runtime guidance is invalid")
-  for role in ("executor", "judge"):
-    recommendation = economic_runtime.get(role)
-    if not isinstance(recommendation, dict) or set(recommendation) != {
-      "recommended_model",
-      "recommended_reasoning_effort",
-      "matches_explicit_runtime",
-    }:
-      raise ValueError(
-        f"Evaluation plan economic runtime {role} recommendation is invalid"
-      )
-    match = recommendation["matches_explicit_runtime"]
-    if match is not None and not isinstance(match, bool):
-      raise ValueError(
-        f"Evaluation plan economic runtime {role} match state is invalid"
-      )
-
-
 def validate_snapshot_plan_stability(
   plan: dict[str, Any],
   snapshot_plan: dict[str, Any],

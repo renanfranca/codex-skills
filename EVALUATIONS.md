@@ -21,7 +21,7 @@ This guide explains how to understand and supervise the evidence produced by [`d
 - [Durable evidence and pricing](#durable-evidence-and-pricing)
 - [Command reference](#command-reference)
 - [Optional runtime controls](#optional-runtime-controls)
-- [Economic runtime policy](#economic-runtime-policy)
+- [Repository runtime recommendation](#repository-runtime-recommendation)
 - [Example: evaluating `refactor-design`](#example-evaluating-refactor-design)
 - [Adding evals to another skill](#adding-evals-to-another-skill)
 - [Trigger evaluations](#trigger-evaluations)
@@ -257,7 +257,7 @@ Classify the diff, not merely the file type or desired cost. A shared Markdown r
 
 ## Plan gates and sessions
 
-`plan` validates manifests, selects ordered gates, resolves runtime declarations, reports `economic_runtime`, and calculates maximum model sessions without creating workspaces, ledgers, artifacts, or model calls. The recommendation is informative and never replaces explicit runtime parameters:
+`plan` validates manifests, selects ordered gates, resolves runtime declarations, and calculates maximum model sessions without creating workspaces, ledgers, artifacts, or model calls. Runtime guidance never fills missing runtime parameters:
 
 ```bash
 python3 develop-skill-with-evals/scripts/run_skill_evals.py plan \
@@ -275,11 +275,10 @@ A **fingerprint** is a hash that binds approved inputs and execution choices. It
 - baseline and candidate execution counts;
 - executor, judge, and total session maximums;
 - runtime values and their sources;
-- economic recommendations, match state, and reasons;
 - approval requirements, blockers, and warnings;
 - manifest, case, source, runtime, and evaluation fingerprints.
 
-Case fingerprints cover manifests, prompts, fixtures, and oracles; source fingerprints cover baseline and candidate; runtime and evaluation fingerprints bind execution choices, economic guidance, and selection. The runner recomputes them before execution so a changed input cannot silently use stale approval.
+Case fingerprints cover manifests, prompts, fixtures, and oracles; source fingerprints cover baseline and candidate; runtime and evaluation fingerprints bind execution choices and selection. The runner recomputes them before execution so a changed input cannot silently use stale approval.
 
 A model session is one executor or judge invocation. Semantic cases always plan an executor session and add a judge session when enabled. Deterministic cases add none. The plan counts maximum sessions, not tokens, duration, or price.
 
@@ -393,19 +392,13 @@ Choose controls according to the decision being supervised:
 
 `plan` accepts runtime controls because it invokes no model and can show the future command before approval. The runner does not read global `config.toml`; promotion quality requires explicit runtime declarations. See [Run skill evaluations](CODEX_CLI.md#run-skill-evaluations) for command scope, source selection, defaults, and compatibility behavior.
 
-## Economic runtime policy
+## Repository runtime recommendation
 
-Keep cost proportional to the evidence:
+Keep cost proportional to the evidence. Static and fully deterministic changes use structural checks, tests, schemas, oracles, fakes, replay, and deterministic comparison with zero real model sessions.
 
-| Change or role | Policy |
-| --- | --- |
-| `static` or fully `deterministic` | Use structural checks, tests, schemas, oracles, fakes, replay, and deterministic comparison. Real model sessions: zero. |
-| `scoped` semantic change with complete oracle and judge disabled | Recommend `gpt-5.6-luna` with `medium` reasoning effort as the explicit executor after a side effect free plan. Every selected case must declare `oracle.commands`. With one eligible case, the normal promotion path is one RED plus three GREEN executor sessions. |
-| Semantic judge | Prefer a complete deterministic oracle. When interpretation is unavoidable, recommend `gpt-5.6-terra` with `medium` reasoning effort as judge under an explicit maximum and select the executor manually. |
-| `cross-cutting` change or incomplete oracle | Select the executor manually from justified task evidence. Do not infer Luna from the impact label alone. |
-| Indispensable complex promotion | Use `gpt-5.6-sol` with `medium` reasoning effort only when complexity or representative diagnostic evidence justifies it. Keep Terra `medium` as judge only where semantic judgment remains necessary. |
+For model-backed evaluations in this repository, recommend `gpt-5.6-sol` with `medium` reasoning effort for both executor and judge. Declare the executor explicitly; a required judge may inherit that complete runtime or receive the same values through its own flags. This recommendation is documentation, not a runner default, and never overrides an explicit user choice.
 
-Do not retry an unchanged evaluation with a larger model after blocking evidence. Escalation needs a diagnosis, a material correction or new hypothesis, a refreshed plan, and approval for any changed maximum. Model and reasoning choices must remain explicit so reports can attribute evidence and cost correctly. `economic_runtime` reports the recommendation, its reasons, and whether it matches a complete explicit declaration. A mismatch adds a warning, never a blocker, and preserves the explicit command.
+Do not retry an unchanged evaluation after blocking evidence. A new attempt needs a diagnosis, a material correction or new hypothesis, a refreshed plan, and approval for the new maximum. Model and reasoning choices remain explicit so reports can attribute evidence and cost correctly.
 
 ## Example: evaluating `refactor-design`
 

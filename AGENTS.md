@@ -32,6 +32,10 @@ Use kebab-case for skill directories and eval case IDs, such as `refactor-design
 
 Use Python `unittest` for runner behavior. Place tests in `scripts/tests/`. Eval cases belong under `<skill>/evals/cases/<case-id>/` with `case.json`, `prompt.md`, and only the minimal fixture needed. Put complete code observable contracts under `oracle/`, never in the public fixture. Behavioral skill changes require baseline RED and three stable candidate GREEN results for affected cases. Scoped changes stop there; cross cutting changes run every remaining suite case after GREEN 1 and before GREEN 2 and 3. Model-backed promotion requires an explicit executor model and reasoning effort, with any required judge runtime declared separately or inherited. Diagnostic and promotion operations may share a locked cumulative campaign ledger. Never expose judge criteria or hidden oracles in prompts or fixtures.
 
+## Model Runtime Recommendation
+
+Use zero model sessions for static and deterministic work. For model-backed evaluations and fresh-agent validation, recommend `gpt-5.6-sol` with `medium` reasoning effort for both executor and judge. This is repository guidance, not a runner default: pass the model and effort explicitly for promotion and obtain separate authorization for model session cost. Preserve any runtime explicitly chosen by the user.
+
 ## Commit & Pull Request Guidelines
 
 Follow Conventional Commits used in history: `feat(skill-name): add ...`, `chore(skill-name): update ...`, or `docs: clarify ...`. Keep subjects imperative and scoped when one skill is affected. Pull requests should explain intent and behavior, link relevant issues, list validation commands and results, and disclose retained eval artifacts or known risks.
