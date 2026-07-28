@@ -1,0 +1,454 @@
+{
+  "schema_version": 1,
+  "operation": {
+    "id": "20260728T140158.048385Z-f96323f0d4f2",
+    "type": "run",
+    "status": "PASS",
+    "workflow": null,
+    "promotion_eligible": false,
+    "failure_category": null
+  },
+  "provenance": "executed",
+  "started_at": "2026-07-28T14:01:58.048385Z",
+  "finished_at": "2026-07-28T14:02:57.068064Z",
+  "duration_ms": 59157,
+  "skill": {
+    "path": "/home/renanfranca/.codex/skills/refactor-design",
+    "name": "refactor-design"
+  },
+  "fingerprints": {
+    "manifest": "9c7455f055cbad793dcf793c59dbc1265e55ed7d598d0b80e19573949b91af24",
+    "cases": {
+      "coverage-contract": "fc821faa2972b6ce473ad9c3093954035157ea24a8737fd9609b2b0c3d31f6a1",
+      "cohesive-no-action": "75debf496882fe1f995330b2081a8b28a00da7acb9254571187fb40dc8f67640",
+      "hidden-invocation-state": "c711b982456d5490569d1f6c18b5b509b308d9651d51fa902a18ecebee553b5d",
+      "implicit-trigger-smoke": "e45edc7e3ebfcf79b87c571f9f6bd462e10056f714b819c560f60f2eb092bdbb",
+      "no-self-modification": "5749160dca0181f4318e1368c293f4348b8c5c90a53b56c9f037161cbd35a9e3",
+      "red-suite-gate": "1a4cbe39abf3cba7235074d1665b4162fd738f452cbcbe7533cbf9504e135ac6",
+      "trigger-selection": "a7397d4f9c873af8fde6a7b1c62561e0cbc799d6294910e7c1b07b2c0e346728",
+      "exception-gates": "f7343ce01dd126bfe9d6773085f06028830bedb5131d33d971763af171b0c62d",
+      "rubric-lifecycle-calibration": "524b8bdb4bcbc56f1c57429c702d7953c3b8b391197505354200834f81a788b4",
+      "rubric-boundary-calibration": "a805e6c095560d9e6fe730e0b74b28fb6368a4c0a4a65c44593c2c7a7ba86643",
+      "rubric-cohesion-calibration": "897678821a20aed248b951de6e3e605e405e736be8084cb78097fc1bce7b34ab",
+      "java-hexagonal-mapping": "01e776fd5b6695098eb4991bf86690896683f6f917f46f75763112879083842f"
+    },
+    "sources": {
+      "evaluated": "5fe3200d2febc5740e21adeba0401ebf90c34219fdc9d4fc3960099d76a0e872"
+    },
+    "runtime": "9cb71d9e80eca92afd81c14f1796bc6da0eeef99f35e30b7a79f37c90d280a02",
+    "evaluation": "5b4df58ad35bcfbb8a8ef1640810f118594f349dd04a4d79d0cb5da8a79122da"
+  },
+  "environment": {
+    "codex_cli": {
+      "status": "available",
+      "version": "codex-cli 0.145.0"
+    },
+    "authentication": {
+      "status": "available",
+      "mode": "chatgpt"
+    },
+    "runner": {
+      "path": "/home/renanfranca/.codex/skills/develop-skill-with-evals/scripts/run_skill_evals.py",
+      "sha256": "6921d66d2f20946abcc1666b81a1ad879238aefec46fbe20efccc54377bb3c9e"
+    }
+  },
+  "billing": {
+    "mode": "chatgpt-plan",
+    "actual_charge_observed": false
+  },
+  "runtime": {
+    "required": true,
+    "complete": true,
+    "audit_quality": "promotion",
+    "executor": {
+      "required": true,
+      "model": "gpt-5.6-sol",
+      "model_source": "cli",
+      "reasoning_effort": "medium",
+      "reasoning_effort_source": "cli"
+    },
+    "judge": {
+      "required": true,
+      "model": "gpt-5.6-sol",
+      "model_source": "cli",
+      "reasoning_effort": "medium",
+      "reasoning_effort_source": "cli"
+    }
+  },
+  "sessions": {
+    "planned": {
+      "executor": 1,
+      "judge": 1,
+      "total": 2
+    },
+    "executed": {
+      "executor": 1,
+      "judge": 1,
+      "total": 2
+    },
+    "provenance": "executed"
+  },
+  "usage": {
+    "input_tokens": 76591,
+    "cached_input_tokens": 35328,
+    "output_tokens": 1473,
+    "reasoning_output_tokens": 584,
+    "total_tokens": 78064,
+    "complete": true,
+    "reasoning_output_tokens_complete": true,
+    "events": [
+      {
+        "input_tokens": 58497,
+        "cached_input_tokens": 35328,
+        "output_tokens": 1217,
+        "sequence": 1,
+        "source_event_type": "turn.completed",
+        "scope": "turn",
+        "reasoning_output_tokens": 518,
+        "total_tokens": 59714,
+        "complete": true,
+        "reasoning_output_tokens_complete": true
+      },
+      {
+        "input_tokens": 18094,
+        "cached_input_tokens": 0,
+        "output_tokens": 256,
+        "sequence": 2,
+        "source_event_type": "turn.completed",
+        "scope": "turn",
+        "reasoning_output_tokens": 66,
+        "total_tokens": 18350,
+        "complete": true,
+        "reasoning_output_tokens_complete": true
+      }
+    ],
+    "event_count": 2,
+    "events_complete": true
+  },
+  "pricing": {
+    "applied": true,
+    "snapshot": {
+      "version": 1,
+      "effective_date": "2026-07-26",
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol; https://developers.openai.com/api/docs/models/gpt-5.6-terra; https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+      "currency": "USD",
+      "unit": "per_million_tokens",
+      "models": {
+        "gpt-5.6-sol": {
+          "input": 5.0,
+          "cached_input": 0.5,
+          "output": 30.0,
+          "long_context": {
+            "input_token_threshold": 272000,
+            "input_multiplier": 2.0,
+            "output_multiplier": 1.5,
+            "applies_per": "request"
+          }
+        },
+        "gpt-5.6-terra": {
+          "input": 2.5,
+          "cached_input": 0.25,
+          "output": 15.0,
+          "long_context": {
+            "input_token_threshold": 272000,
+            "input_multiplier": 2.0,
+            "output_multiplier": 1.5,
+            "applies_per": "request"
+          }
+        },
+        "gpt-5.6-luna": {
+          "input": 1.0,
+          "cached_input": 0.1,
+          "output": 6.0,
+          "long_context": {
+            "input_token_threshold": 272000,
+            "input_multiplier": 2.0,
+            "output_multiplier": 1.5,
+            "applies_per": "request"
+          }
+        }
+      },
+      "limitations": [
+        "This dated table is an API reference and is not an observed ChatGPT charge.",
+        "Prompts above 272,000 input tokens use the documented higher rates; an exact estimate is unavailable when normalized telemetry does not expose request scoped input.",
+        "Cache write charges are not estimated because Codex JSONL usage does not identify cache writes.",
+        "Reasoning output tokens are reported separately but are already included in output tokens."
+      ]
+    },
+    "limitations": [
+      "This dated table is an API reference and is not an observed ChatGPT charge.",
+      "Prompts above 272,000 input tokens use the documented higher rates; an exact estimate is unavailable when normalized telemetry does not expose request scoped input.",
+      "Cache write charges are not estimated because Codex JSONL usage does not identify cache writes.",
+      "Reasoning output tokens are reported separately but are already included in output tokens."
+    ]
+  },
+  "api_reference_estimate": {
+    "available": true,
+    "status": "complete",
+    "currency": "USD",
+    "amount": 0.268169,
+    "base_rate_amount": 0.268169,
+    "actual_charge": false,
+    "billing_mode": "chatgpt-plan",
+    "calculation": {
+      "model": "gpt-5.6-sol",
+      "unit": "per_million_tokens",
+      "tokens": {
+        "uncached_input": 41263,
+        "cached_input": 35328,
+        "output": 1473,
+        "reasoning_output": 584
+      },
+      "rates": {
+        "input": 5.0,
+        "cached_input": 0.5,
+        "output": 30.0,
+        "long_context": {
+          "input_token_threshold": 272000,
+          "input_multiplier": 2.0,
+          "output_multiplier": 1.5,
+          "applies_per": "request"
+        }
+      },
+      "components": {
+        "input": 0.206315,
+        "cached_input": 0.017664,
+        "output": 0.04419
+      },
+      "reasoning_note": "Reasoning output tokens are reported separately and are not added again because they are a subset of output tokens."
+    },
+    "long_context_assessment": {
+      "input_token_threshold": 272000,
+      "applies_per": "request",
+      "triggering_event_sequences": [],
+      "observed_event_scopes": []
+    },
+    "limitations": [
+      "This is an API reference estimate, not an observed charge.",
+      "This dated table is an API reference and is not an observed ChatGPT charge.",
+      "Prompts above 272,000 input tokens use the documented higher rates; an exact estimate is unavailable when normalized telemetry does not expose request scoped input.",
+      "Cache write charges are not estimated because Codex JSONL usage does not identify cache writes.",
+      "Reasoning output tokens are reported separately but are already included in output tokens."
+    ]
+  },
+  "observations": [
+    {
+      "case_id": "exception-gates",
+      "status": "PASS",
+      "kind": "behavioral",
+      "role": "observation",
+      "repetition": 1,
+      "provenance": "executed",
+      "started_at": "2026-07-28T14:01:58.062284Z",
+      "finished_at": "2026-07-28T14:02:57.067324Z",
+      "duration_ms": 59008,
+      "prompt": "The implementation was presented for post-green design review. For each independent situation below, state whether the review may continue or must pause, explain the applicable gate, and say whether user direction is required. Do not edit files. A recommendation to use another workflow is optional.\n\n1. A newly requested export mode has not been implemented.\n2. The unit suite is green, but the public CLI checkpoint fails.\n3. Removing the risk requires renaming a public API consumed outside this repository.\n4. Two valid ownership boundaries would lead to materially different architectures, and neither was authorized.\n5. The only tests assert collaborator calls and cannot prove the public behavior being refactored.\n6. The candidate cleanup requires changes across unrelated packages.\n7. The same behavior-preserving extraction has failed validation twice in succession.\n8. A small private helper has a clearer name available, tests protect its public behavior, and the rename stays inside the changed scope.\n",
+      "executor": {
+        "enabled": true,
+        "executed": true,
+        "exit_code": 0,
+        "duration_ms": 45738,
+        "response": {
+          "summary": "Seven situations must pause; only the private, behavior-protected rename may continue.",
+          "classification": "Post-green refactor-design gate review",
+          "evidence": [
+            "1. Pause: requested behavior is incomplete, so the entry gate fails. No direction is needed to pause; user authorization is required before switching to an implementation or TDD workflow.",
+            "2. Pause: the public-path checkpoint must be green even when unit tests pass. No direction is needed to pause; authorization is required before undertaking corrective behavior work.",
+            "3. Pause: the refactor would change a public API or contract. User direction is required because the contract and authority must be decided explicitly.",
+            "4. Pause: this requires a material, unplanned architecture decision. User direction is required to select and authorize an ownership boundary.",
+            "5. Pause: existing tests cannot protect the observable behavior. No direction is needed to pause; authorization is required before adding suitable behavior tests through a TDD workflow.",
+            "6. Pause: changes across unrelated packages materially expand the authorized scope. User direction is required to broaden that scope.",
+            "7. Pause: the same refactoring attempt failed validation twice consecutively. Report the repeated-failure gate; user direction is not inherently required unless the next approach needs new scope or authority.",
+            "8. Continue: this is a scoped, private, behavior-preserving rename protected by public behavior tests. No user direction is required."
+          ],
+          "files_changed": [],
+          "diagnosis": "The entry gate blocks incomplete behavior and failed public checkpoints. Exception gates block public contract changes, unauthorized architecture decisions, inadequate behavioral protection, scope expansion, and twice-failed refactors.",
+          "approach": [
+            "Applied the repository-scoped refactor-design entry and exception gates independently to each situation."
+          ],
+          "decisions": [
+            "1 pause",
+            "2 pause",
+            "3 pause and request direction",
+            "4 pause and request direction",
+            "5 pause",
+            "6 pause and request direction",
+            "7 pause",
+            "8 continue"
+          ],
+          "rejected_alternatives": [],
+          "key_changes": [],
+          "validation": [
+            "Read the complete repository-scoped skill and required design review rubric.",
+            "No files were edited."
+          ]
+        },
+        "usage": {
+          "input_tokens": 58497,
+          "cached_input_tokens": 35328,
+          "output_tokens": 1217,
+          "reasoning_output_tokens": 518,
+          "total_tokens": 59714,
+          "complete": true,
+          "reasoning_output_tokens_complete": true,
+          "events": [
+            {
+              "input_tokens": 58497,
+              "cached_input_tokens": 35328,
+              "output_tokens": 1217,
+              "sequence": 1,
+              "source_event_type": "turn.completed",
+              "scope": "turn",
+              "reasoning_output_tokens": 518,
+              "total_tokens": 59714,
+              "complete": true,
+              "reasoning_output_tokens_complete": true
+            }
+          ],
+          "event_count": 1,
+          "events_complete": true
+        }
+      },
+      "mechanical": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "executor exit code",
+            "passed": true,
+            "detail": "expected 0, got 0"
+          },
+          {
+            "name": "executor response schema",
+            "passed": true,
+            "detail": "structured response present and valid"
+          },
+          {
+            "name": "forbidden changed path: .agents/skills/**",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "evaluated skill remained unchanged",
+            "passed": true,
+            "detail": "repository-scoped skill hash comparison"
+          }
+        ],
+        "commands": []
+      },
+      "oracle": {
+        "enabled": false,
+        "passed": true,
+        "commands": []
+      },
+      "judge": {
+        "enabled": true,
+        "executed": true,
+        "verdict": "PASS",
+        "rationale": "The executor correctly applies every required pause gate, requests direction where authority or a material decision is needed, and identifies the one ordinary maintainability change that may proceed. The response is compact, accurate, and makes no unauthorized changes.",
+        "evidence": [
+          "Situations 1 and 2 pause for incomplete behavior and a failed public checkpoint, with accurate gate explanations.",
+          "Situations 3 and 4 pause and request user direction for a public API change and a material architecture decision.",
+          "Situations 5 and 6 pause for inadequate behavioral test protection and material scope expansion.",
+          "Situation 7 stops after two consecutive validation failures and does not propose a third attempt.",
+          "Situation 8 is correctly distinguished as a scoped, private, behavior-preserving rename protected by public behavior tests.",
+          "Mechanical evidence confirms a valid response, no changed files, and an unchanged evaluated skill."
+        ],
+        "duration_ms": 13262,
+        "usage": {
+          "input_tokens": 18094,
+          "cached_input_tokens": 0,
+          "output_tokens": 256,
+          "reasoning_output_tokens": 66,
+          "total_tokens": 18350,
+          "complete": true,
+          "reasoning_output_tokens_complete": true,
+          "events": [
+            {
+              "input_tokens": 18094,
+              "cached_input_tokens": 0,
+              "output_tokens": 256,
+              "sequence": 1,
+              "source_event_type": "turn.completed",
+              "scope": "turn",
+              "reasoning_output_tokens": 66,
+              "total_tokens": 18350,
+              "complete": true,
+              "reasoning_output_tokens_complete": true
+            }
+          ],
+          "event_count": 1,
+          "events_complete": true
+        },
+        "failure_category": null
+      },
+      "sessions": {
+        "executor": 1,
+        "judge": 1,
+        "total": 2
+      },
+      "usage": {
+        "input_tokens": 76591,
+        "cached_input_tokens": 35328,
+        "output_tokens": 1473,
+        "reasoning_output_tokens": 584,
+        "total_tokens": 78064,
+        "complete": true,
+        "reasoning_output_tokens_complete": true,
+        "events": [
+          {
+            "input_tokens": 58497,
+            "cached_input_tokens": 35328,
+            "output_tokens": 1217,
+            "sequence": 1,
+            "source_event_type": "turn.completed",
+            "scope": "turn",
+            "reasoning_output_tokens": 518,
+            "total_tokens": 59714,
+            "complete": true,
+            "reasoning_output_tokens_complete": true
+          },
+          {
+            "input_tokens": 18094,
+            "cached_input_tokens": 0,
+            "output_tokens": 256,
+            "sequence": 2,
+            "source_event_type": "turn.completed",
+            "scope": "turn",
+            "reasoning_output_tokens": 66,
+            "total_tokens": 18350,
+            "complete": true,
+            "reasoning_output_tokens_complete": true
+          }
+        ],
+        "event_count": 2,
+        "events_complete": true
+      },
+      "evidence": {
+        "changed_files": [],
+        "diff": "",
+        "fragments": [],
+        "truncated": false,
+        "truncations": [],
+        "limits": {
+          "capture_bytes_per_file": 32768,
+          "diff_bytes_per_file": 12000,
+          "diff_bytes_per_report": 64000,
+          "fragment_bytes": 2000
+        }
+      },
+      "workspace": {
+        "original_path": "/tmp/skill-eval-artifacts/run-dza06dgo/exception-gates-v25shv20",
+        "retention": "removed"
+      }
+    }
+  ],
+  "limitations": [
+    "No raw Codex JSONL or complete transcript is persisted.",
+    "Structured executor fields record concise declared decisions, not private reasoning.",
+    "Diffs and text fragments are sanitized and bounded."
+  ],
+  "report_digest": {
+    "algorithm": "sha256",
+    "value": "bbcb89db3124f1b744f38d6a9b43f25d260f8ae8e4e344aa747ade2cf5211175"
+  }
+}

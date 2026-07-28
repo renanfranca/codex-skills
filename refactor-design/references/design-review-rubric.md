@@ -1,6 +1,6 @@
 # Design Review Rubric
 
-This rubric is investigative, not a mechanical checklist. Apply a refactoring only when the finding has concrete evidence, removes a meaningful risk, and stays within the task scope.
+This rubric is investigative, not a mechanical or exhaustive checklist. Apply a refactoring only when the finding has concrete evidence, removes a meaningful risk, and stays within the task scope.
 
 ## Contents
 
@@ -25,7 +25,7 @@ This rubric is investigative, not a mechanical checklist. Apply a refactoring on
 
 Start from changed behavior and its data flow. For a suspected issue, record the signal, the concrete failure or maintenance risk, and the invariant that a refactor would make explicit. Consider the false positives before classifying it. Prefer `No action` when evidence is weak, the current representation is already local and clear, or the refactor would exceed scope.
 
-Inventory every rubric dimension explicitly requested for the review and classify all of them before editing. Finding one justified refactor does not complete a multidimensional review. Preserve supported findings in the final result when they are blocked by a public contract or authorization gate.
+Select a coherent subset of improvements supported by the changed behavior and data flow. Classify and justify every finding that you change or materially report, but do not treat omissions in untouched code as review failures or manufacture a complete opportunity inventory. When the user explicitly requests an exhaustive review, inspect and classify every requested dimension. Preserve any reported finding in the final result when a public contract or authorization gate blocks it.
 
 Separate observable contract from implementation representation. Preserve public behavior, types, errors, identity, ordering, and documented lifecycle. Do not preserve transport syntax, framework objects, internal storage, or helper topology merely because the current implementation exposes them internally. Likewise, do not route an independent operation through a new helper solely for reuse; require concrete risk in that operation and verify its complete semantics first.
 

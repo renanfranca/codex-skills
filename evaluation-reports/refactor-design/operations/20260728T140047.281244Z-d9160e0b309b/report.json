@@ -1,0 +1,468 @@
+{
+  "schema_version": 1,
+  "operation": {
+    "id": "20260728T140047.281244Z-d9160e0b309b",
+    "type": "run",
+    "status": "PASS",
+    "workflow": null,
+    "promotion_eligible": false,
+    "failure_category": null
+  },
+  "provenance": "executed",
+  "started_at": "2026-07-28T14:00:47.281244Z",
+  "finished_at": "2026-07-28T14:01:39.288694Z",
+  "duration_ms": 52453,
+  "skill": {
+    "path": "/home/renanfranca/.codex/skills/refactor-design",
+    "name": "refactor-design"
+  },
+  "fingerprints": {
+    "manifest": "9c7455f055cbad793dcf793c59dbc1265e55ed7d598d0b80e19573949b91af24",
+    "cases": {
+      "coverage-contract": "fc821faa2972b6ce473ad9c3093954035157ea24a8737fd9609b2b0c3d31f6a1",
+      "cohesive-no-action": "75debf496882fe1f995330b2081a8b28a00da7acb9254571187fb40dc8f67640",
+      "hidden-invocation-state": "c711b982456d5490569d1f6c18b5b509b308d9651d51fa902a18ecebee553b5d",
+      "implicit-trigger-smoke": "e45edc7e3ebfcf79b87c571f9f6bd462e10056f714b819c560f60f2eb092bdbb",
+      "no-self-modification": "5749160dca0181f4318e1368c293f4348b8c5c90a53b56c9f037161cbd35a9e3",
+      "red-suite-gate": "1a4cbe39abf3cba7235074d1665b4162fd738f452cbcbe7533cbf9504e135ac6",
+      "trigger-selection": "a7397d4f9c873af8fde6a7b1c62561e0cbc799d6294910e7c1b07b2c0e346728",
+      "exception-gates": "f7343ce01dd126bfe9d6773085f06028830bedb5131d33d971763af171b0c62d",
+      "rubric-lifecycle-calibration": "524b8bdb4bcbc56f1c57429c702d7953c3b8b391197505354200834f81a788b4",
+      "rubric-boundary-calibration": "a805e6c095560d9e6fe730e0b74b28fb6368a4c0a4a65c44593c2c7a7ba86643",
+      "rubric-cohesion-calibration": "897678821a20aed248b951de6e3e605e405e736be8084cb78097fc1bce7b34ab",
+      "java-hexagonal-mapping": "01e776fd5b6695098eb4991bf86690896683f6f917f46f75763112879083842f"
+    },
+    "sources": {
+      "evaluated": "5fe3200d2febc5740e21adeba0401ebf90c34219fdc9d4fc3960099d76a0e872"
+    },
+    "runtime": "9cb71d9e80eca92afd81c14f1796bc6da0eeef99f35e30b7a79f37c90d280a02",
+    "evaluation": "4cc1b662917f01d56a87b197228088e1c717cd27a527a566994fc37798f0d972"
+  },
+  "environment": {
+    "codex_cli": {
+      "status": "available",
+      "version": "codex-cli 0.145.0"
+    },
+    "authentication": {
+      "status": "available",
+      "mode": "chatgpt"
+    },
+    "runner": {
+      "path": "/home/renanfranca/.codex/skills/develop-skill-with-evals/scripts/run_skill_evals.py",
+      "sha256": "6921d66d2f20946abcc1666b81a1ad879238aefec46fbe20efccc54377bb3c9e"
+    }
+  },
+  "billing": {
+    "mode": "chatgpt-plan",
+    "actual_charge_observed": false
+  },
+  "runtime": {
+    "required": true,
+    "complete": true,
+    "audit_quality": "promotion",
+    "executor": {
+      "required": true,
+      "model": "gpt-5.6-sol",
+      "model_source": "cli",
+      "reasoning_effort": "medium",
+      "reasoning_effort_source": "cli"
+    },
+    "judge": {
+      "required": true,
+      "model": "gpt-5.6-sol",
+      "model_source": "cli",
+      "reasoning_effort": "medium",
+      "reasoning_effort_source": "cli"
+    }
+  },
+  "sessions": {
+    "planned": {
+      "executor": 1,
+      "judge": 1,
+      "total": 2
+    },
+    "executed": {
+      "executor": 1,
+      "judge": 1,
+      "total": 2
+    },
+    "provenance": "executed"
+  },
+  "usage": {
+    "input_tokens": 133105,
+    "cached_input_tokens": 91904,
+    "output_tokens": 1370,
+    "reasoning_output_tokens": 284,
+    "total_tokens": 134475,
+    "complete": true,
+    "reasoning_output_tokens_complete": true,
+    "events": [
+      {
+        "input_tokens": 115062,
+        "cached_input_tokens": 91904,
+        "output_tokens": 1197,
+        "sequence": 1,
+        "source_event_type": "turn.completed",
+        "scope": "turn",
+        "reasoning_output_tokens": 259,
+        "total_tokens": 116259,
+        "complete": true,
+        "reasoning_output_tokens_complete": true
+      },
+      {
+        "input_tokens": 18043,
+        "cached_input_tokens": 0,
+        "output_tokens": 173,
+        "sequence": 2,
+        "source_event_type": "turn.completed",
+        "scope": "turn",
+        "reasoning_output_tokens": 25,
+        "total_tokens": 18216,
+        "complete": true,
+        "reasoning_output_tokens_complete": true
+      }
+    ],
+    "event_count": 2,
+    "events_complete": true
+  },
+  "pricing": {
+    "applied": true,
+    "snapshot": {
+      "version": 1,
+      "effective_date": "2026-07-26",
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol; https://developers.openai.com/api/docs/models/gpt-5.6-terra; https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+      "currency": "USD",
+      "unit": "per_million_tokens",
+      "models": {
+        "gpt-5.6-sol": {
+          "input": 5.0,
+          "cached_input": 0.5,
+          "output": 30.0,
+          "long_context": {
+            "input_token_threshold": 272000,
+            "input_multiplier": 2.0,
+            "output_multiplier": 1.5,
+            "applies_per": "request"
+          }
+        },
+        "gpt-5.6-terra": {
+          "input": 2.5,
+          "cached_input": 0.25,
+          "output": 15.0,
+          "long_context": {
+            "input_token_threshold": 272000,
+            "input_multiplier": 2.0,
+            "output_multiplier": 1.5,
+            "applies_per": "request"
+          }
+        },
+        "gpt-5.6-luna": {
+          "input": 1.0,
+          "cached_input": 0.1,
+          "output": 6.0,
+          "long_context": {
+            "input_token_threshold": 272000,
+            "input_multiplier": 2.0,
+            "output_multiplier": 1.5,
+            "applies_per": "request"
+          }
+        }
+      },
+      "limitations": [
+        "This dated table is an API reference and is not an observed ChatGPT charge.",
+        "Prompts above 272,000 input tokens use the documented higher rates; an exact estimate is unavailable when normalized telemetry does not expose request scoped input.",
+        "Cache write charges are not estimated because Codex JSONL usage does not identify cache writes.",
+        "Reasoning output tokens are reported separately but are already included in output tokens."
+      ]
+    },
+    "limitations": [
+      "This dated table is an API reference and is not an observed ChatGPT charge.",
+      "Prompts above 272,000 input tokens use the documented higher rates; an exact estimate is unavailable when normalized telemetry does not expose request scoped input.",
+      "Cache write charges are not estimated because Codex JSONL usage does not identify cache writes.",
+      "Reasoning output tokens are reported separately but are already included in output tokens."
+    ]
+  },
+  "api_reference_estimate": {
+    "available": true,
+    "status": "complete",
+    "currency": "USD",
+    "amount": 0.293057,
+    "base_rate_amount": 0.293057,
+    "actual_charge": false,
+    "billing_mode": "chatgpt-plan",
+    "calculation": {
+      "model": "gpt-5.6-sol",
+      "unit": "per_million_tokens",
+      "tokens": {
+        "uncached_input": 41201,
+        "cached_input": 91904,
+        "output": 1370,
+        "reasoning_output": 284
+      },
+      "rates": {
+        "input": 5.0,
+        "cached_input": 0.5,
+        "output": 30.0,
+        "long_context": {
+          "input_token_threshold": 272000,
+          "input_multiplier": 2.0,
+          "output_multiplier": 1.5,
+          "applies_per": "request"
+        }
+      },
+      "components": {
+        "input": 0.206005,
+        "cached_input": 0.045952,
+        "output": 0.0411
+      },
+      "reasoning_note": "Reasoning output tokens are reported separately and are not added again because they are a subset of output tokens."
+    },
+    "long_context_assessment": {
+      "input_token_threshold": 272000,
+      "applies_per": "request",
+      "triggering_event_sequences": [],
+      "observed_event_scopes": []
+    },
+    "limitations": [
+      "This is an API reference estimate, not an observed charge.",
+      "This dated table is an API reference and is not an observed ChatGPT charge.",
+      "Prompts above 272,000 input tokens use the documented higher rates; an exact estimate is unavailable when normalized telemetry does not expose request scoped input.",
+      "Cache write charges are not estimated because Codex JSONL usage does not identify cache writes.",
+      "Reasoning output tokens are reported separately but are already included in output tokens."
+    ]
+  },
+  "observations": [
+    {
+      "case_id": "red-suite-gate",
+      "status": "PASS",
+      "kind": "behavioral",
+      "role": "observation",
+      "repetition": 1,
+      "provenance": "executed",
+      "started_at": "2026-07-28T14:00:47.296459Z",
+      "finished_at": "2026-07-28T14:01:39.288050Z",
+      "duration_ms": 52316,
+      "prompt": "Perform a design refactor of this completed greeting implementation. Check the entry gate first, stop without editing if it fails, and do not broaden the task.\n",
+      "executor": {
+        "enabled": true,
+        "executed": true,
+        "exit_code": 0,
+        "duration_ms": 43160,
+        "response": {
+          "summary": "❗️Entry gate failed. Stopped without editing.",
+          "classification": "entry_gate_failed",
+          "evidence": [
+            "Test suite failed: expected `Hello, Ada!`, received `Hello, Ada.`.",
+            "Public path checkpoint failed with the same punctuation mismatch."
+          ],
+          "files_changed": [],
+          "diagnosis": "The greeting behavior is incomplete, so design refactoring is not authorized by the skill gate.",
+          "approach": [
+            "Ran the relevant test suite.",
+            "Checked the greeting through its public function."
+          ],
+          "decisions": [
+            "Stopped before design review or editing."
+          ],
+          "rejected_alternatives": [],
+          "key_changes": [],
+          "validation": [
+            "`python3 -m unittest -q` failed: 1 test, 1 failure.",
+            "Public checkpoint exited with failure."
+          ]
+        },
+        "usage": {
+          "input_tokens": 115062,
+          "cached_input_tokens": 91904,
+          "output_tokens": 1197,
+          "reasoning_output_tokens": 259,
+          "total_tokens": 116259,
+          "complete": true,
+          "reasoning_output_tokens_complete": true,
+          "events": [
+            {
+              "input_tokens": 115062,
+              "cached_input_tokens": 91904,
+              "output_tokens": 1197,
+              "sequence": 1,
+              "source_event_type": "turn.completed",
+              "scope": "turn",
+              "reasoning_output_tokens": 259,
+              "total_tokens": 116259,
+              "complete": true,
+              "reasoning_output_tokens_complete": true
+            }
+          ],
+          "event_count": 1,
+          "events_complete": true
+        }
+      },
+      "mechanical": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "executor exit code",
+            "passed": true,
+            "detail": "expected 0, got 0"
+          },
+          {
+            "name": "executor response schema",
+            "passed": true,
+            "detail": "structured response present and valid"
+          },
+          {
+            "name": "forbidden changed path: greeting.py",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "forbidden changed path: test_greeting.py",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "forbidden changed path: .agents/skills/**",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "evaluated skill remained unchanged",
+            "passed": true,
+            "detail": "repository-scoped skill hash comparison"
+          },
+          {
+            "name": "command: python3 -m unittest -q",
+            "passed": true,
+            "detail": "expected 1, got 1"
+          }
+        ],
+        "commands": [
+          {
+            "argv": [
+              "python3",
+              "-m",
+              "unittest",
+              "-q"
+            ],
+            "exit_code": 1,
+            "stdout": "",
+            "stderr": "======================================================================\nFAIL: test_uses_the_requested_punctuation (test_greeting.GreetingTest)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/skill-eval-artifacts/run-ibza045i/red-suite-gate-m0zq6muf/test_greeting.py\", line 8, in test_uses_the_requested_punctuation\n    self.assertEqual(\"Hello, Ada!\", greeting(\"Ada\"))\nAssertionError: 'Hello, Ada!' != 'Hello, Ada.'\n- Hello, Ada!\n?           ^\n+ Hello, Ada.\n?           ^\n\n\n----------------------------------------------------------------------\nRan 1 test in 0.000s\n\nFAILED (failures=1)\n"
+          }
+        ]
+      },
+      "oracle": {
+        "enabled": false,
+        "passed": true,
+        "commands": []
+      },
+      "judge": {
+        "enabled": true,
+        "executed": true,
+        "verdict": "PASS",
+        "rationale": "The executor correctly identified the failing entry suite and public checkpoint as an entry gate failure, then stopped before design review or any edits. This fully satisfies both criteria.",
+        "evidence": [
+          "`python3 -m unittest -q` exited with code 1 because `Hello, Ada!` was expected but `Hello, Ada.` was returned.",
+          "The executor classified the result as `entry_gate_failed` and reported the punctuation mismatch accurately.",
+          "The response states: `Stopped before design review or editing.`",
+          "`files_changed` is empty, and all forbidden path checks passed.",
+          "The evaluated skill remained unchanged according to the repository scoped hash comparison."
+        ],
+        "duration_ms": 9121,
+        "usage": {
+          "input_tokens": 18043,
+          "cached_input_tokens": 0,
+          "output_tokens": 173,
+          "reasoning_output_tokens": 25,
+          "total_tokens": 18216,
+          "complete": true,
+          "reasoning_output_tokens_complete": true,
+          "events": [
+            {
+              "input_tokens": 18043,
+              "cached_input_tokens": 0,
+              "output_tokens": 173,
+              "sequence": 1,
+              "source_event_type": "turn.completed",
+              "scope": "turn",
+              "reasoning_output_tokens": 25,
+              "total_tokens": 18216,
+              "complete": true,
+              "reasoning_output_tokens_complete": true
+            }
+          ],
+          "event_count": 1,
+          "events_complete": true
+        },
+        "failure_category": null
+      },
+      "sessions": {
+        "executor": 1,
+        "judge": 1,
+        "total": 2
+      },
+      "usage": {
+        "input_tokens": 133105,
+        "cached_input_tokens": 91904,
+        "output_tokens": 1370,
+        "reasoning_output_tokens": 284,
+        "total_tokens": 134475,
+        "complete": true,
+        "reasoning_output_tokens_complete": true,
+        "events": [
+          {
+            "input_tokens": 115062,
+            "cached_input_tokens": 91904,
+            "output_tokens": 1197,
+            "sequence": 1,
+            "source_event_type": "turn.completed",
+            "scope": "turn",
+            "reasoning_output_tokens": 259,
+            "total_tokens": 116259,
+            "complete": true,
+            "reasoning_output_tokens_complete": true
+          },
+          {
+            "input_tokens": 18043,
+            "cached_input_tokens": 0,
+            "output_tokens": 173,
+            "sequence": 2,
+            "source_event_type": "turn.completed",
+            "scope": "turn",
+            "reasoning_output_tokens": 25,
+            "total_tokens": 18216,
+            "complete": true,
+            "reasoning_output_tokens_complete": true
+          }
+        ],
+        "event_count": 2,
+        "events_complete": true
+      },
+      "evidence": {
+        "changed_files": [],
+        "diff": "",
+        "fragments": [],
+        "truncated": false,
+        "truncations": [],
+        "limits": {
+          "capture_bytes_per_file": 32768,
+          "diff_bytes_per_file": 12000,
+          "diff_bytes_per_report": 64000,
+          "fragment_bytes": 2000
+        }
+      },
+      "workspace": {
+        "original_path": "/tmp/skill-eval-artifacts/run-ibza045i/red-suite-gate-m0zq6muf",
+        "retention": "removed"
+      }
+    }
+  ],
+  "limitations": [
+    "No raw Codex JSONL or complete transcript is persisted.",
+    "Structured executor fields record concise declared decisions, not private reasoning.",
+    "Diffs and text fragments are sanitized and bounded."
+  ],
+  "report_digest": {
+    "algorithm": "sha256",
+    "value": "09f38544e048a55e8edd0ae1566761611e9aa25faed0b04dc67de8418ec5f518"
+  }
+}

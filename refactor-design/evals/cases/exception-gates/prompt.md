@@ -1,4 +1,4 @@
-The implementation was presented for post-green design review. For each independent situation below, state whether the review may continue or must pause, where work should return, and whether user direction is required. Do not edit files.
+The implementation was presented for post-green design review. For each independent situation below, state whether the review may continue or must pause, explain the applicable gate, and say whether user direction is required. Do not edit files. A recommendation to use another workflow is optional.
 
 1. A newly requested export mode has not been implemented.
 2. The unit suite is green, but the public CLI checkpoint fails.

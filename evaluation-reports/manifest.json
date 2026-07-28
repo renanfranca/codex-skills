@@ -1,7 +1,7 @@
 {
   "version": 1,
   "canonical_format": "report.json",
-  "report_count": 41,
+  "report_count": 44,
   "reports": [
     {
       "skill": "develop-skill-with-evals",
@@ -629,6 +629,63 @@
       "duration_ms": 876033,
       "digest": "d238d178570c3e50059b7f7b0f4ca0b1e74d800461aa25b05ddd050094db6f1e",
       "path": "refactor-design/operations/20260728T130719.976097Z-a86fbb5eb809/report.json"
+    },
+    {
+      "skill": "refactor-design",
+      "operation_id": "20260728T140047.281244Z-d9160e0b309b",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 2,
+      "tokens": {
+        "input": 133105,
+        "cached_input": 91904,
+        "output": 1370,
+        "reasoning_output": 284,
+        "total": 134475
+      },
+      "duration_ms": 52453,
+      "digest": "09f38544e048a55e8edd0ae1566761611e9aa25faed0b04dc67de8418ec5f518",
+      "path": "refactor-design/operations/20260728T140047.281244Z-d9160e0b309b/report.json"
+    },
+    {
+      "skill": "refactor-design",
+      "operation_id": "20260728T140158.048385Z-f96323f0d4f2",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 2,
+      "tokens": {
+        "input": 76591,
+        "cached_input": 35328,
+        "output": 1473,
+        "reasoning_output": 584,
+        "total": 78064
+      },
+      "duration_ms": 59157,
+      "digest": "bbcb89db3124f1b744f38d6a9b43f25d260f8ae8e4e344aa747ade2cf5211175",
+      "path": "refactor-design/operations/20260728T140158.048385Z-f96323f0d4f2/report.json"
+    },
+    {
+      "skill": "refactor-design",
+      "operation_id": "20260728T140303.778035Z-7d3e9509294f",
+      "operation": "run",
+      "status": "PASS",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 2,
+      "tokens": {
+        "input": 251229,
+        "cached_input": 199424,
+        "output": 4261,
+        "reasoning_output": 1849,
+        "total": 255490
+      },
+      "duration_ms": 160447,
+      "digest": "563094f2b14dca86fbaf5ca9c78d58a76006c19ff4d7ef1229be842b43e1495d",
+      "path": "refactor-design/operations/20260728T140303.778035Z-7d3e9509294f/report.json"
     },
     {
       "skill": "restructure-documentation",

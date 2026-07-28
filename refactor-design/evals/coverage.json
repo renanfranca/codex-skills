@@ -1,14 +1,14 @@
 {
   "version": 1,
   "source_fingerprints": {
-    "SKILL.md": "1aab4946b7c960da08471df945b69e1faccb1e2963c59b0e0b2bf06a48087c03",
-    "references/design-review-rubric.md": "a77f438116bc7afd3153763149d9721202987875f0ecec8778572c32f24a2241",
+    "SKILL.md": "b8179364b67c4664e4751b7ecb047d68dcddf5fac3944cdc2fd0c670e39d5f49",
+    "references/design-review-rubric.md": "ebb95931a70c372555149cd4ae2996cef03c2daf049877ca78c53597704bd641",
     "references/java-spring-hexagonal.md": "c5eca8974c7ce30f2735fad108f2bffdf0c32ba3e436eb3710f09d78996eb293"
   },
   "contracts": [
     {
       "id": "entry-gate",
-      "statement": "Start design review only after requested behavior, the relevant suite, the public checkpoint, and the current milestone are complete and green.",
+      "statement": "Start design review only after requested behavior, the relevant suite, the public checkpoint, and the current milestone are complete and green; otherwise stop without editing.",
       "guarantee": "complete",
       "mappings": [
         {
@@ -60,7 +60,7 @@
     },
     {
       "id": "finding-classification",
-      "statement": "Classify candidates as defect, design risk, maintainability opportunity, or no action before editing.",
+      "statement": "Classify as defect, design risk, maintainability opportunity, or no action every finding that is changed or materially reported; require a complete inventory only when the user explicitly requests an exhaustive review.",
       "guarantee": "complete",
       "mappings": [
         {
@@ -77,7 +77,7 @@
     },
     {
       "id": "evidence-before-patterns",
-      "statement": "Require a concrete risk, consider false positives and cost, and avoid checklist driven abstractions.",
+      "statement": "Require concrete evidence, consider false positives and cost, and allow a coherent subset of improvements without checklist driven abstractions.",
       "guarantee": "complete",
       "mappings": [
         {
@@ -94,7 +94,7 @@
     },
     {
       "id": "smallest-behavior-preserving-refactor",
-      "statement": "Apply one smallest coherent structural change at a time while preserving observable behavior.",
+      "statement": "Apply one smallest coherent structural change at a time while preserving observable behavior, and allow the review to conclude after a safe useful improvement unless exhaustive coverage was requested.",
       "guarantee": "complete",
       "mappings": [
         {
@@ -133,7 +133,7 @@
     },
     {
       "id": "exception-gates",
-      "statement": "Pause for incomplete behavior, public contract changes, material architecture decisions, insufficient protection, scope expansion, or two consecutive failed attempts.",
+      "statement": "Pause and explain incomplete behavior, public contract changes, material architecture decisions, insufficient protection, scope expansion, or two consecutive failed attempts; recommending TDD is optional unless requested.",
       "guarantee": "complete",
       "mappings": [
         {
@@ -248,7 +248,7 @@
       "id": "cohesion-and-testability",
       "source": "references/design-review-rubric.md",
       "guarantee": "partial",
-      "limitation": "The case distinguishes selected cohesive and independent policies, but no fixture can exhaust all valid abstractions or performance tradeoffs.",
+      "limitation": "The case accepts coherent subsets of supported improvements and protects any touched public contracts, but no fixture can exhaust all valid abstractions or performance tradeoffs in untouched code.",
       "sections": [
         "Duplicated transformations",
         "Classes accumulating independent policies",

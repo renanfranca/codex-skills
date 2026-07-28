@@ -16,9 +16,9 @@
   "judge": {
     "enabled": true,
     "criteria": [
-      "Before editing, the executor explicitly classifies duplicated customer-key normalization, independently varying discount and fraud policies, repeated position searches inside Route.relationship, the for_tests production factory, the production clock dependency, and the independent Route.position_of lookup.",
-      "It applies proportional changes that establish one authoritative customer-key transformation, keep independently varying discount and fraud decisions separately understandable without hiding quote orchestration, remove the unused test-only production factory, and make the relationship operation's positions explicit without changing observable behavior.",
-      "It treats the clock as a genuine production dependency. It leaves Route.position_of unchanged when no concrete risk exists, or changes it only with a separately stated risk and complete preservation of list.index identity, equality, duplicate, first-match, and ValueError semantics. Helper reuse by itself is not sufficient justification.",
+      "The executor classifies and justifies every finding that it changes or materially reports. It may omit opportunities in untouched code and does not need to inventory every requested dimension.",
+      "It applies at least one proportional, coherent improvement from the supported findings: establish one authoritative customer-key transformation, keep independently varying discount and fraud decisions separately understandable without hiding quote orchestration, remove the unused test-only production factory, or make the relationship operation's positions explicit without changing observable behavior. Any coherent subset is acceptable.",
+      "If it changes or materially reports the clock, it treats the clock as a genuine production dependency. If it changes Route.position_of, it states a separate concrete risk and completely preserves list.index identity, equality, duplicate, first-match, and ValueError semantics. Helper reuse by itself is not sufficient justification.",
       "Alternative internal designs are acceptable when they satisfy the classifications and preserve all public behavior; no particular helper, traversal, policy object, or topology is required.",
       "It avoids gratuitous patterns, changes only cohesion.py, keeps tests unchanged, and leaves the public suite green, including the non-reflexive equality and not-found scenarios."
     ],

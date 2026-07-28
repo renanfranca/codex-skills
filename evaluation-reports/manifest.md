@@ -1,6 +1,6 @@
 # Evaluation report archive
 
-- Canonical reports: `41`
+- Canonical reports: `44`
 - Canonical format: `report.json`
 - Markdown and comparisons are deterministic projections.
 
@@ -39,6 +39,9 @@
 | refactor-design | 20260727T160511.110609Z-1cf9aa1bccaf | probe-change | ERROR | gpt-5.6-sol | 1 | unknown | 325 | 91df6fdba4518e996ab34bcd300761ea4a1f08a430c886d117a59be4de0506ea | refactor-design/operations/20260727T160511.110609Z-1cf9aa1bccaf/report.json |
 | refactor-design | 20260727T170755.244350Z-e1c34d62c6a5 | run | FAIL | gpt-5.6-sol | 22 | 1831567 | 845621 | 8e0da479584a0183390a863639b70080a2470f68232e799545b963d6d634337d | refactor-design/operations/20260727T170755.244350Z-e1c34d62c6a5/report.json |
 | refactor-design | 20260728T130719.976097Z-a86fbb5eb809 | run | FAIL | gpt-5.6-sol | 22 | 1956118 | 876033 | d238d178570c3e50059b7f7b0f4ca0b1e74d800461aa25b05ddd050094db6f1e | refactor-design/operations/20260728T130719.976097Z-a86fbb5eb809/report.json |
+| refactor-design | 20260728T140047.281244Z-d9160e0b309b | run | PASS | gpt-5.6-sol | 2 | 134475 | 52453 | 09f38544e048a55e8edd0ae1566761611e9aa25faed0b04dc67de8418ec5f518 | refactor-design/operations/20260728T140047.281244Z-d9160e0b309b/report.json |
+| refactor-design | 20260728T140158.048385Z-f96323f0d4f2 | run | PASS | gpt-5.6-sol | 2 | 78064 | 59157 | bbcb89db3124f1b744f38d6a9b43f25d260f8ae8e4e344aa747ade2cf5211175 | refactor-design/operations/20260728T140158.048385Z-f96323f0d4f2/report.json |
+| refactor-design | 20260728T140303.778035Z-7d3e9509294f | run | PASS | gpt-5.6-sol | 2 | 255490 | 160447 | 563094f2b14dca86fbaf5ca9c78d58a76006c19ff4d7ef1229be842b43e1495d | refactor-design/operations/20260728T140303.778035Z-7d3e9509294f/report.json |
 | restructure-documentation | 20260727T170833.654743Z-a06b21740974 | validate-change | INCONCLUSIVE | gpt-5.6-terra | 5 | 491305 | 318202 | ea8cd7e4478756cde29d92a49f3fa104ef01a5349209e1d1c4dcc3fcc9d23ebb | restructure-documentation/operations/20260727T170833.654743Z-a06b21740974/report.json |
 | restructure-documentation | 20260727T171652.898155Z-23d46f21e916 | validate-change | INCONCLUSIVE | gpt-5.6-terra | 9 | 950891 | 548214 | 34a3f38abe635bacd4daa50bff62bd018b0a1263980bf5a1f8f28f85d8e02b1d | restructure-documentation/operations/20260727T171652.898155Z-23d46f21e916/report.json |
 | restructure-documentation | 20260727T172917.092637Z-24a0aea91593 | validate-change | INCONCLUSIVE | gpt-5.6-terra | 5 | 744299 | 415741 | 1ccd81d9275a627af3ec623f03eae7b42ab2b1149267d25a6ece77d49f223752 | restructure-documentation/operations/20260727T172917.092637Z-24a0aea91593/report.json |

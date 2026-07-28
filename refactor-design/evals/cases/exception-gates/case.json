@@ -9,7 +9,7 @@
   "judge": {
     "enabled": true,
     "criteria": [
-      "The executor pauses and redirects incomplete or incorrect behavior and a red public checkpoint to behavior-focused TDD.",
+      "The executor pauses for incomplete or incorrect behavior and a red public checkpoint, and explains each failed gate accurately. Recommending a behavior-focused TDD workflow is acceptable but not required.",
       "It asks for direction rather than changing the public API or making the material architecture decision.",
       "It pauses when existing tests cannot protect the behavior or when the requested cleanup would materially expand scope.",
       "It stops after the same refactoring attempt has failed twice consecutively rather than trying a third time.",

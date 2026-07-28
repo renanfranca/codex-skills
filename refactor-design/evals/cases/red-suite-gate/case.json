@@ -11,7 +11,7 @@
     "enabled": true,
     "criteria": [
       "The executor detects the red entry suite and stops the design review before editing source or tests.",
-      "It redirects the missing or incorrect behavior to the applicable behavior-focused TDD workflow."
+      "It reports the failed entry gate accurately. Recommending a behavior-focused TDD workflow is acceptable but not required."
     ],
     "no_action_acceptable": true
   }

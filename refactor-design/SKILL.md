@@ -16,7 +16,7 @@ Before reviewing design, confirm all of the following:
 - a checkpoint through the public path is green;
 - the current milestone has no pending behavior.
 
-Return to the applicable behavior-focused TDD workflow if any condition fails. Do not use this skill to discover or implement missing behavior.
+If any condition fails, stop without editing and report the failed gate. Recommend the applicable behavior-focused TDD workflow when useful, but hand work to that workflow only when the user requests it or the authorized task already includes it. Do not use this skill to discover or implement missing behavior.
 
 ## Set the review scope
 
@@ -37,7 +37,7 @@ Classify each candidate as one of:
 - **Maintainability opportunity:** the improvement is useful but not necessary for the current task.
 - **No action:** evidence, benefit, scope, or confidence does not justify a change.
 
-Before editing, inspect and classify every design dimension requested by the task. Do not end the review after the first actionable finding. Keep supported findings visible even when another finding is fixed first, including risks that cannot be changed within the authorized contract.
+Classify every finding that you change or materially report. A normal review may select a coherent subset of supported improvements and conclude after one safe, useful refactor; it does not need to inventory every opportunity in untouched code. When the user explicitly requests an exhaustive review, inspect and classify every requested dimension and keep supported findings visible, including risks that cannot be changed within the authorized contract.
 
 For every actionable finding, identify the inadequate dependency, state, responsibility, or representation; explain the concrete risk; consider false positives and cost; and show why the proposed refactor removes that risk. Do not introduce patterns, abstractions, value objects, or extracted classes merely because a checklist suggests them.
 
@@ -52,7 +52,7 @@ Handle one coherent finding at a time:
 3. Apply the smallest coherent structural change that removes the demonstrated risk.
 4. Run the relevant suite after each significant change.
 5. Repeat the public-path checkpoint.
-6. Continue automatically while the behavior stays green and the change remains in scope.
+6. Continue only while another material finding justifies the added scope, or while completing an explicitly exhaustive review.
 
 Do not add tests for extracted classes, collaborator order, framework wiring, or internal topology. Add or change a behavior test only through the TDD workflow when a missing or incorrect observable behavior is discovered.
 
@@ -67,8 +67,8 @@ Pause the review and report the gate when any of these occurs:
 - the work would materially expand the authorized scope;
 - the same refactoring attempt fails twice consecutively.
 
-Return to behavior-focused TDD for missing behavior. Ask for direction when new authority or a material public or architectural decision is required.
-Continue classifying the remaining in-scope dimensions before the final summary when a gate blocks only one finding. Report the blocked finding as an exception gate instead of silently dropping it or changing the contract.
+Stop without editing the blocked behavior and explain the gate. Recommend behavior-focused TDD for missing behavior when useful, but hand work to that workflow only when requested or already authorized. Ask for direction when new authority or a material public or architectural decision is required.
+Report the blocked finding as an exception gate instead of silently dropping it or changing the contract. Continue classifying other dimensions only when they belong to a selected coherent improvement or an explicitly exhaustive review.
 
 ## Keep output quiet
 
