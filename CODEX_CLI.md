@@ -124,6 +124,7 @@ The [README catalog](README.md#skill-catalog) is the canonical active skill list
 | Task | Skill and canonical sources | Working directory |
 | --- | --- | --- |
 | Create or improve a skill with proportional evaluations | [`develop-skill-with-evals`](develop-skill-with-evals/SKILL.md), [metadata](develop-skill-with-evals/agents/openai.yaml) | This skills repository |
+| Audit or restructure an existing documentation system | [`restructure-documentation`](restructure-documentation/SKILL.md), [metadata](restructure-documentation/agents/openai.yaml) | Target repository |
 | Plan and execute a substantial repository change | [`implement-execplan`](implement-execplan/SKILL.md), [metadata](implement-execplan/agents/openai.yaml) | Target repository |
 | Review a completed green implementation for design risks | [`refactor-design`](refactor-design/SKILL.md), [metadata](refactor-design/agents/openai.yaml) | Target repository |
 | Implement behavior through autonomous quiet TDD | [`tdd-behavior-autonomous-quiet`](tdd-behavior-autonomous-quiet/SKILL.md), [metadata](tdd-behavior-autonomous-quiet/agents/openai.yaml) | Target repository |

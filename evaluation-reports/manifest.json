@@ -1,7 +1,7 @@
 {
   "version": 1,
   "canonical_format": "report.json",
-  "report_count": 30,
+  "report_count": 38,
   "reports": [
     {
       "skill": "develop-skill-with-evals",
@@ -553,6 +553,158 @@
       "duration_ms": 325,
       "digest": "91df6fdba4518e996ab34bcd300761ea4a1f08a430c886d117a59be4de0506ea",
       "path": "refactor-design/operations/20260727T160511.110609Z-1cf9aa1bccaf/report.json"
+    },
+    {
+      "skill": "refactor-design",
+      "operation_id": "20260727T170755.244350Z-e1c34d62c6a5",
+      "operation": "run",
+      "status": "FAIL",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 22,
+      "tokens": {
+        "input": 1807347,
+        "cached_input": 1403392,
+        "output": 24220,
+        "reasoning_output": 8994,
+        "total": 1831567
+      },
+      "duration_ms": 845621,
+      "digest": "8e0da479584a0183390a863639b70080a2470f68232e799545b963d6d634337d",
+      "path": "refactor-design/operations/20260727T170755.244350Z-e1c34d62c6a5/report.json"
+    },
+    {
+      "skill": "restructure-documentation",
+      "operation_id": "20260727T170833.654743Z-a06b21740974",
+      "operation": "validate-change",
+      "status": "INCONCLUSIVE",
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "medium",
+      "sessions": 5,
+      "tokens": {
+        "input": 476690,
+        "cached_input": 390144,
+        "output": 14615,
+        "reasoning_output": 4909,
+        "total": 491305
+      },
+      "duration_ms": 318202,
+      "digest": "ea8cd7e4478756cde29d92a49f3fa104ef01a5349209e1d1c4dcc3fcc9d23ebb",
+      "path": "restructure-documentation/operations/20260727T170833.654743Z-a06b21740974/report.json"
+    },
+    {
+      "skill": "restructure-documentation",
+      "operation_id": "20260727T171652.898155Z-23d46f21e916",
+      "operation": "validate-change",
+      "status": "INCONCLUSIVE",
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "medium",
+      "sessions": 9,
+      "tokens": {
+        "input": 926948,
+        "cached_input": 783104,
+        "output": 23943,
+        "reasoning_output": 8385,
+        "total": 950891
+      },
+      "duration_ms": 548214,
+      "digest": "34a3f38abe635bacd4daa50bff62bd018b0a1263980bf5a1f8f28f85d8e02b1d",
+      "path": "restructure-documentation/operations/20260727T171652.898155Z-23d46f21e916/report.json"
+    },
+    {
+      "skill": "restructure-documentation",
+      "operation_id": "20260727T172917.092637Z-24a0aea91593",
+      "operation": "validate-change",
+      "status": "INCONCLUSIVE",
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "medium",
+      "sessions": 5,
+      "tokens": {
+        "input": 725117,
+        "cached_input": 635648,
+        "output": 19182,
+        "reasoning_output": 6107,
+        "total": 744299
+      },
+      "duration_ms": 415741,
+      "digest": "1ccd81d9275a627af3ec623f03eae7b42ab2b1149267d25a6ece77d49f223752",
+      "path": "restructure-documentation/operations/20260727T172917.092637Z-24a0aea91593/report.json"
+    },
+    {
+      "skill": "restructure-documentation",
+      "operation_id": "20260727T174503.293755Z-31ee59c08177",
+      "operation": "validate-change",
+      "status": "FAIL",
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "medium",
+      "sessions": 4,
+      "tokens": {
+        "input": 612178,
+        "cached_input": 541184,
+        "output": 20646,
+        "reasoning_output": 6150,
+        "total": 632824
+      },
+      "duration_ms": 435605,
+      "digest": "c82d0f3707ff81b0a701edb9de0ea2bbbd1905fea9e37199bf2324350b8202af",
+      "path": "restructure-documentation/operations/20260727T174503.293755Z-31ee59c08177/report.json"
+    },
+    {
+      "skill": "restructure-documentation",
+      "operation_id": "20260727T181016.250690Z-0aafa27ac157",
+      "operation": "validate-change",
+      "status": "INCONCLUSIVE",
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "medium",
+      "sessions": 7,
+      "tokens": {
+        "input": 788407,
+        "cached_input": 677120,
+        "output": 19828,
+        "reasoning_output": 5282,
+        "total": 808235
+      },
+      "duration_ms": 450267,
+      "digest": "428b33934891f3f9b010b5312f07f7c512e4ef86339f45c6878f657e3f99857d",
+      "path": "restructure-documentation/operations/20260727T181016.250690Z-0aafa27ac157/report.json"
+    },
+    {
+      "skill": "restructure-documentation",
+      "operation_id": "20260727T182350.025533Z-9643f8cb7f3b",
+      "operation": "validate-change",
+      "status": "UNSTABLE",
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "medium",
+      "sessions": 21,
+      "tokens": {
+        "input": 1840236,
+        "cached_input": 1544448,
+        "output": 46478,
+        "reasoning_output": 14567,
+        "total": 1886714
+      },
+      "duration_ms": 1099088,
+      "digest": "012bfba278aa6ec9e3bb0d1d612afd43e441f580140fbe39496ce0be50fa9532",
+      "path": "restructure-documentation/operations/20260727T182350.025533Z-9643f8cb7f3b/report.json"
+    },
+    {
+      "skill": "restructure-documentation",
+      "operation_id": "20260727T233326.147750Z-48228593ef91",
+      "operation": "validate-change",
+      "status": "PASS",
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "medium",
+      "sessions": 7,
+      "tokens": {
+        "input": 1047864,
+        "cached_input": 844032,
+        "output": 38571,
+        "reasoning_output": 8933,
+        "total": 1086435
+      },
+      "duration_ms": 818663,
+      "digest": "5dd644befd9ba19b763d7bb241404a1c875d6f19f2ec651186650968ccb0f0fd",
+      "path": "restructure-documentation/operations/20260727T233326.147750Z-48228593ef91/report.json"
     },
     {
       "skill": "sample-skill",

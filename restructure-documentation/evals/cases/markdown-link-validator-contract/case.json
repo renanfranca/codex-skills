@@ -1,0 +1,19 @@
+{
+  "id": "markdown-link-validator-contract",
+  "kind": "deterministic",
+  "mechanical": {
+    "commands": [
+      {
+        "argv": [
+          "python3",
+          "check_validator_contract.py"
+        ],
+        "exit_code": 0
+      }
+    ]
+  },
+  "judge": {
+    "enabled": false,
+    "criteria": []
+  }
+}

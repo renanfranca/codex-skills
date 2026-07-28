@@ -1,0 +1,7 @@
+interface:
+  display_name: "Restructure Documentation"
+  short_description: "Restructure docs around clear user journeys"
+  default_prompt: "Use $restructure-documentation to audit and reorganize this repository's existing documentation around clear audiences, canonical sources, and validated navigation."
+
+policy:
+  allow_implicit_invocation: true

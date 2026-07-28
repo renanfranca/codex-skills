@@ -1,0 +1,3 @@
+Audit this existing documentation set for structural problems. Inspect audience, journey order, canonical ownership, concept ordering, and local navigation. Make changes only when there is an observable structural gain; a grounded no-action result is valid. Validate local links and anchors before reporting.
+
+If no change is justified, cite the exact existing headings and link destinations that demonstrate the reader's route, identify the canonical owner for orientation, procedure, and concepts, and show where the package concept is defined before the recipe depends on it. Do not merely state that the documents are coherent or that validation passed.

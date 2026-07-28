@@ -31,6 +31,7 @@ Use $refactor-design to review this completed green change. Limit work to the ch
 ### Skill development and design
 
 - [`develop-skill-with-evals`](develop-skill-with-evals/SKILL.md) — Create or improve Codex skills with impact aware evaluation gates, durable evidence, stability checks, and cumulative cost controls.
+- [`restructure-documentation`](restructure-documentation/SKILL.md) — Audit and reorganize existing documentation around clear audiences, canonical sources, ordered concepts, and validated navigation.
 - [`refactor-design`](refactor-design/SKILL.md) — Review completed green implementations for structural risks and apply behavior preserving refactors.
 - [`implement-execplan`](implement-execplan/SKILL.md) — Create, maintain, and execute self contained living plans for substantial or handoff sensitive work.
 

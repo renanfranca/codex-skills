@@ -1,0 +1,47 @@
+{
+  "id": "trigger-boundaries",
+  "kind": "trigger",
+  "prompt_file": "prompt.md",
+  "implicit_skill": true,
+  "mechanical": {
+    "expected_exit_code": 0,
+    "required_paths": [
+      "trigger-assessment.md"
+    ],
+    "forbidden_changed_paths": [
+      "REQUESTS.md",
+      "AGENTS.md",
+      ".agents/skills/**"
+    ],
+    "commands": [
+      {
+        "argv": [
+          "python3",
+          ".agents/skills/restructure-documentation/scripts/check_markdown_links.py",
+          "trigger-assessment.md"
+        ],
+        "exit_code": 0
+      }
+    ]
+  },
+  "oracle": {
+    "commands": [
+      {
+        "argv": [
+          "python3",
+          "{oracle_dir}/check_boundaries.py"
+        ],
+        "exit_code": 0
+      }
+    ]
+  },
+  "judge": {
+    "enabled": true,
+    "criteria": [
+      "Use the executor's concrete final evidence to assess whether its scope reasons coherently apply the workflow to systemic existing-documentation work and to an audit that may validly conclude without edits.",
+      "Treat the passing mechanical checks and oracle as independent verification of the exact per-ID statuses, required file, protected files, and navigation; do not require direct access to trigger-assessment.md or an additional diff.",
+      "Confirm from the final evidence that the isolated typo and documentation written from scratch are excluded, and that AGENTS.md remains operational instructions whose restructuring is allowed only by the explicitly normative exception."
+    ],
+    "no_action_acceptable": false
+  }
+}

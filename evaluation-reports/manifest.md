@@ -1,6 +1,6 @@
 # Evaluation report archive
 
-- Canonical reports: `30`
+- Canonical reports: `38`
 - Canonical format: `report.json`
 - Markdown and comparisons are deterministic projections.
 
@@ -35,4 +35,12 @@
 | develop-skill-with-evals | 20260727T132448.821094Z-1fcd91faa06a | validate-change | PASS | gpt-5.6-sol | 16 | 5583284 | 1778061 | 26c0f53f77375d0ec6d655f2ae7b010f39b1d9fa5e4d60641442287f4118109b | develop-skill-with-evals/operations/20260727T132448.821094Z-1fcd91faa06a/report.json |
 | refactor-design | 20260727T144730.399249Z-24a76a532c0b | run | PASS | gpt-5.6-sol | 12 | 816083 | 309182 | 8fbe3c4297fa5d0f3b2dda77656e734ab2c8e97eaaf39c0f295b42d92a18925c | refactor-design/operations/20260727T144730.399249Z-24a76a532c0b/report.json |
 | refactor-design | 20260727T160511.110609Z-1cf9aa1bccaf | probe-change | ERROR | gpt-5.6-sol | 1 | unknown | 325 | 91df6fdba4518e996ab34bcd300761ea4a1f08a430c886d117a59be4de0506ea | refactor-design/operations/20260727T160511.110609Z-1cf9aa1bccaf/report.json |
+| refactor-design | 20260727T170755.244350Z-e1c34d62c6a5 | run | FAIL | gpt-5.6-sol | 22 | 1831567 | 845621 | 8e0da479584a0183390a863639b70080a2470f68232e799545b963d6d634337d | refactor-design/operations/20260727T170755.244350Z-e1c34d62c6a5/report.json |
+| restructure-documentation | 20260727T170833.654743Z-a06b21740974 | validate-change | INCONCLUSIVE | gpt-5.6-terra | 5 | 491305 | 318202 | ea8cd7e4478756cde29d92a49f3fa104ef01a5349209e1d1c4dcc3fcc9d23ebb | restructure-documentation/operations/20260727T170833.654743Z-a06b21740974/report.json |
+| restructure-documentation | 20260727T171652.898155Z-23d46f21e916 | validate-change | INCONCLUSIVE | gpt-5.6-terra | 9 | 950891 | 548214 | 34a3f38abe635bacd4daa50bff62bd018b0a1263980bf5a1f8f28f85d8e02b1d | restructure-documentation/operations/20260727T171652.898155Z-23d46f21e916/report.json |
+| restructure-documentation | 20260727T172917.092637Z-24a0aea91593 | validate-change | INCONCLUSIVE | gpt-5.6-terra | 5 | 744299 | 415741 | 1ccd81d9275a627af3ec623f03eae7b42ab2b1149267d25a6ece77d49f223752 | restructure-documentation/operations/20260727T172917.092637Z-24a0aea91593/report.json |
+| restructure-documentation | 20260727T174503.293755Z-31ee59c08177 | validate-change | FAIL | gpt-5.6-terra | 4 | 632824 | 435605 | c82d0f3707ff81b0a701edb9de0ea2bbbd1905fea9e37199bf2324350b8202af | restructure-documentation/operations/20260727T174503.293755Z-31ee59c08177/report.json |
+| restructure-documentation | 20260727T181016.250690Z-0aafa27ac157 | validate-change | INCONCLUSIVE | gpt-5.6-terra | 7 | 808235 | 450267 | 428b33934891f3f9b010b5312f07f7c512e4ef86339f45c6878f657e3f99857d | restructure-documentation/operations/20260727T181016.250690Z-0aafa27ac157/report.json |
+| restructure-documentation | 20260727T182350.025533Z-9643f8cb7f3b | validate-change | UNSTABLE | gpt-5.6-terra | 21 | 1886714 | 1099088 | 012bfba278aa6ec9e3bb0d1d612afd43e441f580140fbe39496ce0be50fa9532 | restructure-documentation/operations/20260727T182350.025533Z-9643f8cb7f3b/report.json |
+| restructure-documentation | 20260727T233326.147750Z-48228593ef91 | validate-change | PASS | gpt-5.6-terra | 7 | 1086435 | 818663 | 5dd644befd9ba19b763d7bb241404a1c875d6f19f2ec651186650968ccb0f0fd | restructure-documentation/operations/20260727T233326.147750Z-48228593ef91/report.json |
 | sample-skill | 20260726T164753.664573Z-215f15542437 | run | PASS | fixture-model | 1 | 28 | 71 | ae65c37788b6c598f5ef566f87acf433a94d199233caf7dc3b668b7c0466e7b3 | sample-skill/operations/20260726T164753.664573Z-215f15542437/report.json |

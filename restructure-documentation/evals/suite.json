@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "cases": [
+    "documentation-system-restructure",
+    "trigger-boundaries",
+    "cohesive-no-action",
+    "markdown-link-validator-contract"
+  ]
+}

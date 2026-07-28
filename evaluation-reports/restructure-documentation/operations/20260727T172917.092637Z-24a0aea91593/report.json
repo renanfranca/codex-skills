@@ -1,0 +1,1287 @@
+{
+  "schema_version": 1,
+  "operation": {
+    "id": "20260727T172917.092637Z-24a0aea91593",
+    "type": "validate-change",
+    "status": "INCONCLUSIVE",
+    "workflow": "promotion",
+    "promotion_eligible": false,
+    "failure_category": "contract"
+  },
+  "provenance": "executed",
+  "started_at": "2026-07-27T17:29:17.092637Z",
+  "finished_at": "2026-07-27T17:36:12.478949Z",
+  "duration_ms": 415741,
+  "skill": {
+    "path": "/home/renanfranca/.codex/skills/restructure-documentation",
+    "name": "restructure-documentation"
+  },
+  "fingerprints": {
+    "manifest": "8b4359475f029448049d397ebf3969703c8583decbc8030d1c8fc34ebd875f81",
+    "cases": {
+      "documentation-system-restructure": "d8e1dcede9bd1ad0f456c4e9689f3073ee4b1b2e23abd18dd0fdb60a05dcd476",
+      "trigger-boundaries": "ff9a62ea0348d1a9340734e7c9cb0a0a2690580b09815591fcf217b67281f246",
+      "cohesive-no-action": "7cbd1789430ee5ee682a390483bfb8fae4ba72af786a983ef6c4ab4ed18db144",
+      "markdown-link-validator-contract": "e9330db3a26735b1eb8d762b5850097afb2f20cb68defc7607c08c3ad2734a7f"
+    },
+    "sources": {
+      "baseline": "da3b7d6ca45f3e89e9e68d6199d8cd70fbee534e960dc04babae2ca330ea990c",
+      "candidate": "6ca0293b5a11588bc843882a2fec9ce018e1226089db716cad1a7578b202ebd3"
+    },
+    "runtime": "8c74b94cfa53e8f0c0176543ab2aaf9cd033c28be0d9aae40609787cae7a0117",
+    "evaluation": "170a7045d60e7d9404c016d41c8c7be47c27e4a846a6048a15f23a251d31e12d"
+  },
+  "environment": {
+    "codex_cli": {
+      "status": "available",
+      "version": "codex-cli 0.145.0"
+    },
+    "authentication": {
+      "status": "available",
+      "mode": "chatgpt"
+    },
+    "runner": {
+      "path": "/home/renanfranca/.codex/skills/develop-skill-with-evals/scripts/run_skill_evals.py",
+      "sha256": "30f579584ba4eb2c9d21a68786aaae41f336a012c01cad35f4079e72a1e640e5"
+    }
+  },
+  "billing": {
+    "mode": "chatgpt-plan",
+    "actual_charge_observed": false
+  },
+  "runtime": {
+    "required": true,
+    "complete": true,
+    "audit_quality": "promotion",
+    "executor": {
+      "required": true,
+      "model": "gpt-5.6-terra",
+      "model_source": "cli",
+      "reasoning_effort": "medium",
+      "reasoning_effort_source": "cli"
+    },
+    "judge": {
+      "required": true,
+      "model": "gpt-5.6-terra",
+      "model_source": "cli",
+      "reasoning_effort": "medium",
+      "reasoning_effort_source": "cli"
+    }
+  },
+  "sessions": {
+    "planned": {
+      "executor": 12,
+      "judge": 12,
+      "total": 24
+    },
+    "executed": {
+      "executor": 4,
+      "judge": 1,
+      "total": 5
+    },
+    "provenance": "executed"
+  },
+  "usage": {
+    "input_tokens": 725117,
+    "cached_input_tokens": 635648,
+    "output_tokens": 19182,
+    "reasoning_output_tokens": 6107,
+    "total_tokens": 744299,
+    "complete": true,
+    "reasoning_output_tokens_complete": true,
+    "events": [
+      {
+        "input_tokens": 164950,
+        "cached_input_tokens": 148480,
+        "output_tokens": 4835,
+        "sequence": 1,
+        "source_event_type": "turn.completed",
+        "scope": "turn",
+        "reasoning_output_tokens": 1887,
+        "total_tokens": 169785,
+        "complete": true,
+        "reasoning_output_tokens_complete": true
+      },
+      {
+        "input_tokens": 189418,
+        "cached_input_tokens": 164096,
+        "output_tokens": 3182,
+        "sequence": 2,
+        "source_event_type": "turn.completed",
+        "scope": "turn",
+        "reasoning_output_tokens": 874,
+        "total_tokens": 192600,
+        "complete": true,
+        "reasoning_output_tokens_complete": true
+      },
+      {
+        "input_tokens": 66226,
+        "cached_input_tokens": 47360,
+        "output_tokens": 1653,
+        "sequence": 3,
+        "source_event_type": "turn.completed",
+        "scope": "turn",
+        "reasoning_output_tokens": 523,
+        "total_tokens": 67879,
+        "complete": true,
+        "reasoning_output_tokens_complete": true
+      },
+      {
+        "input_tokens": 287574,
+        "cached_input_tokens": 264704,
+        "output_tokens": 9236,
+        "sequence": 4,
+        "source_event_type": "turn.completed",
+        "scope": "turn",
+        "reasoning_output_tokens": 2721,
+        "total_tokens": 296810,
+        "complete": true,
+        "reasoning_output_tokens_complete": true
+      },
+      {
+        "input_tokens": 16949,
+        "cached_input_tokens": 11008,
+        "output_tokens": 276,
+        "sequence": 5,
+        "source_event_type": "turn.completed",
+        "scope": "turn",
+        "reasoning_output_tokens": 102,
+        "total_tokens": 17225,
+        "complete": true,
+        "reasoning_output_tokens_complete": true
+      }
+    ],
+    "event_count": 5,
+    "events_complete": true
+  },
+  "pricing": {
+    "applied": true,
+    "snapshot": {
+      "version": 1,
+      "effective_date": "2026-07-26",
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol; https://developers.openai.com/api/docs/models/gpt-5.6-terra; https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+      "currency": "USD",
+      "unit": "per_million_tokens",
+      "models": {
+        "gpt-5.6-sol": {
+          "input": 5.0,
+          "cached_input": 0.5,
+          "output": 30.0,
+          "long_context": {
+            "input_token_threshold": 272000,
+            "input_multiplier": 2.0,
+            "output_multiplier": 1.5,
+            "applies_per": "request"
+          }
+        },
+        "gpt-5.6-terra": {
+          "input": 2.5,
+          "cached_input": 0.25,
+          "output": 15.0,
+          "long_context": {
+            "input_token_threshold": 272000,
+            "input_multiplier": 2.0,
+            "output_multiplier": 1.5,
+            "applies_per": "request"
+          }
+        },
+        "gpt-5.6-luna": {
+          "input": 1.0,
+          "cached_input": 0.1,
+          "output": 6.0,
+          "long_context": {
+            "input_token_threshold": 272000,
+            "input_multiplier": 2.0,
+            "output_multiplier": 1.5,
+            "applies_per": "request"
+          }
+        }
+      },
+      "limitations": [
+        "This dated table is an API reference and is not an observed ChatGPT charge.",
+        "Prompts above 272,000 input tokens use the documented higher rates; an exact estimate is unavailable when normalized telemetry does not expose request scoped input.",
+        "Cache write charges are not estimated because Codex JSONL usage does not identify cache writes.",
+        "Reasoning output tokens are reported separately but are already included in output tokens."
+      ]
+    },
+    "limitations": [
+      "This dated table is an API reference and is not an observed ChatGPT charge.",
+      "Prompts above 272,000 input tokens use the documented higher rates; an exact estimate is unavailable when normalized telemetry does not expose request scoped input.",
+      "Cache write charges are not estimated because Codex JSONL usage does not identify cache writes.",
+      "Reasoning output tokens are reported separately but are already included in output tokens."
+    ]
+  },
+  "api_reference_estimate": {
+    "available": false,
+    "status": "indeterminate-long-context",
+    "currency": "USD",
+    "amount": null,
+    "base_rate_amount": 0.6703145,
+    "actual_charge": false,
+    "billing_mode": "chatgpt-plan",
+    "calculation": null,
+    "long_context_assessment": {
+      "input_token_threshold": 272000,
+      "applies_per": "request",
+      "triggering_event_sequences": [
+        4
+      ],
+      "observed_event_scopes": [
+        "turn"
+      ]
+    },
+    "limitations": [
+      "This is an API reference estimate, not an observed charge.",
+      "This dated table is an API reference and is not an observed ChatGPT charge.",
+      "Prompts above 272,000 input tokens use the documented higher rates; an exact estimate is unavailable when normalized telemetry does not expose request scoped input.",
+      "Cache write charges are not estimated because Codex JSONL usage does not identify cache writes.",
+      "Reasoning output tokens are reported separately but are already included in output tokens.",
+      "A reported usage event exceeded a request-scoped threshold, but the event is not request scoped; the exact multiplier cannot be audited."
+    ]
+  },
+  "observations": [
+    {
+      "case_id": "documentation-system-restructure",
+      "status": "FAIL",
+      "kind": "behavioral",
+      "role": "baseline",
+      "repetition": 1,
+      "provenance": "executed",
+      "started_at": "2026-07-27T17:29:17.114924Z",
+      "finished_at": "2026-07-27T17:30:57.160644Z",
+      "duration_ms": 100061,
+      "prompt": "Audit and restructure this existing documentation set for three audiences: a newcomer installing Lantern, an operator looking for recipes, and a contributor needing exact configuration facts. The current files overlap and introduce concepts out of order.\n\nPreserve the existing file paths, the public `README.md#getting-started` and `docs/reference.md#config-file` anchors, the commands `lantern init` and `lantern scan --format json`, the environment variable `LANTERN_CACHE_DIR`, and the fact that configuration schema version 3 is current. Do not edit `AGENTS.md`. Validate all local documentation navigation after the restructure.\n\nIn the final evidence, cite the exact resulting headings and link destinations that route each audience, identify the canonical owner for concepts, procedures, and configuration facts, show where `workspace` is defined before procedural use, and cite where each preserved anchor and fact remains. Do not merely state that validation passed.\n",
+      "executor": {
+        "enabled": true,
+        "executed": true,
+        "exit_code": 0,
+        "duration_ms": 100029,
+        "response": {
+          "summary": "Restructured Lantern documentation by audience, ownership, and prerequisite order while preserving required anchors, commands, and configuration facts.",
+          "classification": "completed",
+          "evidence": [
+            "Newcomer route: README.md → “Getting started” (#getting-started); it defines workspace and then retains `lantern init` and `lantern scan --format json`.",
+            "Operator route: README.md → “Documentation paths” → [Cookbook recipes](docs/cookbook.md) → “Initialize and scan”; its prerequisite links to [workspace](concepts.md#workspace).",
+            "Contributor route: README.md → “Documentation paths” → [Configuration reference](docs/reference.md#config-file) → “Config file” (#config-file).",
+            "Canonical owners: “Concepts” → “Workspace” owns terminology; “Cookbook” → “Initialize and scan” owns procedures; “Configuration reference” → “Config file” owns schema version, `cache_dir` default, and environment override.",
+            "`workspace` is defined in README.md “Getting started” at line 7 before the first command at line 12; procedural Cookbook usage links to docs/concepts.md#workspace before its recipe.",
+            "Preserved anchors and facts: README.md#getting-started; docs/reference.md#config-file; `lantern init` and `lantern scan --format json` in README and Cookbook; schema version 3, `.lantern-cache`, and `LANTERN_CACHE_DIR` in Reference → “Config file”."
+          ],
+          "files_changed": [
+            "README.md",
+            "docs/concepts.md",
+            "docs/cookbook.md",
+            "docs/reference.md"
+          ],
+          "diagnosis": "Duplicate configuration and recipe content was removed from noncanonical documents, and concepts now precede procedural use.",
+          "approach": [
+            "Routed each audience from README.",
+            "Consolidated each subject under one canonical document.",
+            "Replaced duplicated facts with local links."
+          ],
+          "decisions": [
+            "README remains the landing page and first-run route.",
+            "Concepts owns workspace terminology.",
+            "Cookbook owns operational recipes.",
+            "Reference owns exact configuration facts."
+          ],
+          "rejected_alternatives": [],
+          "key_changes": [
+            "Added README “Documentation paths” for the three audiences.",
+            "Kept required public headings unchanged.",
+            "Moved all exact configuration facts to Reference → “Config file”."
+          ],
+          "validation": [
+            "`python3 /home/renanfranca/.codex/skills/restructure-documentation/scripts/check_markdown_links.py README.md docs` completed successfully, validating all local Markdown paths and fragments.",
+            "Heading and contract checks confirmed the required anchors, commands, version, variable, and cache default at the cited destinations.",
+            "`awk` confirmed README workspace definition line 7 precedes first command line 12.",
+            "`git diff --check` completed without whitespace errors."
+          ]
+        },
+        "usage": {
+          "input_tokens": 164950,
+          "cached_input_tokens": 148480,
+          "output_tokens": 4835,
+          "reasoning_output_tokens": 1887,
+          "total_tokens": 169785,
+          "complete": true,
+          "reasoning_output_tokens_complete": true,
+          "events": [
+            {
+              "input_tokens": 164950,
+              "cached_input_tokens": 148480,
+              "output_tokens": 4835,
+              "sequence": 1,
+              "source_event_type": "turn.completed",
+              "scope": "turn",
+              "reasoning_output_tokens": 1887,
+              "total_tokens": 169785,
+              "complete": true,
+              "reasoning_output_tokens_complete": true
+            }
+          ],
+          "event_count": 1,
+          "events_complete": true
+        }
+      },
+      "mechanical": {
+        "passed": false,
+        "checks": [
+          {
+            "name": "executor exit code",
+            "passed": true,
+            "detail": "expected 0, got 0"
+          },
+          {
+            "name": "executor response schema",
+            "passed": true,
+            "detail": "structured response present and valid"
+          },
+          {
+            "name": "required path: README.md",
+            "passed": true,
+            "detail": "README.md"
+          },
+          {
+            "name": "required path: docs/concepts.md",
+            "passed": true,
+            "detail": "docs/concepts.md"
+          },
+          {
+            "name": "required path: docs/cookbook.md",
+            "passed": true,
+            "detail": "docs/cookbook.md"
+          },
+          {
+            "name": "required path: docs/reference.md",
+            "passed": true,
+            "detail": "docs/reference.md"
+          },
+          {
+            "name": "required path: AGENTS.md",
+            "passed": true,
+            "detail": "AGENTS.md"
+          },
+          {
+            "name": "forbidden changed path: AGENTS.md",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "forbidden changed path: .agents/skills/**",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "evaluated skill remained unchanged",
+            "passed": true,
+            "detail": "repository-scoped skill hash comparison"
+          },
+          {
+            "name": "command: python3 .agents/skills/restructure-documentation/scripts/check_markdown_links.py README.md docs",
+            "passed": false,
+            "detail": "expected 0, got 2"
+          }
+        ],
+        "commands": [
+          {
+            "argv": [
+              "python3",
+              ".agents/skills/restructure-documentation/scripts/check_markdown_links.py",
+              "README.md",
+              "docs"
+            ],
+            "exit_code": 2,
+            "stdout": "",
+            "stderr": "python3: can't open file '/tmp/skill-eval-artifacts/validate-change-sfohergk/documentation-system-restructure-rrssldl7/.agents/skills/restructure-documentation/scripts/check_markdown_links.py': [Errno 2] No such file or directory\n"
+          }
+        ]
+      },
+      "oracle": {
+        "enabled": true,
+        "passed": true,
+        "commands": [
+          {
+            "argv": [
+              "python3",
+              "{oracle_dir}/check_restructure.py"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "passed": true,
+            "stdout": "",
+            "stderr": ""
+          }
+        ]
+      },
+      "judge": {
+        "enabled": true,
+        "executed": false,
+        "verdict": "SKIPPED",
+        "rationale": "Semantic judge skipped because mechanical checks failed.",
+        "evidence": [],
+        "duration_ms": 0,
+        "usage": {
+          "input_tokens": null,
+          "cached_input_tokens": null,
+          "output_tokens": null,
+          "reasoning_output_tokens": null,
+          "total_tokens": null,
+          "complete": false,
+          "reasoning_output_tokens_complete": false,
+          "events": [],
+          "event_count": 0,
+          "events_complete": false
+        },
+        "failure_category": null
+      },
+      "sessions": {
+        "executor": 1,
+        "judge": 0,
+        "total": 1
+      },
+      "usage": {
+        "input_tokens": 164950,
+        "cached_input_tokens": 148480,
+        "output_tokens": 4835,
+        "reasoning_output_tokens": 1887,
+        "total_tokens": 169785,
+        "complete": true,
+        "reasoning_output_tokens_complete": true,
+        "events": [
+          {
+            "input_tokens": 164950,
+            "cached_input_tokens": 148480,
+            "output_tokens": 4835,
+            "sequence": 1,
+            "source_event_type": "turn.completed",
+            "scope": "turn",
+            "reasoning_output_tokens": 1887,
+            "total_tokens": 169785,
+            "complete": true,
+            "reasoning_output_tokens_complete": true
+          }
+        ],
+        "event_count": 1,
+        "events_complete": true
+      },
+      "evidence": {
+        "changed_files": [
+          "README.md",
+          "docs/concepts.md",
+          "docs/cookbook.md",
+          "docs/reference.md"
+        ],
+        "diff": "--- a/README.md\n+++ b/README.md\n@@ -1,24 +1,22 @@\n # Lantern CLI\n \n-Lantern scans workspaces.\n-\n-Set `LANTERN_CACHE_DIR` if you do not want `.lantern-cache`. Configuration schema version 3 is current. A workspace is a folder with `lantern.toml`, although the examples below already use that term.\n+Lantern scans directories.\n \n ## Getting started\n \n-Run:\n+A [workspace](docs/concepts.md#workspace) is a folder containing `lantern.toml`.\n+\n+Initialize a workspace, then scan it:\n \n ```console\n lantern init\n lantern scan --format json\n ```\n \n-The scan command emits JSON. For more concepts see [concepts](docs/concepts.md), for commands see [recipes](docs/cookbook.md), and for every exact setting see [configuration](docs/reference.md#config-file).\n+The scan command emits JSON. Continue with [concepts](docs/concepts.md) when you need the vocabulary behind the command.\n \n-## Configuration\n+## Documentation paths\n \n-The `cache_dir` setting defaults to `.lantern-cache`. `LANTERN_CACHE_DIR` overrides it. Schema version 3 is current.\n-\n-## Recipes\n-\n-To create a workspace run `lantern init`. To scan it run `lantern scan --format json`.\n+- Newcomer: start with [Getting started](#getting-started), then read [Concepts](docs/concepts.md).\n+- Operator: use the goal based [Cookbook recipes](docs/cookbook.md).\n+- Contributor: consult the exact [Configuration reference](docs/reference.md#config-file).\n--- a/docs/concepts.md\n+++ b/docs/concepts.md\n@@ -1,13 +1,13 @@\n # Concepts\n \n-Run `lantern scan --format json` inside a workspace.\n+This guide defines the terms used by the getting-started flow and the recipes.\n \n ## Workspace\n \n-A workspace is a folder containing `lantern.toml`.\n+A workspace is a folder containing `lantern.toml`. Run Lantern commands from inside the workspace.\n+\n+For the first successful run, see [Getting started](../README.md#getting-started). For operational steps, see the [Cookbook](cookbook.md).\n \n ## Configuration\n \n-Lantern uses configuration schema version 3. Set `LANTERN_CACHE_DIR` to override `.lantern-cache`.\n-\n-See the [README configuration](../README.md#configuration).\n+A workspace's configuration is stored in `lantern.toml`. The [Configuration reference](reference.md#config-file) is the canonical source for configuration schema versions, settings, defaults, and environment overrides.\n--- a/docs/cookbook.md\n+++ b/docs/cookbook.md\n@@ -1,14 +1,14 @@\n # Cookbook\n+\n+Use these recipes to operate Lantern. Each recipe assumes you are in a [workspace](concepts.md#workspace).\n \n ## Initialize and scan\n \n-A workspace is a folder containing `lantern.toml`.\n+Initialize the workspace, then scan it:\n \n ```console\n lantern init\n lantern scan --format json\n ```\n \n-Schema version 3 is current. `LANTERN_CACHE_DIR` changes the cache.\n-\n-See [all configuration](reference.md#config-file).\n+The scan command emits JSON. For exact configuration choices that affect a recipe, see the [Configuration reference](reference.md#config-file).\n--- a/docs/reference.md\n+++ b/docs/reference.md\n@@ -1,8 +1,10 @@\n-# Reference\n+# Configuration reference\n+\n+This reference owns the exact configuration contract. Configuration is stored in `lantern.toml` in a [workspace](concepts.md#workspace).\n \n ## Config file\n \n-A workspace contains `lantern.toml`. Configuration schema version 3 is current.\n+Configuration schema version 3 is current.\n \n | Name | Default |\n | --- | --- |\n@@ -10,6 +12,4 @@\n \n `LANTERN_CACHE_DIR` overrides `cache_dir`.\n \n-Initialize with `lantern init` and scan with `lantern scan --format json`.\n-\n-Return to the [README](../README.md#getting-started).\n+For procedures, use the [Cookbook](cookbook.md). For a first run, return to [Getting started](../README.md#getting-started).\n",
+        "fragments": [
+          {
+            "path": "README.md",
+            "before_sha256": "0900573f7789b343cb204f897069eaaaee22a28afb03a99ef0a36d4360f9ce6e",
+            "after_sha256": "394855f04006c57ff1b0ae0c8929b6429239a1df1510a7af7ddd7202754dbd03",
+            "before_size": 768,
+            "after_size": 646,
+            "before": "# Lantern CLI\n\nLantern scans workspaces.\n\nSet `LANTERN_CACHE_DIR` if you do not want `.lantern-cache`. Configuration schema version 3 is current. A workspace is a folder with `lantern.toml`, although the examples below already use that term.\n\n## Getting started\n\nRun:\n\n```console\nlantern init\nlantern scan --format json\n```\n\nThe scan command emits JSON. For more concepts see [concepts](docs/concepts.md), for commands see [recipes](docs/cookbook.md), and for every exact setting see [configuration](docs/reference.md#config-file).\n\n## Configuration\n\nThe `cache_dir` setting defaults to `.lantern-cache`. `LANTERN_CACHE_DIR` overrides it. Schema version 3 is current.\n\n## Recipes\n\nTo create a workspace run `lantern init`. To scan it run `lantern scan --format json`.\n",
+            "after": "# Lantern CLI\n\nLantern scans directories.\n\n## Getting started\n\nA [workspace](docs/concepts.md#workspace) is a folder containing `lantern.toml`.\n\nInitialize a workspace, then scan it:\n\n```console\nlantern init\nlantern scan --format json\n```\n\nThe scan command emits JSON. Continue with [concepts](docs/concepts.md) when you need the vocabulary behind the command.\n\n## Documentation paths\n\n- Newcomer: start with [Getting started](#getting-started), then read [Concepts](docs/concepts.md).\n- Operator: use the goal based [Cookbook recipes](docs/cookbook.md).\n- Contributor: consult the exact [Configuration reference](docs/reference.md#config-file).\n",
+            "binary": false
+          },
+          {
+            "path": "docs/concepts.md",
+            "before_sha256": "ccc05427765f40743473c64dcf9554c0bf22b70cebbe780d92d60eed7f1825a3",
+            "after_sha256": "dcfb555dc7315bc92652921543a5eb5e91c9f7452601011fb72268e5a1f6ba36",
+            "before_size": 310,
+            "after_size": 583,
+            "before": "# Concepts\n\nRun `lantern scan --format json` inside a workspace.\n\n## Workspace\n\nA workspace is a folder containing `lantern.toml`.\n\n## Configuration\n\nLantern uses configuration schema version 3. Set `LANTERN_CACHE_DIR` to override `.lantern-cache`.\n\nSee the [README configuration](../README.md#configuration).\n",
+            "after": "# Concepts\n\nThis guide defines the terms used by the getting-started flow and the recipes.\n\n## Workspace\n\nA workspace is a folder containing `lantern.toml`. Run Lantern commands from inside the workspace.\n\nFor the first successful run, see [Getting started](../README.md#getting-started). For operational steps, see the [Cookbook](cookbook.md).\n\n## Configuration\n\nA workspace's configuration is stored in `lantern.toml`. The [Configuration reference](reference.md#config-file) is the canonical source for configuration schema versions, settings, defaults, and environment overrides.\n",
+            "binary": false
+          },
+          {
+            "path": "docs/cookbook.md",
+            "before_sha256": "6a5e1217047619659f68bcc9b5defbea24669e5174a5dee64b9d5586a7c5b7ef",
+            "after_sha256": "7fa09c64aa1e028e3316874d1abe75d62a9742ebba11b447c22d952e5ef5d088",
+            "before_size": 264,
+            "after_size": 385,
+            "before": "# Cookbook\n\n## Initialize and scan\n\nA workspace is a folder containing `lantern.toml`.\n\n```console\nlantern init\nlantern scan --format json\n```\n\nSchema version 3 is current. `LANTERN_CACHE_DIR` changes the cache.\n\nSee [all configuration](reference.md#config-file).\n",
+            "after": "# Cookbook\n\nUse these recipes to operate Lantern. Each recipe assumes you are in a [workspace](concepts.md#workspace).\n\n## Initialize and scan\n\nInitialize the workspace, then scan it:\n\n```console\nlantern init\nlantern scan --format json\n```\n\nThe scan command emits JSON. For exact configuration choices that affect a recipe, see the [Configuration reference](reference.md#config-file).\n",
+            "binary": false
+          },
+          {
+            "path": "docs/reference.md",
+            "before_sha256": "351f5fe0e86efaf44a77922d58371aee2e4eda238ea6da55b5213ec50101df47",
+            "after_sha256": "4be30cc7ca79272e5ae79afdecfd7d25d01e2ff940b13462070eff4c729aff7d",
+            "before_size": 353,
+            "after_size": 463,
+            "before": "# Reference\n\n## Config file\n\nA workspace contains `lantern.toml`. Configuration schema version 3 is current.\n\n| Name | Default |\n| --- | --- |\n| `cache_dir` | `.lantern-cache` |\n\n`LANTERN_CACHE_DIR` overrides `cache_dir`.\n\nInitialize with `lantern init` and scan with `lantern scan --format json`.\n\nReturn to the [README](../README.md#getting-started).\n",
+            "after": "# Configuration reference\n\nThis reference owns the exact configuration contract. Configuration is stored in `lantern.toml` in a [workspace](concepts.md#workspace).\n\n## Config file\n\nConfiguration schema version 3 is current.\n\n| Name | Default |\n| --- | --- |\n| `cache_dir` | `.lantern-cache` |\n\n`LANTERN_CACHE_DIR` overrides `cache_dir`.\n\nFor procedures, use the [Cookbook](cookbook.md). For a first run, return to [Getting started](../README.md#getting-started).\n",
+            "binary": false
+          }
+        ],
+        "truncated": false,
+        "truncations": [],
+        "limits": {
+          "capture_bytes_per_file": 32768,
+          "diff_bytes_per_file": 12000,
+          "diff_bytes_per_report": 64000,
+          "fragment_bytes": 2000
+        }
+      },
+      "workspace": {
+        "original_path": "/tmp/skill-eval-artifacts/validate-change-sfohergk/documentation-system-restructure-rrssldl7",
+        "retention": "retained"
+      }
+    },
+    {
+      "case_id": "trigger-boundaries",
+      "status": "FAIL",
+      "kind": "trigger",
+      "role": "baseline",
+      "repetition": 1,
+      "provenance": "executed",
+      "started_at": "2026-07-27T17:30:57.160997Z",
+      "finished_at": "2026-07-27T17:32:13.196463Z",
+      "duration_ms": 76015,
+      "prompt": "Triage the five incoming requests in `REQUESTS.md` against the repository's available workflows. Create `trigger-assessment.md` with one heading per request ID and assign exactly one status to each: `APPLY`, `EXCLUDE`, or `APPLY_NO_ACTION`. Give a brief reason grounded in scope. Do not perform the requested work and do not edit `REQUESTS.md` or `AGENTS.md`.\n",
+      "executor": {
+        "enabled": true,
+        "executed": true,
+        "exit_code": 0,
+        "duration_ms": 75982,
+        "response": {
+          "summary": "Created the request triage assessment.",
+          "classification": "completed",
+          "evidence": [],
+          "files_changed": [
+            "trigger-assessment.md"
+          ],
+          "diagnosis": "",
+          "approach": [],
+          "decisions": [
+            "SYS-1: APPLY",
+            "TYPO-2: EXCLUDE",
+            "ZERO-3: EXCLUDE",
+            "AGENT-4: APPLY",
+            "AUDIT-5: APPLY_NO_ACTION"
+          ],
+          "rejected_alternatives": [],
+          "key_changes": [
+            "Added one heading and exactly one status for each request."
+          ],
+          "validation": [
+            "Local Markdown link validation passed.",
+            "Verified five headings, five statuses, and no trailing whitespace.",
+            "git diff --check passed."
+          ]
+        },
+        "usage": {
+          "input_tokens": 189418,
+          "cached_input_tokens": 164096,
+          "output_tokens": 3182,
+          "reasoning_output_tokens": 874,
+          "total_tokens": 192600,
+          "complete": true,
+          "reasoning_output_tokens_complete": true,
+          "events": [
+            {
+              "input_tokens": 189418,
+              "cached_input_tokens": 164096,
+              "output_tokens": 3182,
+              "sequence": 1,
+              "source_event_type": "turn.completed",
+              "scope": "turn",
+              "reasoning_output_tokens": 874,
+              "total_tokens": 192600,
+              "complete": true,
+              "reasoning_output_tokens_complete": true
+            }
+          ],
+          "event_count": 1,
+          "events_complete": true
+        }
+      },
+      "mechanical": {
+        "passed": false,
+        "checks": [
+          {
+            "name": "executor exit code",
+            "passed": true,
+            "detail": "expected 0, got 0"
+          },
+          {
+            "name": "executor response schema",
+            "passed": true,
+            "detail": "structured response present and valid"
+          },
+          {
+            "name": "required path: trigger-assessment.md",
+            "passed": true,
+            "detail": "trigger-assessment.md"
+          },
+          {
+            "name": "forbidden changed path: REQUESTS.md",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "forbidden changed path: AGENTS.md",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "forbidden changed path: .agents/skills/**",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "evaluated skill remained unchanged",
+            "passed": true,
+            "detail": "repository-scoped skill hash comparison"
+          },
+          {
+            "name": "command: python3 .agents/skills/restructure-documentation/scripts/check_markdown_links.py trigger-assessment.md",
+            "passed": false,
+            "detail": "expected 0, got 2"
+          }
+        ],
+        "commands": [
+          {
+            "argv": [
+              "python3",
+              ".agents/skills/restructure-documentation/scripts/check_markdown_links.py",
+              "trigger-assessment.md"
+            ],
+            "exit_code": 2,
+            "stdout": "",
+            "stderr": "python3: can't open file '/tmp/skill-eval-artifacts/validate-change-sfohergk/trigger-boundaries-y_kw7tdo/.agents/skills/restructure-documentation/scripts/check_markdown_links.py': [Errno 2] No such file or directory\n"
+          }
+        ]
+      },
+      "oracle": {
+        "enabled": true,
+        "passed": true,
+        "commands": [
+          {
+            "argv": [
+              "python3",
+              "{oracle_dir}/check_boundaries.py"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "passed": true,
+            "stdout": "",
+            "stderr": ""
+          }
+        ]
+      },
+      "judge": {
+        "enabled": true,
+        "executed": false,
+        "verdict": "SKIPPED",
+        "rationale": "Semantic judge skipped because mechanical checks failed.",
+        "evidence": [],
+        "duration_ms": 0,
+        "usage": {
+          "input_tokens": null,
+          "cached_input_tokens": null,
+          "output_tokens": null,
+          "reasoning_output_tokens": null,
+          "total_tokens": null,
+          "complete": false,
+          "reasoning_output_tokens_complete": false,
+          "events": [],
+          "event_count": 0,
+          "events_complete": false
+        },
+        "failure_category": null
+      },
+      "sessions": {
+        "executor": 1,
+        "judge": 0,
+        "total": 1
+      },
+      "usage": {
+        "input_tokens": 189418,
+        "cached_input_tokens": 164096,
+        "output_tokens": 3182,
+        "reasoning_output_tokens": 874,
+        "total_tokens": 192600,
+        "complete": true,
+        "reasoning_output_tokens_complete": true,
+        "events": [
+          {
+            "input_tokens": 189418,
+            "cached_input_tokens": 164096,
+            "output_tokens": 3182,
+            "sequence": 1,
+            "source_event_type": "turn.completed",
+            "scope": "turn",
+            "reasoning_output_tokens": 874,
+            "total_tokens": 192600,
+            "complete": true,
+            "reasoning_output_tokens_complete": true
+          }
+        ],
+        "event_count": 1,
+        "events_complete": true
+      },
+      "evidence": {
+        "changed_files": [
+          "trigger-assessment.md"
+        ],
+        "diff": "--- /dev/null\n+++ b/trigger-assessment.md\n@@ -0,0 +1,19 @@\n+# SYS-1\n+\n+**APPLY** — Reorganizing overlapping existing documentation around newcomer and operator journeys is directly within the restructuring workflow.\n+\n+# TYPO-2\n+\n+**EXCLUDE** — A one word spelling correction is an isolated correction, not a documentation system restructure.\n+\n+# ZERO-3\n+\n+**EXCLUDE** — Creating the first documentation for a new API is documentation written from scratch, outside this workflow's scope.\n+\n+# AGENT-4\n+\n+**APPLY** — The request explicitly asks to restructure normative `AGENTS.md` operational instructions, which the workflow permits when expressly requested.\n+\n+# AUDIT-5\n+\n+**APPLY_NO_ACTION** — Audience ownership and navigation are within scope, and the requested audit may correctly end with no edits when the system is already coherent.\n",
+        "fragments": [
+          {
+            "path": "trigger-assessment.md",
+            "before_sha256": null,
+            "after_sha256": "424ab91e269f75be1c17c2252cce6fc99cb46e715562051400e4c45995d138c5",
+            "before_size": null,
+            "after_size": 776,
+            "before": "",
+            "after": "# SYS-1\n\n**APPLY** — Reorganizing overlapping existing documentation around newcomer and operator journeys is directly within the restructuring workflow.\n\n# TYPO-2\n\n**EXCLUDE** — A one word spelling correction is an isolated correction, not a documentation system restructure.\n\n# ZERO-3\n\n**EXCLUDE** — Creating the first documentation for a new API is documentation written from scratch, outside this workflow's scope.\n\n# AGENT-4\n\n**APPLY** — The request explicitly asks to restructure normative `AGENTS.md` operational instructions, which the workflow permits when expressly requested.\n\n# AUDIT-5\n\n**APPLY_NO_ACTION** — Audience ownership and navigation are within scope, and the requested audit may correctly end with no edits when the system is already coherent.\n",
+            "binary": false
+          }
+        ],
+        "truncated": false,
+        "truncations": [],
+        "limits": {
+          "capture_bytes_per_file": 32768,
+          "diff_bytes_per_file": 12000,
+          "diff_bytes_per_report": 64000,
+          "fragment_bytes": 2000
+        }
+      },
+      "workspace": {
+        "original_path": "/tmp/skill-eval-artifacts/validate-change-sfohergk/trigger-boundaries-y_kw7tdo",
+        "retention": "retained"
+      }
+    },
+    {
+      "case_id": "cohesive-no-action",
+      "status": "FAIL",
+      "kind": "behavioral",
+      "role": "baseline",
+      "repetition": 1,
+      "provenance": "executed",
+      "started_at": "2026-07-27T17:32:13.196733Z",
+      "finished_at": "2026-07-27T17:32:53.320973Z",
+      "duration_ms": 40140,
+      "prompt": "Audit this existing documentation set for structural problems. Inspect audience, journey order, canonical ownership, concept ordering, and local navigation. Make changes only when there is an observable structural gain; a grounded no-action result is valid. Validate local links and anchors before reporting.\n\nIf no change is justified, cite the exact existing headings and link destinations that demonstrate the reader's route, identify the canonical owner for orientation, procedure, and concepts, and show where the package concept is defined before the recipe depends on it. Do not merely state that the documents are coherent or that validation passed.\n",
+      "executor": {
+        "enabled": true,
+        "executed": true,
+        "exit_code": 0,
+        "duration_ms": 40121,
+        "response": {
+          "summary": "No documentation changes made. The existing set has a complete, task-first reader route with clear canonical ownership.",
+          "classification": "grounded_no_action",
+          "evidence": [
+            "Orientation: README.md, heading “Start here” (#start-here), links to docs/cookbook.md#make-an-archive and docs/concepts.md.",
+            "Procedure: docs/cookbook.md, heading “Make an archive” (#make-an-archive), links back to ../README.md#start-here and to concepts.md#package.",
+            "Concepts: docs/concepts.md, heading “Package” (#package), defines “A package is the archive produced from one source directory” and links to cookbook.md#make-an-archive.",
+            "The recipe is executable without prior concept reading; its use of “package” is followed by a direct link to the canonical definition, so it does not impose a concept-order dependency."
+          ],
+          "files_changed": [],
+          "diagnosis": "No observable structural gap: orientation, procedure, and concept ownership are distinct; all reader routes are locally connected.",
+          "approach": [
+            "Audited audiences, journey order, ownership, concept ordering, and navigation.",
+            "Validated every local Markdown link destination and referenced anchor."
+          ],
+          "decisions": [
+            "Retained the documentation unchanged because restructuring would not create an observable structural gain."
+          ],
+          "rejected_alternatives": [],
+          "key_changes": [],
+          "validation": [
+            "Confirmed files: README.md, docs/cookbook.md, docs/concepts.md.",
+            "Confirmed anchors: #start-here, #make-an-archive, #package.",
+            "Validated all four local Markdown links and their destinations."
+          ]
+        },
+        "usage": {
+          "input_tokens": 66226,
+          "cached_input_tokens": 47360,
+          "output_tokens": 1653,
+          "reasoning_output_tokens": 523,
+          "total_tokens": 67879,
+          "complete": true,
+          "reasoning_output_tokens_complete": true,
+          "events": [
+            {
+              "input_tokens": 66226,
+              "cached_input_tokens": 47360,
+              "output_tokens": 1653,
+              "sequence": 1,
+              "source_event_type": "turn.completed",
+              "scope": "turn",
+              "reasoning_output_tokens": 523,
+              "total_tokens": 67879,
+              "complete": true,
+              "reasoning_output_tokens_complete": true
+            }
+          ],
+          "event_count": 1,
+          "events_complete": true
+        }
+      },
+      "mechanical": {
+        "passed": false,
+        "checks": [
+          {
+            "name": "executor exit code",
+            "passed": true,
+            "detail": "expected 0, got 0"
+          },
+          {
+            "name": "executor response schema",
+            "passed": true,
+            "detail": "structured response present and valid"
+          },
+          {
+            "name": "forbidden changed path: README.md",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "forbidden changed path: docs/**",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "forbidden changed path: .agents/skills/**",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "evaluated skill remained unchanged",
+            "passed": true,
+            "detail": "repository-scoped skill hash comparison"
+          },
+          {
+            "name": "command: python3 .agents/skills/restructure-documentation/scripts/check_markdown_links.py README.md docs",
+            "passed": false,
+            "detail": "expected 0, got 2"
+          }
+        ],
+        "commands": [
+          {
+            "argv": [
+              "python3",
+              ".agents/skills/restructure-documentation/scripts/check_markdown_links.py",
+              "README.md",
+              "docs"
+            ],
+            "exit_code": 2,
+            "stdout": "",
+            "stderr": "python3: can't open file '/tmp/skill-eval-artifacts/validate-change-sfohergk/cohesive-no-action-ln48jxzj/.agents/skills/restructure-documentation/scripts/check_markdown_links.py': [Errno 2] No such file or directory\n"
+          }
+        ]
+      },
+      "oracle": {
+        "enabled": false,
+        "passed": true,
+        "commands": []
+      },
+      "judge": {
+        "enabled": true,
+        "executed": false,
+        "verdict": "SKIPPED",
+        "rationale": "Semantic judge skipped because mechanical checks failed.",
+        "evidence": [],
+        "duration_ms": 0,
+        "usage": {
+          "input_tokens": null,
+          "cached_input_tokens": null,
+          "output_tokens": null,
+          "reasoning_output_tokens": null,
+          "total_tokens": null,
+          "complete": false,
+          "reasoning_output_tokens_complete": false,
+          "events": [],
+          "event_count": 0,
+          "events_complete": false
+        },
+        "failure_category": null
+      },
+      "sessions": {
+        "executor": 1,
+        "judge": 0,
+        "total": 1
+      },
+      "usage": {
+        "input_tokens": 66226,
+        "cached_input_tokens": 47360,
+        "output_tokens": 1653,
+        "reasoning_output_tokens": 523,
+        "total_tokens": 67879,
+        "complete": true,
+        "reasoning_output_tokens_complete": true,
+        "events": [
+          {
+            "input_tokens": 66226,
+            "cached_input_tokens": 47360,
+            "output_tokens": 1653,
+            "sequence": 1,
+            "source_event_type": "turn.completed",
+            "scope": "turn",
+            "reasoning_output_tokens": 523,
+            "total_tokens": 67879,
+            "complete": true,
+            "reasoning_output_tokens_complete": true
+          }
+        ],
+        "event_count": 1,
+        "events_complete": true
+      },
+      "evidence": {
+        "changed_files": [],
+        "diff": "",
+        "fragments": [],
+        "truncated": false,
+        "truncations": [],
+        "limits": {
+          "capture_bytes_per_file": 32768,
+          "diff_bytes_per_file": 12000,
+          "diff_bytes_per_report": 64000,
+          "fragment_bytes": 2000
+        }
+      },
+      "workspace": {
+        "original_path": "/tmp/skill-eval-artifacts/validate-change-sfohergk/cohesive-no-action-ln48jxzj",
+        "retention": "retained"
+      }
+    },
+    {
+      "case_id": "documentation-system-restructure",
+      "status": "INCONCLUSIVE",
+      "kind": "behavioral",
+      "role": "candidate",
+      "repetition": 1,
+      "provenance": "executed",
+      "started_at": "2026-07-27T17:32:53.321239Z",
+      "finished_at": "2026-07-27T17:36:12.478042Z",
+      "duration_ms": 199397,
+      "prompt": "Audit and restructure this existing documentation set for three audiences: a newcomer installing Lantern, an operator looking for recipes, and a contributor needing exact configuration facts. The current files overlap and introduce concepts out of order.\n\nPreserve the existing file paths, the public `README.md#getting-started` and `docs/reference.md#config-file` anchors, the commands `lantern init` and `lantern scan --format json`, the environment variable `LANTERN_CACHE_DIR`, and the fact that configuration schema version 3 is current. Do not edit `AGENTS.md`. Validate all local documentation navigation after the restructure.\n\nIn the final evidence, cite the exact resulting headings and link destinations that route each audience, identify the canonical owner for concepts, procedures, and configuration facts, show where `workspace` is defined before procedural use, and cite where each preserved anchor and fact remains. Do not merely state that validation passed.\n",
+      "executor": {
+        "enabled": true,
+        "executed": true,
+        "exit_code": 0,
+        "duration_ms": 189065,
+        "response": {
+          "summary": "Restructured Lantern documentation around onboarding, operations, and configuration reference ownership.",
+          "classification": "completed",
+          "evidence": [
+            "Newcomer route: [README.md — Getting started](/tmp/skill-eval-artifacts/validate-change-sfohergk/documentation-system-restructure-f2csph5g/README.md:9) links to `docs/concepts.md#workspace`, `docs/cookbook.md`, and `docs/reference.md#config-file`.",
+            "Operator route: [README.md audience link](/tmp/skill-eval-artifacts/validate-change-sfohergk/documentation-system-restructure-f2csph5g/README.md:6) leads to [Cookbook — Initialize and scan](/tmp/skill-eval-artifacts/validate-change-sfohergk/documentation-system-restructure-f2csph5g/docs/cookbook.md:5), which links to `concepts.md#workspace` and `reference.md#config-file`.",
+            "Contributor route: [README.md audience link](/tmp/skill-eval-artifacts/validate-change-sfohergk/documentation-system-restructure-f2csph5g/README.md:7) leads to [Reference — Config file](/tmp/skill-eval-artifacts/validate-change-sfohergk/documentation-system-restructure-f2csph5g/docs/reference.md:5).",
+            "Canonical owners: [Concepts — Workspace](/tmp/skill-eval-artifacts/validate-change-sfohergk/documentation-system-restructure-f2csph5g/docs/concepts.md:5) owns terminology; [Cookbook — Initialize and scan](/tmp/skill-eval-artifacts/validate-change-sfohergk/documentation-system-restructure-f2csph5g/docs/cookbook.md:5) owns procedures; [Reference — Config file](/tmp/skill-eval-artifacts/validate-change-sfohergk/documentation-system-restructure-f2csph5g/docs/reference.md:5) owns configuration facts.",
+            "`workspace` is defined before procedural use in [README.md — Getting started](/tmp/skill-eval-artifacts/validate-change-sfohergk/documentation-system-restructure-f2csph5g/README.md:11), before the command block at line 16; its full canonical definition is [Concepts — Workspace](/tmp/skill-eval-artifacts/validate-change-sfohergk/documentation-system-restructure-f2csph5g/docs/concepts.md:5).",
+            "Preserved interfaces: `README.md#getting-started` remains [Getting started](/tmp/skill-eval-artifacts/validate-change-sfohergk/documentation-system-restructure-f2csph5g/README.md:9); `docs/reference.md#config-file` remains [Config file](/tmp/skill-eval-artifacts/validate-change-sfohergk/documentation-system-restructure-f2csph5g/docs/reference.md:5); commands remain in [Cookbook](/tmp/skill-eval-artifacts/validate-change-sfohergk/documentation-system-restructure-f2csph5g/docs/cookbook.md:10); schema version 3 and `LANTERN_CACHE_DIR` remain in [Reference](/tmp/skill-eval-artifacts/validate-change-sfohergk/documentation-system-restructure-f2csph5g/docs/reference.md:7)."
+          ],
+          "files_changed": [
+            "README.md",
+            "docs/concepts.md",
+            "docs/cookbook.md",
+            "docs/reference.md",
+            "plans/documentation-restructure.md"
+          ],
+          "diagnosis": "The previous set repeated commands and configuration facts, and used `workspace` before defining it in Concepts. No authoritative installation method exists in the supplied repository, so onboarding begins after `lantern` is installed.",
+          "approach": [
+            "Made README the landing page, Concepts the terminology guide, Cookbook the procedure owner, and Reference the configuration owner.",
+            "Retained public headings and replaced overlapping detail with canonical links."
+          ],
+          "decisions": [
+            "Kept `Getting started` and `Config file` headings unchanged to preserve public fragments.",
+            "Centralized schema, cache default, and environment override facts in the reference."
+          ],
+          "rejected_alternatives": [],
+          "key_changes": [
+            "Added explicit audience routing from README.",
+            "Moved runnable initialization and scan guidance to the Cookbook.",
+            "Removed duplicated configuration facts outside the Reference."
+          ],
+          "validation": [
+            "`python3 .agents/skills/restructure-documentation/scripts/check_markdown_links.py README.md docs plans` completed with exit 0, validating all local links and fragments in the restructured documentation set.",
+            "`rg` confirmed the preserved headings, commands, schema-version fact, environment variable, and workspace definition locations.",
+            "No repository-specific documentation check configuration was present; whitespace scan found no trailing whitespace."
+          ]
+        },
+        "usage": {
+          "input_tokens": 287574,
+          "cached_input_tokens": 264704,
+          "output_tokens": 9236,
+          "reasoning_output_tokens": 2721,
+          "total_tokens": 296810,
+          "complete": true,
+          "reasoning_output_tokens_complete": true,
+          "events": [
+            {
+              "input_tokens": 287574,
+              "cached_input_tokens": 264704,
+              "output_tokens": 9236,
+              "sequence": 1,
+              "source_event_type": "turn.completed",
+              "scope": "turn",
+              "reasoning_output_tokens": 2721,
+              "total_tokens": 296810,
+              "complete": true,
+              "reasoning_output_tokens_complete": true
+            }
+          ],
+          "event_count": 1,
+          "events_complete": true
+        }
+      },
+      "mechanical": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "executor exit code",
+            "passed": true,
+            "detail": "expected 0, got 0"
+          },
+          {
+            "name": "executor response schema",
+            "passed": true,
+            "detail": "structured response present and valid"
+          },
+          {
+            "name": "required path: README.md",
+            "passed": true,
+            "detail": "README.md"
+          },
+          {
+            "name": "required path: docs/concepts.md",
+            "passed": true,
+            "detail": "docs/concepts.md"
+          },
+          {
+            "name": "required path: docs/cookbook.md",
+            "passed": true,
+            "detail": "docs/cookbook.md"
+          },
+          {
+            "name": "required path: docs/reference.md",
+            "passed": true,
+            "detail": "docs/reference.md"
+          },
+          {
+            "name": "required path: AGENTS.md",
+            "passed": true,
+            "detail": "AGENTS.md"
+          },
+          {
+            "name": "forbidden changed path: AGENTS.md",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "forbidden changed path: .agents/skills/**",
+            "passed": true,
+            "detail": "no matches"
+          },
+          {
+            "name": "evaluated skill remained unchanged",
+            "passed": true,
+            "detail": "repository-scoped skill hash comparison"
+          },
+          {
+            "name": "command: python3 .agents/skills/restructure-documentation/scripts/check_markdown_links.py README.md docs",
+            "passed": true,
+            "detail": "expected 0, got 0"
+          }
+        ],
+        "commands": [
+          {
+            "argv": [
+              "python3",
+              ".agents/skills/restructure-documentation/scripts/check_markdown_links.py",
+              "README.md",
+              "docs"
+            ],
+            "exit_code": 0,
+            "stdout": "",
+            "stderr": ""
+          }
+        ]
+      },
+      "oracle": {
+        "enabled": true,
+        "passed": true,
+        "commands": [
+          {
+            "argv": [
+              "python3",
+              "{oracle_dir}/check_restructure.py"
+            ],
+            "exit_code": 0,
+            "expected_exit_code": 0,
+            "passed": true,
+            "stdout": "",
+            "stderr": ""
+          }
+        ]
+      },
+      "judge": {
+        "enabled": true,
+        "executed": true,
+        "verdict": "INCONCLUSIVE",
+        "rationale": "The supplied evidence supports that the required files exist, markdown links and anchors validate, and protected paths were not changed. However, the substantive claims about canonical ownership, concept ordering, removal of duplication, and preservation of all prior public facts and language are executor assertions rather than independently inspectable document content or diffs. The evidence is therefore insufficient to conclusively pass all criteria.",
+        "evidence": [
+          "Mechanical checks passed for required paths, unchanged AGENTS.md and skill files, and local markdown links/fragments.",
+          "The executor identifies a plausible separation: README landing page, Concepts terminology, Cookbook procedures, and Reference configuration.",
+          "No before/after diff or document excerpts are supplied to verify that facts and commands were preserved without duplication or that all concepts precede their uses."
+        ],
+        "duration_ms": 10284,
+        "usage": {
+          "input_tokens": 16949,
+          "cached_input_tokens": 11008,
+          "output_tokens": 276,
+          "reasoning_output_tokens": 102,
+          "total_tokens": 17225,
+          "complete": true,
+          "reasoning_output_tokens_complete": true,
+          "events": [
+            {
+              "input_tokens": 16949,
+              "cached_input_tokens": 11008,
+              "output_tokens": 276,
+              "sequence": 1,
+              "source_event_type": "turn.completed",
+              "scope": "turn",
+              "reasoning_output_tokens": 102,
+              "total_tokens": 17225,
+              "complete": true,
+              "reasoning_output_tokens_complete": true
+            }
+          ],
+          "event_count": 1,
+          "events_complete": true
+        },
+        "failure_category": "contract"
+      },
+      "sessions": {
+        "executor": 1,
+        "judge": 1,
+        "total": 2
+      },
+      "usage": {
+        "input_tokens": 304523,
+        "cached_input_tokens": 275712,
+        "output_tokens": 9512,
+        "reasoning_output_tokens": 2823,
+        "total_tokens": 314035,
+        "complete": true,
+        "reasoning_output_tokens_complete": true,
+        "events": [
+          {
+            "input_tokens": 287574,
+            "cached_input_tokens": 264704,
+            "output_tokens": 9236,
+            "sequence": 1,
+            "source_event_type": "turn.completed",
+            "scope": "turn",
+            "reasoning_output_tokens": 2721,
+            "total_tokens": 296810,
+            "complete": true,
+            "reasoning_output_tokens_complete": true
+          },
+          {
+            "input_tokens": 16949,
+            "cached_input_tokens": 11008,
+            "output_tokens": 276,
+            "sequence": 2,
+            "source_event_type": "turn.completed",
+            "scope": "turn",
+            "reasoning_output_tokens": 102,
+            "total_tokens": 17225,
+            "complete": true,
+            "reasoning_output_tokens_complete": true
+          }
+        ],
+        "event_count": 2,
+        "events_complete": true
+      },
+      "evidence": {
+        "changed_files": [
+          "README.md",
+          "docs/concepts.md",
+          "docs/cookbook.md",
+          "docs/reference.md",
+          "plans/documentation-restructure.md"
+        ],
+        "diff": "--- a/README.md\n+++ b/README.md\n@@ -1,24 +1,20 @@\n # Lantern CLI\n \n-Lantern scans workspaces.\n+Lantern scans workspaces. Choose the path that matches your goal:\n \n-Set `LANTERN_CACHE_DIR` if you do not want `.lantern-cache`. Configuration schema version 3 is current. A workspace is a folder with `lantern.toml`, although the examples below already use that term.\n+- New to Lantern and ready to make a first scan? Start with [Getting started](#getting-started).\n+- Operating an existing workspace? Use the goal-based [Cookbook](docs/cookbook.md).\n+- Contributing or checking exact configuration facts? Consult the [Configuration reference](docs/reference.md#config-file).\n \n ## Getting started\n \n-Run:\n+After `lantern` is installed, create a workspace: a workspace is a folder containing `lantern.toml`. The [Workspace concept](docs/concepts.md#workspace) explains that boundary in full.\n+\n+Run these commands from the folder you want Lantern to initialize:\n \n ```console\n lantern init\n lantern scan --format json\n ```\n \n-The scan command emits JSON. For more concepts see [concepts](docs/concepts.md), for commands see [recipes](docs/cookbook.md), and for every exact setting see [configuration](docs/reference.md#config-file).\n-\n-## Configuration\n-\n-The `cache_dir` setting defaults to `.lantern-cache`. `LANTERN_CACHE_DIR` overrides it. Schema version 3 is current.\n-\n-## Recipes\n-\n-To create a workspace run `lantern init`. To scan it run `lantern scan --format json`.\n+The scan command emits JSON. For the next task, follow the [Cookbook](docs/cookbook.md); for configuration vocabulary, see [Concepts](docs/concepts.md); and for exact settings, see the [Configuration reference](docs/reference.md#config-file).\n--- a/docs/concepts.md\n+++ b/docs/concepts.md\n@@ -1,13 +1,13 @@\n # Concepts\n \n-Run `lantern scan --format json` inside a workspace.\n+Concepts define the terms shared by Lantern's recipes and configuration reference.\n \n ## Workspace\n \n-A workspace is a folder containing `lantern.toml`.\n+A workspace is a folder containing `lantern.toml`. The [Cookbook](cookbook.md) shows how to initialize one and operate on it.\n \n ## Configuration\n \n-Lantern uses configuration schema version 3. Set `LANTERN_CACHE_DIR` to override `.lantern-cache`.\n+Configuration belongs to a workspace. The [Configuration reference](reference.md#config-file) is the canonical source for the schema version, settings, defaults, and environment-variable overrides.\n \n-See the [README configuration](../README.md#configuration).\n+To make a first scan after learning these terms, return to [Getting started](../README.md#getting-started).\n--- a/docs/cookbook.md\n+++ b/docs/cookbook.md\n@@ -1,14 +1,16 @@\n # Cookbook\n+\n+Use these goal-based procedures when operating Lantern. If the term is unfamiliar, start with the [workspace definition](concepts.md#workspace).\n \n ## Initialize and scan\n \n-A workspace is a folder containing `lantern.toml`.\n+Create a workspace and emit its scan result as JSON:\n \n ```console\n lantern init\n lantern scan --format json\n ```\n \n-Schema version 3 is current. `LANTERN_CACHE_DIR` changes the cache.\n+Run both commands from the folder you want to initialize. The second command emits JSON.\n \n-See [all configuration](reference.md#config-file).\n+For exact configuration values and overrides, use the [Configuration reference](reference.md#config-file). For a first-run introduction, return to [Getting started](../README.md#getting-started).\n--- a/docs/reference.md\n+++ b/docs/reference.md\n@@ -1,8 +1,10 @@\n # Reference\n+\n+This reference owns Lantern's exact configuration facts. For the workspace concept, see [Workspace](concepts.md#workspace); for procedures, use the [Cookbook](cookbook.md).\n \n ## Config file\n \n-A workspace contains `lantern.toml`. Configuration schema version 3 is current.\n+Configuration schema version 3 is current. The configuration file is `lantern.toml` in a workspace.\n \n | Name | Default |\n | --- | --- |\n@@ -10,6 +12,4 @@\n \n `LANTERN_CACHE_DIR` overrides `cache_dir`.\n \n-Initialize with `lantern init` and scan with `lantern scan --format json`.\n-\n-Return to the [README](../README.md#getting-started).\n+To initialize a workspace and scan it, follow [Initialize and scan](cookbook.md#initialize-and-scan). To begin a first run, return to [Getting started](../README.md#getting-started).\n--- /dev/null\n+++ b/plans/documentation-restructure.md\n@@ -0,0 +1,107 @@\n+# Restructure Lantern documentation\n+\n+This ExecPlan is a living document. Keep `Progress`, `Decisions`, `Risks`, and `Lessons Learned` up to date as work advances.\n+\n+## Purpose / Big Picture\n+\n+Give three Lantern audiences a direct, ordered path: a newcomer can install and make a first scan, an operator can select a recipe, and a contributor can locate the complete configuration contract. The public README getting-started and reference config-file fragments remain valid while each subject gains one canonical owner.\n+\n+## Scope\n+\n+Edit `README.md`, `docs/concepts.md`, `docs/cookbook.md`, and `docs/reference.md`. Preserve `AGENTS.md`, the required commands, environment variable, schema-version fact, and public paths and anchors. This task is limited to authorized documentation maintenance in this repository.\n+\n+## Definitions\n+\n+A workspace is a folder containing `lantern.toml`. A canonical owner is the one document that contains the complete current guidance for a subject; other documents link to it instead of repeating it.\n+\n+## Existing Context\n+\n+The README mixes onboarding, configuration facts, and recipes. `docs/concepts.md` uses workspace before defining it; the cookbook and reference repeat configuration facts and commands. No repository-specific documentation checker is present, so local links will be checked with the bundled validator.\n+\n+## Desired End State\n+\n+The README is the landing page, concepts owns vocabulary, the cookbook owns procedures, and the reference owns exact configuration facts. Each named audience can navigate directly to its outcome and all local links and preserved fragments resolve.\n+\n+## Milestones\n+\n+### Milestone 1 - Establish routes and ownership\n+\n+#### Goal\n+\n+Separate the landing, concept, recipe, and reference responsibilities while retaining public interfaces.\n+\n+#### Changes\n+\n+- [x] Edit `README.md` to route audiences and place the workspace definition before first-run commands.\n+- [x] Edit `docs/concepts.md` to own the workspace definition and conceptual links.\n+- [x] Edit `docs/cookbook.md` to own the initialize-and-scan procedure.\n+- [x] Edit `docs/reference.md` to own exact configuration facts and retain `#config-file`.\n+\n+#### Validation\n+\n+- [ ] Command: `python3 .agents/skills/restructure-documentation/scripts/check_markdown_links.py README.md docs`\n+- [ ] Expected result: exit 0 and no broken local navigation.\n+\n+#### Acceptance Criteria\n+\n+- [ ] Each audience has an explicit entry route and destination.\n+- [ ] Commands and configuration contracts are preserved at their appropriate owner.\n+\n+### Milestone 2 - Verify navigation and interfaces\n+\n+#### Goal\n+\n+Prove the public links, anchors, and factual contracts survived the restructure.\n+\n+#### Changes\n+\n+- [x] Inspect heading and link inventory, preserved strings, and final diff.\n+\n+#### Validation\n+\n+- [ ] Command: `python3 .agents/skills/restructure-documentation/scripts/check_markdown_links.py README.md docs`\n+- [ ] Expected result: exit 0.\n+- [ ] Command: `rg -n '^(#|##) |lantern init|lantern scan --format json|LANTERN_CACHE_DIR|schema version 3' README.md docs`\n+- [ ] Expected result: required headings and factual contracts are present.\n+\n+#### Acceptance Criteria\n+\n+- [ ] `README.md#getting-started` and `docs/reference.md#config-file` resolve.\n+\n+## Progress\n+\n+- [x] Milestone 1 started\n+- [x] Milestone 1 completed\n+- [x] Milestone 2 started\n+- [x] Milestone 2 completed\n+\n+## Decisions\n+\n+- Decision: Keep existing public heading text for `Getting started` and `Config file`.\n+  Rationale: Their generated fragments are named public interfaces.\n+  Date/Author: 2026-07-27 / Codex\n+- Decision: Make the reference the sole owner of schema version, cache default, and environment-variable override facts.\n+  Rationale: These are exact configuration facts needed by contributors.\n+  Date/Author: 2026-07-27 / Codex\n+\n+## Risks and Mitigations\n+\n+- Risk: Moving headings may break inbound fragments.\n+  Mitigation: Retain the public heading text and run the local link validator.\n+- Risk: A recipe could use workspace before a reader knows its meaning.\n+  Mitigation: Define it in the onboarding route and link the recipe to its canonical concept definition.\n+\n+## Validation Strategy\n+\n+1. Search headings, links, commands, and preserved facts.\n+2. Run the bundled local Markdown link validator across the README and docs directory.\n+3. Review the final diff and walk the three audience routes.\n+\n+## Rollout and Recovery\n+\n+These are static documentation changes. Publish the four changed Markdown files together. Revert those files together if a downstream consumer needs the former organization; preserved paths and fragments remain stable.\n+\n+## Lessons Learned\n+\n+- The repository contains no separate project documentation check command; the bundled validator is the applicable local navigation check.\n+- The available documents do not identify an installation method, so the newcomer path starts after `lantern` is installed rather than documenting an unverified command.\n",
+        "fragments": [
+          {
+            "path": "README.md",
+            "before_sha256": "0900573f7789b343cb204f897069eaaaee22a28afb03a99ef0a36d4360f9ce6e",
+            "after_sha256": "94164cfaef58300832da60fb84a7f49d6f34ceeac59661cfce1ce85e1edcd9aa",
+            "before_size": 768,
+            "after_size": 961,
+            "before": "# Lantern CLI\n\nLantern scans workspaces.\n\nSet `LANTERN_CACHE_DIR` if you do not want `.lantern-cache`. Configuration schema version 3 is current. A workspace is a folder with `lantern.toml`, although the examples below already use that term.\n\n## Getting started\n\nRun:\n\n```console\nlantern init\nlantern scan --format json\n```\n\nThe scan command emits JSON. For more concepts see [concepts](docs/concepts.md), for commands see [recipes](docs/cookbook.md), and for every exact setting see [configuration](docs/reference.md#config-file).\n\n## Configuration\n\nThe `cache_dir` setting defaults to `.lantern-cache`. `LANTERN_CACHE_DIR` overrides it. Schema version 3 is current.\n\n## Recipes\n\nTo create a workspace run `lantern init`. To scan it run `lantern scan --format json`.\n",
+            "after": "# Lantern CLI\n\nLantern scans workspaces. Choose the path that matches your goal:\n\n- New to Lantern and ready to make a first scan? Start with [Getting started](#getting-started).\n- Operating an existing workspace? Use the goal-based [Cookbook](docs/cookbook.md).\n- Contributing or checking exact configuration facts? Consult the [Configuration reference](docs/reference.md#config-file).\n\n## Getting started\n\nAfter `lantern` is installed, create a workspace: a workspace is a folder containing `lantern.toml`. The [Workspace concept](docs/concepts.md#workspace) explains that boundary in full.\n\nRun these commands from the folder you want Lantern to initialize:\n\n```console\nlantern init\nlantern scan --format json\n```\n\nThe scan command emits JSON. For the next task, follow the [Cookbook](docs/cookbook.md); for configuration vocabulary, see [Concepts](docs/concepts.md); and for exact settings, see the [Configuration reference](docs/reference.md#config-file).\n",
+            "binary": false
+          },
+          {
+            "path": "docs/concepts.md",
+            "before_sha256": "ccc05427765f40743473c64dcf9554c0bf22b70cebbe780d92d60eed7f1825a3",
+            "after_sha256": "8b3402c39c763fc2cbdb15200dcce7630c97f053b34c8298c8916e3cd967e30f",
+            "before_size": 310,
+            "after_size": 562,
+            "before": "# Concepts\n\nRun `lantern scan --format json` inside a workspace.\n\n## Workspace\n\nA workspace is a folder containing `lantern.toml`.\n\n## Configuration\n\nLantern uses configuration schema version 3. Set `LANTERN_CACHE_DIR` to override `.lantern-cache`.\n\nSee the [README configuration](../README.md#configuration).\n",
+            "after": "# Concepts\n\nConcepts define the terms shared by Lantern's recipes and configuration reference.\n\n## Workspace\n\nA workspace is a folder containing `lantern.toml`. The [Cookbook](cookbook.md) shows how to initialize one and operate on it.\n\n## Configuration\n\nConfiguration belongs to a workspace. The [Configuration reference](reference.md#config-file) is the canonical source for the schema version, settings, defaults, and environment-variable overrides.\n\nTo make a first scan after learning these terms, return to [Getting started](../README.md#getting-started).\n",
+            "binary": false
+          },
+          {
+            "path": "docs/cookbook.md",
+            "before_sha256": "6a5e1217047619659f68bcc9b5defbea24669e5174a5dee64b9d5586a7c5b7ef",
+            "after_sha256": "48266bd4846ca5c6b5ad3c74b2939efab94ee215e471e513c6c0af39153f24dd",
+            "before_size": 264,
+            "after_size": 578,
+            "before": "# Cookbook\n\n## Initialize and scan\n\nA workspace is a folder containing `lantern.toml`.\n\n```console\nlantern init\nlantern scan --format json\n```\n\nSchema version 3 is current. `LANTERN_CACHE_DIR` changes the cache.\n\nSee [all configuration](reference.md#config-file).\n",
+            "after": "# Cookbook\n\nUse these goal-based procedures when operating Lantern. If the term is unfamiliar, start with the [workspace definition](concepts.md#workspace).\n\n## Initialize and scan\n\nCreate a workspace and emit its scan result as JSON:\n\n```console\nlantern init\nlantern scan --format json\n```\n\nRun both commands from the folder you want to initialize. The second command emits JSON.\n\nFor exact configuration values and overrides, use the [Configuration reference](reference.md#config-file). For a first-run introduction, return to [Getting started](../README.md#getting-started).\n",
+            "binary": false
+          },
+          {
+            "path": "docs/reference.md",
+            "before_sha256": "351f5fe0e86efaf44a77922d58371aee2e4eda238ea6da55b5213ec50101df47",
+            "after_sha256": "78fbec3ea44d7dffd96bec7b49612a9e4039e0bf463c9f8f97688d80fa0c838f",
+            "before_size": 353,
+            "after_size": 600,
+            "before": "# Reference\n\n## Config file\n\nA workspace contains `lantern.toml`. Configuration schema version 3 is current.\n\n| Name | Default |\n| --- | --- |\n| `cache_dir` | `.lantern-cache` |\n\n`LANTERN_CACHE_DIR` overrides `cache_dir`.\n\nInitialize with `lantern init` and scan with `lantern scan --format json`.\n\nReturn to the [README](../README.md#getting-started).\n",
+            "after": "# Reference\n\nThis reference owns Lantern's exact configuration facts. For the workspace concept, see [Workspace](concepts.md#workspace); for procedures, use the [Cookbook](cookbook.md).\n\n## Config file\n\nConfiguration schema version 3 is current. The configuration file is `lantern.toml` in a workspace.\n\n| Name | Default |\n| --- | --- |\n| `cache_dir` | `.lantern-cache` |\n\n`LANTERN_CACHE_DIR` overrides `cache_dir`.\n\nTo initialize a workspace and scan it, follow [Initialize and scan](cookbook.md#initialize-and-scan). To begin a first run, return to [Getting started](../README.md#getting-started).\n",
+            "binary": false
+          },
+          {
+            "path": "plans/documentation-restructure.md",
+            "before_sha256": null,
+            "after_sha256": "90009c6f990fac60ef0c00a91ae6cb441e958098e9bc457ffa51a2140f620996",
+            "before_size": null,
+            "after_size": 4940,
+            "before": "",
+            "after": "# Restructure Lantern documentation\n\nThis ExecPlan is a living document. Keep `Progress`, `Decisions`, `Risks`, and `Lessons Learned` up to date as work advances.\n\n## Purpose / Big Picture\n\nGive three Lantern audiences a direct, ordered path: a newcomer can install and make a first scan, an operator can select a recipe, and a contributor can locate the complete configuration contract. The public README getting-started and reference config-file fragments remain valid while each subject gains one canonical owner.\n\n## Scope\n\nEdit `README.md`, `docs/concepts.md`, `docs/cookbook.md`, and `docs/reference.md`. Preserve `AGENTS.md`, the required commands, environment variable, schema-version fact, and public paths and anchors. This task is limited to authorized documentation maintenance in this repository.\n\n## Definitions\n\nA workspace is a folder containing `lantern.toml`. A canonical owner is the one document that contains the complete current guidance for a subject; other documents link to it instead of repeating it.\n\n## Existing Context\n\nThe README mixes onboarding, configuration facts, and recipes. `docs/concepts.md` uses workspace before defining it; the cookbook and reference repeat configuration facts and commands. No repository-specific documentation checker is present, so local links will be checked with the bundled validator.\n\n## Desired End State\n\nThe README is the landing page, concepts owns vocabulary, the cookbook owns procedures, and the reference owns exact configuration facts. Each named audience can navigate directly to its outcome and all local links and preserved fragments resolve.\n\n## Milestones\n\n### Milestone 1 - Establish routes and ownership\n\n#### Goal\n\nSeparate the landing, concept, recipe, and reference responsibilities while retaining public interfaces.\n\n#### Changes\n\n- [x] Edit `README.md` to route audiences and place the workspace definition before first-run commands.\n- [x] Edit `docs/concepts.md` to own the workspace definition and conceptual l\n[truncated]",
+            "binary": false
+          }
+        ],
+        "truncated": false,
+        "truncations": [],
+        "limits": {
+          "capture_bytes_per_file": 32768,
+          "diff_bytes_per_file": 12000,
+          "diff_bytes_per_report": 64000,
+          "fragment_bytes": 2000
+        }
+      },
+      "workspace": {
+        "original_path": "/tmp/skill-eval-artifacts/validate-change-sfohergk/documentation-system-restructure-f2csph5g",
+        "retention": "retained"
+      }
+    }
+  ],
+  "limitations": [
+    "No raw Codex JSONL or complete transcript is persisted.",
+    "Structured executor fields record concise declared decisions, not private reasoning.",
+    "Diffs and text fragments are sanitized and bounded."
+  ],
+  "report_digest": {
+    "algorithm": "sha256",
+    "value": "1ccd81d9275a627af3ec623f03eae7b42ab2b1149267d25a6ece77d49f223752"
+  }
+}
