@@ -38,14 +38,18 @@ for term in required_plan_terms:
     print(f"ExecPlan missing workflow evidence: {term}", file=sys.stderr)
     raise SystemExit(1)
 
-if not any(
-  phrase in lower_plan
-  for phrase in (
-    "contributing.md requires no change",
-    "no change to contributing.md",
-    "contributing.md does not require",
-    "contributing.md remains accurate",
-  )
+documentation_match = re.search(
+  r"(?ims)^##\s+Documentation Impact\s*$"
+  r"(.*?)(?=^##\s+|\Z)",
+  plan,
+)
+documentation_impact = documentation_match.group(1).lower()
+no_change_terms = ("unchanged", "no change", "does not require", "remains accurate")
+justification_terms = ("validation", "pricing", "contributor", "workflow")
+if (
+  "contributing.md" not in documentation_impact
+  or not any(term in documentation_impact for term in no_change_terms)
+  or not any(term in documentation_impact for term in justification_terms)
 ):
   print("ExecPlan does not justify leaving CONTRIBUTING.md unchanged", file=sys.stderr)
   raise SystemExit(1)

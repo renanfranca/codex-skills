@@ -234,6 +234,7 @@ test('rejects a manifest report path outside the evaluation archive', () => {
 test('generates a project landing page that leads readers to evidence', () => {
   const output = mkdtempSync(join(tmpdir(), 'codex-skills-home-'));
   const repository = join(websiteDirectory, '..');
+  const manifest = JSON.parse(readFileSync(join(repository, 'evaluation-reports', 'manifest.json'), 'utf8'));
 
   execFileSync(
     process.execPath,
@@ -253,7 +254,7 @@ test('generates a project landing page that leads readers to evidence', () => {
 
   assert.match(homePage, /Evaluating<br>Codex Skills/);
   assert.match(homePage, /Evidence of how effectively skills guide Codex behavior\./);
-  assert.match(homePage, /44 archived operations/);
+  assert.match(homePage, new RegExp(`${manifest.report_count} archived operations`));
   assert.match(homePage, /href="\/codex-skills\/skills\/"/);
   assert.match(homePage, /href="\/codex-skills\/evaluations\/"/);
 });

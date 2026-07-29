@@ -1,4 +1,7 @@
 import { expect, test } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+
+const archiveManifest = JSON.parse(readFileSync(new URL('../../evaluation-reports/manifest.json', import.meta.url), 'utf8'));
 
 test('a reader can move from the project purpose to the skill catalog', async ({ page }) => {
   const consoleErrors = [];
@@ -10,7 +13,7 @@ test('a reader can move from the project purpose to the skill catalog', async ({
 
   await expect(page.getByRole('heading', { level: 1, name: 'Evaluating Codex Skills' })).toBeVisible();
   await expect(page.getByText('Evidence of how effectively skills guide Codex behavior.')).toBeVisible();
-  await expect(page.getByText('44 archived operations')).toBeVisible();
+  await expect(page.getByText(`${archiveManifest.report_count} archived operations`)).toBeVisible();
   await page.getByRole('link', { name: /Explore the skills/ }).click();
   await expect(page).toHaveURL(/\/codex-skills\/skills\/?$/);
   await expect(

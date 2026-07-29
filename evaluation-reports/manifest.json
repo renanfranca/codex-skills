@@ -1,7 +1,7 @@
 {
   "version": 1,
   "canonical_format": "report.json",
-  "report_count": 44,
+  "report_count": 46,
   "reports": [
     {
       "skill": "develop-skill-with-evals",
@@ -553,6 +553,44 @@
       "duration_ms": 1239588,
       "digest": "75d867f3edfa359aabda64cc51890efe2a7604959229d50d9bf8e5a1af10c42a",
       "path": "develop-skill-with-evals/operations/20260728T113254.537174Z-d01790d9d1d6/report.json"
+    },
+    {
+      "skill": "execplan-tdd",
+      "operation_id": "20260729T165358.661874Z-f0f172c87a08",
+      "operation": "validate-change",
+      "status": "FAIL",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 3,
+      "tokens": {
+        "input": 1311806,
+        "cached_input": 1194240,
+        "output": 15648,
+        "reasoning_output": 2165,
+        "total": 1327454
+      },
+      "duration_ms": 417106,
+      "digest": "a043885a5630c7a1db4c4220e7369ac3ec07eb5b71593cc17a0a0d0621376cbe",
+      "path": "execplan-tdd/operations/20260729T165358.661874Z-f0f172c87a08/report.json"
+    },
+    {
+      "skill": "execplan-tdd",
+      "operation_id": "20260729T165518.231174Z-f03918253da4",
+      "operation": "validate-change",
+      "status": "FAIL",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 3,
+      "tokens": {
+        "input": 1069917,
+        "cached_input": 955648,
+        "output": 13663,
+        "reasoning_output": 2631,
+        "total": 1083580
+      },
+      "duration_ms": 357038,
+      "digest": "d156d4ab45d6fe7ce52875beeb820e0077165460f22cc9c13c5ccbf07cacd55e",
+      "path": "execplan-tdd/operations/20260729T165518.231174Z-f03918253da4/report.json"
     },
     {
       "skill": "refactor-design",

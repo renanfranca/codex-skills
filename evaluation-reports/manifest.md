@@ -1,6 +1,6 @@
 # Evaluation report archive
 
-- Canonical reports: `44`
+- Canonical reports: `46`
 - Canonical format: `report.json`
 - Markdown and comparisons are deterministic projections.
 
@@ -35,6 +35,8 @@
 | develop-skill-with-evals | 20260727T132448.821094Z-1fcd91faa06a | validate-change | PASS | gpt-5.6-sol | 16 | 5583284 | 1778061 | 26c0f53f77375d0ec6d655f2ae7b010f39b1d9fa5e4d60641442287f4118109b | develop-skill-with-evals/operations/20260727T132448.821094Z-1fcd91faa06a/report.json |
 | develop-skill-with-evals | 20260728T104228.600043Z-ac887a5415d6 | validate-change | FAIL | gpt-5.6-sol | 2 | 823550 | 310629 | abb505e69a5f48ed9e270545ef31fceb0cd2eb48cb0add06078b27b7b3bc54fc | develop-skill-with-evals/operations/20260728T104228.600043Z-ac887a5415d6/report.json |
 | develop-skill-with-evals | 20260728T113254.537174Z-d01790d9d1d6 | validate-change | FAIL | gpt-5.6-sol | 13 | 3620743 | 1239588 | 75d867f3edfa359aabda64cc51890efe2a7604959229d50d9bf8e5a1af10c42a | develop-skill-with-evals/operations/20260728T113254.537174Z-d01790d9d1d6/report.json |
+| execplan-tdd | 20260729T165358.661874Z-f0f172c87a08 | validate-change | FAIL | gpt-5.6-sol | 3 | 1327454 | 417106 | a043885a5630c7a1db4c4220e7369ac3ec07eb5b71593cc17a0a0d0621376cbe | execplan-tdd/operations/20260729T165358.661874Z-f0f172c87a08/report.json |
+| execplan-tdd | 20260729T165518.231174Z-f03918253da4 | validate-change | FAIL | gpt-5.6-sol | 3 | 1083580 | 357038 | d156d4ab45d6fe7ce52875beeb820e0077165460f22cc9c13c5ccbf07cacd55e | execplan-tdd/operations/20260729T165518.231174Z-f03918253da4/report.json |
 | refactor-design | 20260727T144730.399249Z-24a76a532c0b | run | PASS | gpt-5.6-sol | 12 | 816083 | 309182 | 8fbe3c4297fa5d0f3b2dda77656e734ab2c8e97eaaf39c0f295b42d92a18925c | refactor-design/operations/20260727T144730.399249Z-24a76a532c0b/report.json |
 | refactor-design | 20260727T160511.110609Z-1cf9aa1bccaf | probe-change | ERROR | gpt-5.6-sol | 1 | unknown | 325 | 91df6fdba4518e996ab34bcd300761ea4a1f08a430c886d117a59be4de0506ea | refactor-design/operations/20260727T160511.110609Z-1cf9aa1bccaf/report.json |
 | refactor-design | 20260727T170755.244350Z-e1c34d62c6a5 | run | FAIL | gpt-5.6-sol | 22 | 1831567 | 845621 | 8e0da479584a0183390a863639b70080a2470f68232e799545b963d6d634337d | refactor-design/operations/20260727T170755.244350Z-e1c34d62c6a5/report.json |
