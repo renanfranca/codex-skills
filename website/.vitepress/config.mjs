@@ -5,8 +5,8 @@ const contentConfig = JSON.parse(readFileSync(new URL('../content-config.json', 
 
 export default defineConfig({
   lang: 'en-US',
-  title: 'Codex Skills',
-  description: 'Reusable Codex workflows with inspectable evaluation evidence.',
+  title: 'Evaluating Codex Skills',
+  description: 'Evidence of how effectively skills guide Codex behavior.',
   base: contentConfig.base,
   srcDir: '.generated',
   cleanUrls: true,
@@ -29,7 +29,7 @@ export default defineConfig({
     logo: {
       light: '/mark-light.svg',
       dark: '/mark-dark.svg',
-      alt: 'Codex Skills',
+      alt: 'Evaluating Codex Skills',
     },
     nav: [
       { text: 'Skills', link: '/skills/' },

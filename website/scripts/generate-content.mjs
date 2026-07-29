@@ -445,16 +445,16 @@ function renderHome(skills, reports) {
     .join('\n');
 
   return `---
-title: Codex Skills
-description: Reusable Codex workflows with inspectable evaluation evidence.
+title: Evaluating Codex Skills
+description: Evidence of how effectively skills guide Codex behavior.
 layout: page
 ---
 
 <div class="home-hero">
   <div class="hero-copy">
     <span class="eyebrow">Open workflows · Recorded evidence</span>
-    <h1>Codex Skills</h1>
-    <p>Reusable ways of working for Codex, explained through the evaluation runs that exercised them.</p>
+    <h1>Evaluating<br>Codex Skills</h1>
+    <p>Evidence of how effectively skills guide Codex behavior.</p>
     <div class="hero-actions">
       <a class="primary-action" href="${siteRoute('/skills/')}">Explore the skills <span>→</span></a>
       <a class="secondary-action" href="${siteRoute('/evaluations/')}">Inspect evaluation evidence</a>

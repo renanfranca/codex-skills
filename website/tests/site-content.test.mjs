@@ -251,7 +251,8 @@ test('generates a project landing page that leads readers to evidence', () => {
 
   const homePage = readFileSync(join(output, 'index.md'), 'utf8');
 
-  assert.match(homePage, /Codex Skills/);
+  assert.match(homePage, /Evaluating<br>Codex Skills/);
+  assert.match(homePage, /Evidence of how effectively skills guide Codex behavior\./);
   assert.match(homePage, /44 archived operations/);
   assert.match(homePage, /href="\/codex-skills\/skills\/"/);
   assert.match(homePage, /href="\/codex-skills\/evaluations\/"/);

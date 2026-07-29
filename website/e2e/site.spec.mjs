@@ -8,7 +8,8 @@ test('a reader can move from the project purpose to the skill catalog', async ({
 
   await page.goto('./');
 
-  await expect(page.getByRole('heading', { level: 1, name: 'Codex Skills' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Evaluating Codex Skills' })).toBeVisible();
+  await expect(page.getByText('Evidence of how effectively skills guide Codex behavior.')).toBeVisible();
   await expect(page.getByText('44 archived operations')).toBeVisible();
   await page.getByRole('link', { name: /Explore the skills/ }).click();
   await expect(page).toHaveURL(/\/codex-skills\/skills\/?$/);
@@ -19,6 +20,20 @@ test('a reader can move from the project purpose to the skill catalog', async ({
     }),
   ).toBeVisible();
   expect(consoleErrors).toEqual([]);
+});
+
+test('the public mark matches the approved evidence identity in both themes', async ({ page }) => {
+  await page.goto('./');
+
+  const mark = page.getByRole('img', { name: 'Evaluating Codex Skills' });
+  await expect(mark).toHaveScreenshot('evidence-mark-light.png');
+
+  const themeSwitch = page.getByRole('switch', { name: 'Switch to dark theme' });
+  if (!(await themeSwitch.isVisible())) {
+    await page.getByRole('button', { name: 'mobile navigation' }).click();
+  }
+  await themeSwitch.click();
+  await expect(mark).toHaveScreenshot('evidence-mark-dark.png');
 });
 
 test('a reader can inspect a failed operation instead of seeing only passes', async ({ page }) => {
