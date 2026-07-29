@@ -28,6 +28,18 @@ For a skill shared by one project, copy it to `<repository>/.agents/skills` inst
 Use $refactor-design to review this completed green change. Limit work to the changed scope, preserve its public contract, apply only the smallest justified refactor, rerun the relevant suite and public checkpoint, and pause at any exception gate.
 ```
 
+Repository contributors also need the separate audit memory clone for ExecPlans, decisions, evidence, and lessons:
+
+```bash
+git clone https://github.com/renanfranca/codex-skills-ai-context.git _temporary/codex-skills-ai-context
+```
+
+The root `AGENTS.md` defines the required remote check and safety boundary. For website work, start Codex in the nested scope so its persistent workflow profile loads automatically:
+
+```bash
+codex --cd website
+```
+
 ## Skill catalog
 
 ### Skill development and design
@@ -36,11 +48,14 @@ Use $refactor-design to review this completed green change. Limit work to the ch
 - [`restructure-documentation`](restructure-documentation/SKILL.md) — Audit and reorganize existing documentation around clear audiences, canonical sources, ordered concepts, and validated navigation.
 - [`refactor-design`](refactor-design/SKILL.md) — Review completed green implementations for structural risks and apply behavior preserving refactors.
 - [`implement-execplan`](implement-execplan/SKILL.md) — Create, maintain, and execute self contained living plans for substantial or handoff sensitive work.
+- [`execplan-tdd`](execplan-tdd/SKILL.md) — Guide repository code changes through a living ExecPlan, behavior TDD, public checkpoint, design review, documentation reconciliation, and final validation.
 
 ### Seed4J workflows
 
 - [`seed4j-execplan-tdd`](seed4j-execplan-tdd/SKILL.md) — Combine a living ExecPlan, behavior focused TDD, and post GREEN design review for substantial `seed4j-cli` changes.
 - [`seed4j-worktree-flow`](seed4j-worktree-flow/SKILL.md) — Audit, create, and clean up Seed4J CLI feature worktrees while keeping the main worktree stable.
+
+`seed4j-execplan-tdd` remains available without behavioral changes. Remove it only after the Seed4J project adopts `execplan-tdd` and declares its own complete workflow profile in `AGENTS.md`.
 
 ### Test driven development
 

@@ -337,7 +337,11 @@ test('keeps disabled compatibility skills out of the public catalog', () => {
 
   const model = JSON.parse(readFileSync(join(output, 'data.json'), 'utf8'));
 
-  assert.equal(model.skills.length, 9);
+  assert.equal(model.skills.length, 10);
+  assert.equal(
+    model.skills.some(skill => skill.slug === 'execplan-tdd'),
+    true,
+  );
   assert.equal(
     model.skills.some(skill => skill.slug === 'tdd-strict-autonomous'),
     false,

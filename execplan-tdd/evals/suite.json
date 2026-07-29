@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "cases": [
+    "repository-profile-implementation",
+    "incomplete-profile-gate",
+    "documentation-only-boundary"
+  ]
+}

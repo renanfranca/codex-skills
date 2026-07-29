@@ -1,0 +1,18 @@
+{
+  "id": "incomplete-profile-gate",
+  "kind": "behavioral",
+  "prompt_file": "prompt.md",
+  "mechanical": {
+    "expected_exit_code": 0,
+    "forbidden_changed_paths": ["*"]
+  },
+  "judge": {
+    "enabled": true,
+    "criteria": [
+      "The executor detects that the repository profile omits the public checkpoint and canonical documentation sources.",
+      "It stops before creating or updating an ExecPlan, tests, code, configuration, or documentation.",
+      "It reports the exact missing profile fields and requests repository level clarification instead of inventing commands, sources, destinations, or fallback locations."
+    ],
+    "no_action_acceptable": true
+  }
+}

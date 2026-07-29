@@ -1,0 +1,42 @@
+{
+  "id": "repository-profile-implementation",
+  "kind": "behavioral",
+  "prompt_file": "prompt.md",
+  "mechanical": {
+    "expected_exit_code": 0,
+    "required_paths": [".plans", "pricing.py", "test_pricing.py", "README.md", "api-schema.json"],
+    "forbidden_changed_paths": [".generated/**", ".agents/skills/**"],
+    "commands": [
+      {
+        "argv": ["python3", "-m", "unittest", "-q"],
+        "exit_code": 0
+      },
+      {
+        "argv": ["python3", "public_check.py"],
+        "exit_code": 0
+      },
+      {
+        "argv": ["python3", "docs_check.py"],
+        "exit_code": 0
+      }
+    ]
+  },
+  "oracle": {
+    "commands": [
+      {
+        "argv": ["python3", "{oracle_dir}/check_workflow.py"],
+        "exit_code": 0
+      }
+    ]
+  },
+  "judge": {
+    "enabled": true,
+    "criteria": [
+      "The executor follows the complete repository profile and maintains a self contained living ExecPlan in .plans before implementing the member discount.",
+      "The executor uses behavior focused TDD, makes the relevant suite and public checkpoint green before design review, and returns to TDD if review discovers missing behavior.",
+      "The executor reconciles README.md and api-schema.json, records why CONTRIBUTING.md needs no change, does not edit .generated, and runs the repository's complete final validation.",
+      "The final evidence reports the ordered workflow, concrete changed files, and validation outcomes without claiming hidden or unavailable evidence."
+    ],
+    "no_action_acceptable": false
+  }
+}

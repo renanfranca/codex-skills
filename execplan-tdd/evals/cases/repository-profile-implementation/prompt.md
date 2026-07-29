@@ -1,0 +1,1 @@
+Use $execplan-tdd to add the documented 10 percent member discount to the small pricing library in this repository. A member purchase of 1000 cents must total 900 cents, while the existing nonmember behavior must remain unchanged. Follow the repository instructions and finish the authorized implementation.

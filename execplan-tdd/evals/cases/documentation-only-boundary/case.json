@@ -1,0 +1,28 @@
+{
+  "id": "documentation-only-boundary",
+  "kind": "trigger",
+  "prompt_file": "prompt.md",
+  "implicit_skill": true,
+  "mechanical": {
+    "expected_exit_code": 0,
+    "required_paths": ["README.md"],
+    "forbidden_changed_paths": [".agents/skills/**"]
+  },
+  "oracle": {
+    "commands": [
+      {
+        "argv": ["python3", "{oracle_dir}/check_boundary.py"],
+        "exit_code": 0
+      }
+    ]
+  },
+  "judge": {
+    "enabled": true,
+    "criteria": [
+      "The executor treats the isolated documentation correction as outside execplan-tdd because no code behavior changes.",
+      "It makes only the requested README correction and does not create an ExecPlan, tests, implementation files, or a design review ceremony.",
+      "The response does not claim that execplan-tdd governs documentation only work."
+    ],
+    "no_action_acceptable": false
+  }
+}

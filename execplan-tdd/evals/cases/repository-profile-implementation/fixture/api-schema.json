@@ -1,0 +1,9 @@
+{
+  "total": {
+    "parameters": {
+      "cents": {
+        "type": "integer"
+      }
+    }
+  }
+}

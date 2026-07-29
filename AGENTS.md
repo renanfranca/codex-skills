@@ -11,6 +11,22 @@ This repository contains self contained Codex skills. Each top level skill direc
 
 Repository guides live in `README.md`, `CODEX_CLI.md`, and `EVALUATIONS.md`. Treat `.system/` as Codex managed and `_temporary/` as local scratch space; neither belongs in normal contributions.
 
+## Auditable Project Memory
+
+Use `_temporary/codex-skills-ai-context` as the required local clone for ExecPlans and durable project memory. Before creating an ExecPlan:
+
+1. Confirm that `_temporary/codex-skills-ai-context` is an existing Git worktree.
+2. Confirm that its `origin` is exactly `https://github.com/renanfranca/codex-skills-ai-context.git`.
+3. Stop before creating the plan if either check fails.
+
+Never use another location as a fallback. Do not clone the memory repository automatically, and do not commit or push either repository unless the user explicitly requests it.
+
+Name new plans `<YYYY-MM-DD>_<TYPE>_<short-kebab-title>-exec-plan.md`, where `TYPE` is a concise uppercase category such as `FEATURE`, `FIX`, `REFACTOR`, `DOCS`, or `TEST`.
+
+Every ExecPlan must remain fully self contained. Historical files in the memory repository provide complementary context only and do not promise a complete project history.
+
+When the changed scope includes `website/`, read and follow `website/AGENTS.md` in addition to this file.
+
 ## Build, Test, and Development Commands
 
 There is no compilation or packaging step. Run commands from the repository root:

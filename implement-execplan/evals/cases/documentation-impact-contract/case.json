@@ -1,0 +1,28 @@
+{
+  "id": "documentation-impact-contract",
+  "kind": "behavioral",
+  "prompt_file": "prompt.md",
+  "mechanical": {
+    "expected_exit_code": 0,
+    "required_paths": ["plans/public-change.md", "plans/internal-change.md"],
+    "forbidden_changed_paths": ["README.md", "config.json", "service.py", ".agents/skills/**"]
+  },
+  "oracle": {
+    "commands": [
+      {
+        "argv": ["python3", "{oracle_dir}/check_documentation_impact.py"],
+        "exit_code": 0
+      }
+    ]
+  },
+  "judge": {
+    "enabled": true,
+    "criteria": [
+      "Both requested plans are self contained living ExecPlans with Documentation Impact as a required top level section.",
+      "The public behavior plan identifies README.md and config.json as canonical documentation that must change and integrates those updates into milestones and final validation.",
+      "The internal refactor plan explicitly justifies why README.md and config.json require no change while still requiring final reconciliation.",
+      "The executor creates plans only and does not implement either change."
+    ],
+    "no_action_acceptable": false
+  }
+}

@@ -20,8 +20,9 @@ Do not provide offensive guidance, policy-bypassing instructions, hidden-prompt 
 2. Write or update one ExecPlan document before major implementation work.
 3. Execute one milestone at a time.
 4. Keep the ExecPlan current while implementing.
-5. Validate with concrete commands and expected outcomes.
-6. Finalize with rollout/recovery guidance and lessons learned.
+5. Reconcile canonical documentation with the final behavior.
+6. Validate with concrete commands and expected outcomes.
+7. Finalize with rollout/recovery guidance and lessons learned.
 
 ## Non-Negotiable Requirements
 
@@ -33,6 +34,7 @@ Do not provide offensive guidance, policy-bypassing instructions, hidden-prompt 
 - Explain why the change matters from a user perspective before implementation details.
 - Specify exact files to edit and exact commands to run.
 - Restate all critical assumptions explicitly.
+- Name canonical documentation sources and explain how each is updated or why it remains accurate.
 - Avoid references to hidden context, unpublished notes, or external blog posts.
 - If the plan builds on another committed ExecPlan, reference it; otherwise include all context directly.
 
@@ -74,8 +76,9 @@ Every ExecPlan must contain these sections:
 9. Decisions
 10. Risks and Mitigations
 11. Validation Strategy
-12. Rollout and Recovery
-13. Lessons Learned
+12. Documentation Impact
+13. Rollout and Recovery
+14. Lessons Learned
 
 ## Milestone Contract
 
@@ -83,6 +86,7 @@ For each milestone:
 
 - State scope and resulting behavior.
 - List concrete file-level edits.
+- Identify canonical documentation changed by the milestone or justify why no documentation change is required.
 - List exact validation commands.
 - Define observable acceptance criteria.
 
@@ -96,6 +100,7 @@ Update the plan during execution, not only at the end:
 - Record every meaningful decision with rationale.
 - Capture surprises immediately in `Lessons Learned`.
 - Revise `Risks and Mitigations` whenever risk profile changes.
+- Keep `Documentation Impact` aligned with implementation and public behavior.
 - If direction changes, update the plan before continuing implementation.
 
 ## Prototyping and Parallel Approaches
@@ -121,7 +126,8 @@ Run validation from narrow to broad:
 1. Run focused checks for changed modules or packages.
 2. Run the repository's full validation command.
 3. Manually exercise user-visible behavior when applicable.
-4. Confirm acceptance criteria for every milestone.
+4. Reconcile every canonical documentation source with the final behavior.
+5. Confirm acceptance criteria for every milestone.
 
 ## ExecPlan Skeleton (Copy and Fill)
 
@@ -162,6 +168,7 @@ Describe what this milestone achieves.
 - [ ] File-level edits with exact paths and intent.
 - [ ] Data model or type updates.
 - [ ] API, CLI, or UX behavior updates.
+- [ ] Canonical documentation updates, or an explicit justification for no documentation change.
 
 #### Validation
 
@@ -206,6 +213,11 @@ List meaningful risks and the mitigation for each.
 1. Run targeted tests relevant to modified packages.
 2. Run the repository full validation command.
 3. Manually exercise changed user-visible behavior when applicable.
+4. Confirm every canonical documentation source matches the final behavior or has a recorded no-change justification.
+
+## Documentation Impact
+
+Name every canonical documentation source relevant to the scope. For each source, describe the required update and its validation, or explain concretely why the final behavior leaves it accurate.
 
 ## Rollout and Recovery
 
