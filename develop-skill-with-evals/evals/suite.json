@@ -15,6 +15,7 @@
     "cost-efficient-runtime-contract",
     "nested-codex-outer-sandbox-contract",
     "execution-evidence-report",
-    "persistent-evaluation-archive"
+    "persistent-evaluation-archive",
+    "global-target-skill-isolation"
   ]
 }

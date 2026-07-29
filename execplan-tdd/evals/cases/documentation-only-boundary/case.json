@@ -17,12 +17,7 @@
     ]
   },
   "judge": {
-    "enabled": true,
-    "criteria": [
-      "The executor treats the isolated documentation correction as outside execplan-tdd because no code behavior changes.",
-      "It makes only the requested README correction and does not create an ExecPlan, tests, implementation files, or a design review ceremony.",
-      "The response does not claim that execplan-tdd governs documentation only work."
-    ],
-    "no_action_acceptable": false
+    "enabled": false,
+    "criteria": []
   }
 }

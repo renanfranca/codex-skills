@@ -1,6 +1,6 @@
 # Evaluation report archive
 
-- Canonical reports: `46`
+- Canonical reports: `53`
 - Canonical format: `report.json`
 - Markdown and comparisons are deterministic projections.
 
@@ -37,6 +37,13 @@
 | develop-skill-with-evals | 20260728T113254.537174Z-d01790d9d1d6 | validate-change | FAIL | gpt-5.6-sol | 13 | 3620743 | 1239588 | 75d867f3edfa359aabda64cc51890efe2a7604959229d50d9bf8e5a1af10c42a | develop-skill-with-evals/operations/20260728T113254.537174Z-d01790d9d1d6/report.json |
 | execplan-tdd | 20260729T165358.661874Z-f0f172c87a08 | validate-change | FAIL | gpt-5.6-sol | 3 | 1327454 | 417106 | a043885a5630c7a1db4c4220e7369ac3ec07eb5b71593cc17a0a0d0621376cbe | execplan-tdd/operations/20260729T165358.661874Z-f0f172c87a08/report.json |
 | execplan-tdd | 20260729T165518.231174Z-f03918253da4 | validate-change | FAIL | gpt-5.6-sol | 3 | 1083580 | 357038 | d156d4ab45d6fe7ce52875beeb820e0077165460f22cc9c13c5ccbf07cacd55e | execplan-tdd/operations/20260729T165518.231174Z-f03918253da4/report.json |
+| execplan-tdd | 20260729T172226.771985Z-385bfa7090aa | validate-change | INVALID_RED | gpt-5.6-sol | 2 | 670250 | 197877 | edea210a1d4d93b91d4e0be653a79eed18804a9d91ffa40e17fba6c758f52f0f | execplan-tdd/operations/20260729T172226.771985Z-385bfa7090aa/report.json |
+| execplan-tdd | 20260729T173437.653533Z-bda290271677 | validate-change | FAIL | gpt-5.6-sol | 2 | 102166 | 61302 | 136e28ce2b6bb33ae90bc361731f7047a79e0db6c58e804fc2bfa8d3c6b7fc40 | execplan-tdd/operations/20260729T173437.653533Z-bda290271677/report.json |
+| execplan-tdd | 20260729T180639.451565Z-5356efabeb4c | validate-change | INVALID_RED | gpt-5.6-sol | 1 | 110101 | 48105 | 7fc2c17fe76f485dcf40a244864a9dd4b8001f86bc48e3f00111be65f2313b47 | execplan-tdd/operations/20260729T180639.451565Z-5356efabeb4c/report.json |
+| execplan-tdd | 20260729T181620.575049Z-cc3d76bb204a | validate-change | PASS | gpt-5.6-sol | 6 | 1817154 | 586353 | 95d0e411d1e6c4f2bb8f37ef219427976411b10b3ea594da21e062810e571025 | execplan-tdd/operations/20260729T181620.575049Z-cc3d76bb204a/report.json |
+| implement-execplan | 20260729T182705.056621Z-0c0e19b3429b | validate-change | FAIL | gpt-5.6-sol | 2 | 604966 | 416184 | 012a8493e86f468c1eb1956306e1a071a6850883170a989576848e0ed43766cd | implement-execplan/operations/20260729T182705.056621Z-0c0e19b3429b/report.json |
+| implement-execplan | 20260729T184809.268321Z-a248a1eb23ca | validate-change | FAIL | gpt-5.6-sol | 2 | 342310 | 418090 | 055a789f540fc07f2194cfcdb6b5d59b07bc1697fc487d64ca3ca0be6cf6c11b | implement-execplan/operations/20260729T184809.268321Z-a248a1eb23ca/report.json |
+| implement-execplan | 20260729T190010.008363Z-e8bbde9419ab | validate-change | PASS | gpt-5.6-sol | 4 | 801559 | 710742 | 45a2125b22b21ad80a0424a89b1603b638d641e41eda09f857ca64d8670924db | implement-execplan/operations/20260729T190010.008363Z-e8bbde9419ab/report.json |
 | refactor-design | 20260727T144730.399249Z-24a76a532c0b | run | PASS | gpt-5.6-sol | 12 | 816083 | 309182 | 8fbe3c4297fa5d0f3b2dda77656e734ab2c8e97eaaf39c0f295b42d92a18925c | refactor-design/operations/20260727T144730.399249Z-24a76a532c0b/report.json |
 | refactor-design | 20260727T160511.110609Z-1cf9aa1bccaf | probe-change | ERROR | gpt-5.6-sol | 1 | unknown | 325 | 91df6fdba4518e996ab34bcd300761ea4a1f08a430c886d117a59be4de0506ea | refactor-design/operations/20260727T160511.110609Z-1cf9aa1bccaf/report.json |
 | refactor-design | 20260727T170755.244350Z-e1c34d62c6a5 | run | FAIL | gpt-5.6-sol | 22 | 1831567 | 845621 | 8e0da479584a0183390a863639b70080a2470f68232e799545b963d6d634337d | refactor-design/operations/20260727T170755.244350Z-e1c34d62c6a5/report.json |

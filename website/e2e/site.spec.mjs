@@ -54,9 +54,11 @@ test('a reader can inspect a failed operation instead of seeing only passes', as
 test('a skill without archived runs says that evidence is unavailable', async ({ page }) => {
   await page.goto('skills/');
 
-  await page.getByRole('link', { name: /implement-execplan[\s\S]*No archived evidence/ }).click();
+  const skillWithoutEvidence = page.locator('a.skill-card').filter({ hasText: 'No archived evidence' }).first();
+  const skillName = await skillWithoutEvidence.getByRole('heading', { level: 2 }).textContent();
+  await skillWithoutEvidence.click();
 
-  await expect(page.getByRole('heading', { level: 1, name: 'implement-execplan' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: skillName })).toBeVisible();
   await expect(page.getByText('No archived evidence')).toBeVisible();
   await expect(page.getByText('No archived evaluation reports are available for this skill yet.')).toBeVisible();
 });

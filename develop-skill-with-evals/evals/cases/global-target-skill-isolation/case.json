@@ -1,0 +1,19 @@
+{
+  "id": "global-target-skill-isolation",
+  "kind": "deterministic",
+  "mechanical": {
+    "commands": [
+      {
+        "argv": [
+          "python3",
+          "check_global_target_skill_isolation.py"
+        ],
+        "exit_code": 0
+      }
+    ]
+  },
+  "judge": {
+    "enabled": false,
+    "criteria": []
+  }
+}

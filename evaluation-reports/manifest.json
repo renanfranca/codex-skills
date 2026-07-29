@@ -1,7 +1,7 @@
 {
   "version": 1,
   "canonical_format": "report.json",
-  "report_count": 46,
+  "report_count": 53,
   "reports": [
     {
       "skill": "develop-skill-with-evals",
@@ -591,6 +591,139 @@
       "duration_ms": 357038,
       "digest": "d156d4ab45d6fe7ce52875beeb820e0077165460f22cc9c13c5ccbf07cacd55e",
       "path": "execplan-tdd/operations/20260729T165518.231174Z-f03918253da4/report.json"
+    },
+    {
+      "skill": "execplan-tdd",
+      "operation_id": "20260729T172226.771985Z-385bfa7090aa",
+      "operation": "validate-change",
+      "status": "INVALID_RED",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 2,
+      "tokens": {
+        "input": 662651,
+        "cached_input": 594944,
+        "output": 7599,
+        "reasoning_output": 1458,
+        "total": 670250
+      },
+      "duration_ms": 197877,
+      "digest": "edea210a1d4d93b91d4e0be653a79eed18804a9d91ffa40e17fba6c758f52f0f",
+      "path": "execplan-tdd/operations/20260729T172226.771985Z-385bfa7090aa/report.json"
+    },
+    {
+      "skill": "execplan-tdd",
+      "operation_id": "20260729T173437.653533Z-bda290271677",
+      "operation": "validate-change",
+      "status": "FAIL",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 2,
+      "tokens": {
+        "input": 100224,
+        "cached_input": 56576,
+        "output": 1942,
+        "reasoning_output": 503,
+        "total": 102166
+      },
+      "duration_ms": 61302,
+      "digest": "136e28ce2b6bb33ae90bc361731f7047a79e0db6c58e804fc2bfa8d3c6b7fc40",
+      "path": "execplan-tdd/operations/20260729T173437.653533Z-bda290271677/report.json"
+    },
+    {
+      "skill": "execplan-tdd",
+      "operation_id": "20260729T180639.451565Z-5356efabeb4c",
+      "operation": "validate-change",
+      "status": "INVALID_RED",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 1,
+      "tokens": {
+        "input": 108397,
+        "cached_input": 82944,
+        "output": 1704,
+        "reasoning_output": 504,
+        "total": 110101
+      },
+      "duration_ms": 48105,
+      "digest": "7fc2c17fe76f485dcf40a244864a9dd4b8001f86bc48e3f00111be65f2313b47",
+      "path": "execplan-tdd/operations/20260729T180639.451565Z-5356efabeb4c/report.json"
+    },
+    {
+      "skill": "execplan-tdd",
+      "operation_id": "20260729T181620.575049Z-cc3d76bb204a",
+      "operation": "validate-change",
+      "status": "PASS",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 6,
+      "tokens": {
+        "input": 1795854,
+        "cached_input": 1611520,
+        "output": 21300,
+        "reasoning_output": 2986,
+        "total": 1817154
+      },
+      "duration_ms": 586353,
+      "digest": "95d0e411d1e6c4f2bb8f37ef219427976411b10b3ea594da21e062810e571025",
+      "path": "execplan-tdd/operations/20260729T181620.575049Z-cc3d76bb204a/report.json"
+    },
+    {
+      "skill": "implement-execplan",
+      "operation_id": "20260729T182705.056621Z-0c0e19b3429b",
+      "operation": "validate-change",
+      "status": "FAIL",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 2,
+      "tokens": {
+        "input": 588562,
+        "cached_input": 513024,
+        "output": 16404,
+        "reasoning_output": 3016,
+        "total": 604966
+      },
+      "duration_ms": 416184,
+      "digest": "012a8493e86f468c1eb1956306e1a071a6850883170a989576848e0ed43766cd",
+      "path": "implement-execplan/operations/20260729T182705.056621Z-0c0e19b3429b/report.json"
+    },
+    {
+      "skill": "implement-execplan",
+      "operation_id": "20260729T184809.268321Z-a248a1eb23ca",
+      "operation": "validate-change",
+      "status": "FAIL",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 2,
+      "tokens": {
+        "input": 327495,
+        "cached_input": 244992,
+        "output": 14815,
+        "reasoning_output": 2481,
+        "total": 342310
+      },
+      "duration_ms": 418090,
+      "digest": "055a789f540fc07f2194cfcdb6b5d59b07bc1697fc487d64ca3ca0be6cf6c11b",
+      "path": "implement-execplan/operations/20260729T184809.268321Z-a248a1eb23ca/report.json"
+    },
+    {
+      "skill": "implement-execplan",
+      "operation_id": "20260729T190010.008363Z-e8bbde9419ab",
+      "operation": "validate-change",
+      "status": "PASS",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "sessions": 4,
+      "tokens": {
+        "input": 771077,
+        "cached_input": 641280,
+        "output": 30482,
+        "reasoning_output": 5853,
+        "total": 801559
+      },
+      "duration_ms": 710742,
+      "digest": "45a2125b22b21ad80a0424a89b1603b638d641e41eda09f857ca64d8670924db",
+      "path": "implement-execplan/operations/20260729T190010.008363Z-e8bbde9419ab/report.json"
     },
     {
       "skill": "refactor-design",

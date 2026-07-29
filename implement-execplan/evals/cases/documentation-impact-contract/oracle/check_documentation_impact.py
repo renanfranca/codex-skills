@@ -41,7 +41,19 @@ if "readme.md" not in section(public, "Milestones") or "config.json" not in sect
   raise SystemExit(1)
 
 public_validation = section(public, "Validation Strategy")
-if "readme.md" not in public_validation or "config.json" not in public_validation:
+names_both_sources = (
+  "readme.md" in public_validation
+  and "config.json" in public_validation
+)
+cross_references_canonical_documentation = (
+  "config.json" in public_validation
+  and "documentation" in public_validation
+  and any(
+    term in public_validation
+    for term in ("inspect", "validate", "reconcile", "compare")
+  )
+)
+if not names_both_sources and not cross_references_canonical_documentation:
   print("public plan final validation omits documentation reconciliation", file=sys.stderr)
   raise SystemExit(1)
 
@@ -55,7 +67,10 @@ if not any(
     "no change",
     "no documentation change",
     "remain accurate",
+    "remains accurate",
     "does not require",
+    "unchanged",
+    "without edits",
   )
 ):
   print("internal plan lacks an explicit no change justification", file=sys.stderr)

@@ -285,6 +285,50 @@ class SkillEvalRunnerTest(unittest.TestCase):
     self.assertEqual(["--model", "gpt-5.6-terra"], argv[1][1:3])
     self.assertIn('model_reasoning_effort="high"', argv[1])
 
+  def test_semantic_executor_disables_the_global_target_skill(self):
+    log = self.root / "isolation-argv.jsonl"
+    codex_home = self.root / "codex-home"
+    global_skill = codex_home / "skills" / "sample-skill"
+    global_skill.mkdir(parents=True)
+    (global_skill / "SKILL.md").write_text(
+      "---\nname: sample-skill\ndescription: Global target.\n---\n",
+      encoding="utf-8",
+    )
+    self.fake.write_text(
+      "#!/usr/bin/env python3\n"
+      "import json, os, pathlib, sys\n"
+      "with pathlib.Path(os.environ['FAKE_CODEX_LOG']).open('a') as stream: stream.write(json.dumps(sys.argv[1:]) + '\\n')\n"
+      "out = pathlib.Path(sys.argv[sys.argv.index('-o') + 1])\n"
+      "cwd = pathlib.Path(sys.argv[sys.argv.index('-C') + 1])\n"
+      "(cwd / 'result.txt').write_text('ok')\n"
+      "out.write_text(json.dumps({'summary': 'done', 'classification': 'test', 'evidence': [], 'files_changed': ['result.txt']}))\n",
+      encoding="utf-8",
+    )
+    self.fake.chmod(0o755)
+
+    completed = self.invoke(
+      "run",
+      "--skill",
+      str(self.skill),
+      "--case",
+      "write-result",
+      "--source",
+      "working-tree",
+      env={
+        "CODEX_HOME": str(codex_home),
+        "FAKE_CODEX_LOG": str(log),
+      },
+    )
+
+    argv = json.loads(log.read_text(encoding="utf-8").splitlines()[0])
+    expected = (
+      "skills.config=[{path="
+      f"{json.dumps(str(global_skill / 'SKILL.md'))}"
+      ",enabled=false}]"
+    )
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    self.assertIn(expected, argv)
+
   def test_plan_is_side_effect_free_and_reports_static_zero_session_gate(self):
     baseline = self.root / "baseline-plan"
     subprocess.run(["cp", "-a", str(self.skill), str(baseline)], check=True)

@@ -890,6 +890,7 @@ def codex_command(
   workspace: Path,
   schema: Path,
   output: Path,
+  disabled_global_skill: Path | None = None,
 ) -> list[str]:
   command = [
     args.codex_command,
@@ -915,8 +916,25 @@ def codex_command(
       "-c",
       f'model_reasoning_effort="{runtime.reasoning_effort}"',
     ])
+  if disabled_global_skill is not None:
+    runtime_arguments.extend([
+      "-c",
+      (
+        "skills.config=[{path="
+        f"{json.dumps(str(disabled_global_skill))}"
+        ",enabled=false}]"
+      ),
+    ])
   command[2:2] = runtime_arguments
   return command
+
+
+def installed_global_skill(skill_name: str) -> Path | None:
+  codex_home = Path(
+    os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))
+  )
+  skill_file = codex_home / "skills" / skill_name / "SKILL.md"
+  return skill_file.resolve() if skill_file.is_file() else None
 
 
 def evaluate_case(
@@ -948,7 +966,8 @@ def evaluate_case(
   fixture = case_dir / "fixture"
   if fixture.exists():
     shutil.copytree(fixture, workspace, dirs_exist_ok=True)
-  scoped_skill = workspace / ".agents" / "skills" / installed_source.name
+  target_skill_name = case_source_skill.name
+  scoped_skill = workspace / ".agents" / "skills" / target_skill_name
   scoped_skill.parent.mkdir(parents=True, exist_ok=True)
   copy_skill_without_evals(installed_source, scoped_skill)
   subprocess.run(["git", "init", "-q"], cwd=workspace, check=True)
@@ -963,14 +982,21 @@ def evaluate_case(
   if case.get("implicit_skill", False):
     prompt = raw_prompt
   else:
-    prompt = f"Use ${installed_source.name} from the repository-scoped skill installation to complete this task.\n\n{raw_prompt}"
+    prompt = f"Use ${target_skill_name} from the repository-scoped skill installation to complete this task.\n\n{raw_prompt}"
   prompt += (
     "\n\nIn the structured response, record only concise decisions actually made. "
     "Do not reveal private reasoning or reconstruct hidden chain of thought."
   )
   progress.emit(f"{label}: running executor")
   completed, executor_duration_ms = timed_process(
-    codex_command(args, runtime.executor, workspace, schema, output),
+    codex_command(
+      args,
+      runtime.executor,
+      workspace,
+      schema,
+      output,
+      installed_global_skill(target_skill_name),
+    ),
     workspace,
     prompt,
   )
