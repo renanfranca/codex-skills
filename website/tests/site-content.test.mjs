@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -351,4 +351,370 @@ test('keeps disabled compatibility skills out of the public catalog', () => {
     model.skills.some(skill => skill.slug === 'tdd-strict-cycle-confirmation'),
     false,
   );
+});
+
+function createEvidenceWorkspace(prefix = 'codex-skills-derived-evidence-') {
+  const workspace = mkdtempSync(join(tmpdir(), prefix));
+  const repository = join(workspace, 'repository');
+  const archive = join(repository, 'evaluation-reports');
+  const skill = join(repository, 'example-skill');
+  const output = join(workspace, 'generated');
+
+  mkdirSync(join(skill, 'evals'), { recursive: true });
+  mkdirSync(archive, { recursive: true });
+  writeFileSync(join(skill, 'SKILL.md'), '---\nname: example-skill\ndescription: Explain derived evidence truthfully.\n---\n');
+  writeFileSync(join(skill, 'evals', 'suite.json'), `${JSON.stringify({ version: 1, cases: ['first-case', 'second-case'] }, null, 2)}\n`);
+  return { workspace, repository, archive, skill, output };
+}
+
+function runnerFingerprint(skill) {
+  const runner = join(websiteDirectory, '..', 'develop-skill-with-evals', 'scripts', 'run_skill_evals.py');
+  return execFileSync(
+    'python3',
+    [
+      '-c',
+      'import importlib.util,pathlib,sys;p=pathlib.Path(sys.argv[1]);s=importlib.util.spec_from_file_location("runner",p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);print(m.tree_fingerprint(pathlib.Path(sys.argv[2])))',
+      runner,
+      skill,
+    ],
+    { encoding: 'utf8' },
+  ).trim();
+}
+
+function writeEvidenceArchive({ archive, reports }) {
+  for (const report of reports) {
+    const reportDirectory = join(archive, 'example-skill', 'operations', report.operation.id);
+    mkdirSync(reportDirectory, { recursive: true });
+    writeFileSync(join(reportDirectory, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
+  }
+  writeFileSync(
+    join(archive, 'manifest.json'),
+    `${JSON.stringify(
+      {
+        version: 1,
+        report_count: reports.length,
+        reports: reports.map(report => ({
+          skill: 'example-skill',
+          operation_id: report.operation.id,
+          operation: report.operation.type,
+          status: report.operation.status,
+          path: `example-skill/operations/${report.operation.id}/report.json`,
+        })),
+      },
+      null,
+      2,
+    )}\n`,
+  );
+}
+
+function generateEvidenceModel(context) {
+  execFileSync(
+    process.execPath,
+    [
+      join(websiteDirectory, 'scripts', 'generate-content.mjs'),
+      '--repository-root',
+      context.repository,
+      '--archive',
+      context.archive,
+      '--output',
+      context.output,
+    ],
+    { stdio: 'pipe' },
+  );
+  return JSON.parse(readFileSync(join(context.output, 'data.json'), 'utf8'));
+}
+
+test('identifies an eligible passing promotion for the current candidate source', () => {
+  const context = createEvidenceWorkspace();
+  const currentFingerprint = runnerFingerprint(context.skill);
+  const promotionId = '20260729T200000.000000Z-promotion';
+
+  writeEvidenceArchive({
+    archive: context.archive,
+    reports: [
+      {
+        operation: {
+          id: promotionId,
+          type: 'validate-change',
+          status: 'PASS',
+          workflow: 'promotion',
+          promotion_eligible: true,
+        },
+        fingerprints: {
+          sources: {
+            baseline: 'baseline-does-not-establish-current-evidence',
+            candidate: currentFingerprint,
+          },
+        },
+        observations: [
+          { case_id: 'first-case', status: 'FAIL', role: 'baseline' },
+          { case_id: 'first-case', status: 'PASS', role: 'candidate' },
+        ],
+      },
+    ],
+  });
+
+  const skill = generateEvidenceModel(context).skills[0];
+
+  assert.equal(skill.evidence.key, 'promotion');
+  assert.equal(skill.evidence.label, 'Promotion evidence');
+  assert.equal(skill.evidence.currentFingerprint, currentFingerprint);
+  assert.equal(skill.evidence.promotionReport.id, promotionId);
+  assert.deepEqual(skill.evidence.currentResults, { PASS: 1 });
+  assert.equal(skill.evidence.historicalReportCount, 0);
+});
+
+test('treats a promotion as historical after the skill source changes', () => {
+  const context = createEvidenceWorkspace();
+  const promotionFingerprint = runnerFingerprint(context.skill);
+  writeEvidenceArchive({
+    archive: context.archive,
+    reports: [
+      {
+        operation: {
+          id: '20260729T201000.000000Z-old-promotion',
+          type: 'validate-change',
+          status: 'PASS',
+          promotion_eligible: true,
+        },
+        fingerprints: { sources: { baseline: 'old-baseline', candidate: promotionFingerprint } },
+        observations: [{ case_id: 'first-case', status: 'PASS', role: 'candidate' }],
+      },
+    ],
+  });
+  writeFileSync(join(context.skill, 'new-guidance.md'), 'The source changed after promotion.\n');
+
+  const evidence = generateEvidenceModel(context).skills[0].evidence;
+
+  assert.equal(evidence.key, 'historical');
+  assert.notEqual(evidence.currentFingerprint, promotionFingerprint);
+  assert.equal(evidence.promotionReport, null);
+  assert.equal(evidence.historicalReportCount, 1);
+});
+
+test('never treats a matching baseline as evidence for the current source', () => {
+  const context = createEvidenceWorkspace();
+  const currentFingerprint = runnerFingerprint(context.skill);
+  writeEvidenceArchive({
+    archive: context.archive,
+    reports: [
+      {
+        operation: {
+          id: '20260729T202000.000000Z-baseline-only',
+          type: 'validate-change',
+          status: 'PASS',
+          promotion_eligible: true,
+        },
+        fingerprints: { sources: { baseline: currentFingerprint, candidate: 'different-candidate' } },
+        observations: [{ case_id: 'first-case', status: 'PASS', role: 'baseline' }],
+      },
+    ],
+  });
+
+  const evidence = generateEvidenceModel(context).skills[0].evidence;
+
+  assert.equal(evidence.key, 'historical');
+  assert.deepEqual(evidence.currentResults, {});
+  assert.deepEqual(evidence.coveredCases, []);
+});
+
+test('combines current passing cases across operations into complete suite coverage', () => {
+  const context = createEvidenceWorkspace();
+  const currentFingerprint = runnerFingerprint(context.skill);
+  writeEvidenceArchive({
+    archive: context.archive,
+    reports: [
+      {
+        operation: { id: '20260729T203000.000000Z-first', type: 'run', status: 'PASS' },
+        fingerprints: { sources: { evaluated: currentFingerprint } },
+        observations: [{ case_id: 'first-case', status: 'PASS', role: 'observation' }],
+      },
+      {
+        operation: { id: '20260729T204000.000000Z-second', type: 'run', status: 'FAIL' },
+        fingerprints: { sources: { evaluated: currentFingerprint } },
+        observations: [
+          { case_id: 'second-case', status: 'PASS', role: 'observation' },
+          { case_id: 'first-case', status: 'FAIL', role: 'observation' },
+        ],
+      },
+    ],
+  });
+
+  const evidence = generateEvidenceModel(context).skills[0].evidence;
+
+  assert.equal(evidence.key, 'complete');
+  assert.equal(evidence.label, 'Complete current coverage');
+  assert.deepEqual(evidence.coveredCases, ['first-case', 'second-case']);
+  assert.equal(evidence.coveredCaseCount, 2);
+  assert.equal(evidence.suiteCaseCount, 2);
+  assert.deepEqual(evidence.currentResults, { FAIL: 1, PASS: 1 });
+});
+
+test('limits a current pass without complete declared coverage to partial coverage', () => {
+  const context = createEvidenceWorkspace();
+  const currentFingerprint = runnerFingerprint(context.skill);
+  writeEvidenceArchive({
+    archive: context.archive,
+    reports: [
+      {
+        operation: { id: '20260729T205000.000000Z-partial', type: 'run', status: 'PASS' },
+        fingerprints: { sources: { evaluated: currentFingerprint } },
+        observations: [{ case_id: 'first-case', status: 'PASS', role: 'observation' }],
+      },
+    ],
+  });
+
+  const evidence = generateEvidenceModel(context).skills[0].evidence;
+
+  assert.equal(evidence.key, 'partial');
+  assert.equal(evidence.coveredCaseCount, 1);
+  assert.equal(evidence.suiteCaseCount, 2);
+});
+
+test('limits a current pass without a declared suite to partial coverage', () => {
+  const context = createEvidenceWorkspace();
+  rmSync(join(context.skill, 'evals', 'suite.json'));
+  const currentFingerprint = runnerFingerprint(context.skill);
+  writeEvidenceArchive({
+    archive: context.archive,
+    reports: [
+      {
+        operation: { id: '20260729T206000.000000Z-no-suite', type: 'run', status: 'PASS' },
+        fingerprints: { sources: { evaluated: currentFingerprint } },
+        observations: [{ case_id: 'unlisted-case', status: 'PASS', role: 'observation' }],
+      },
+    ],
+  });
+
+  const evidence = generateEvidenceModel(context).skills[0].evidence;
+
+  assert.equal(evidence.key, 'partial');
+  assert.equal(evidence.suiteCases, null);
+  assert.equal(evidence.suiteCaseCount, null);
+});
+
+test('distinguishes current reports without a pass from historical and absent evidence', () => {
+  const context = createEvidenceWorkspace();
+  const currentFingerprint = runnerFingerprint(context.skill);
+  writeEvidenceArchive({
+    archive: context.archive,
+    reports: [
+      {
+        operation: { id: '20260729T207000.000000Z-error', type: 'run', status: 'ERROR' },
+        fingerprints: { sources: { evaluated: currentFingerprint } },
+        observations: [{ case_id: 'first-case', status: 'ERROR', role: 'observation' }],
+      },
+    ],
+  });
+
+  const evidence = generateEvidenceModel(context).skills[0].evidence;
+
+  assert.equal(evidence.key, 'no-current-pass');
+  assert.equal(evidence.label, 'No current pass');
+  assert.deepEqual(evidence.currentResults, { ERROR: 1 });
+  assert.equal(evidence.historicalReportCount, 0);
+});
+
+test('keeps reports without a comparable fingerprint as historical', () => {
+  const context = createEvidenceWorkspace();
+  writeEvidenceArchive({
+    archive: context.archive,
+    reports: [
+      {
+        operation: { id: '20260729T208000.000000Z-no-fingerprint', type: 'run', status: 'PASS' },
+        observations: [{ case_id: 'first-case', status: 'PASS', role: 'observation' }],
+      },
+    ],
+  });
+
+  const evidence = generateEvidenceModel(context).skills[0].evidence;
+
+  assert.equal(evidence.key, 'historical');
+  assert.deepEqual(evidence.currentResults, {});
+  assert.equal(evidence.historicalReportCount, 1);
+});
+
+test('identifies a skill with no archived reports as not evaluated yet', () => {
+  const context = createEvidenceWorkspace();
+  writeEvidenceArchive({ archive: context.archive, reports: [] });
+
+  const evidence = generateEvidenceModel(context).skills[0].evidence;
+
+  assert.equal(evidence.key, 'no-evaluation');
+  assert.equal(evidence.label, 'No evaluation yet');
+  assert.equal(evidence.historicalReportCount, 0);
+});
+
+test('gives current promotion precedence without hiding conflicting current results', () => {
+  const context = createEvidenceWorkspace();
+  const currentFingerprint = runnerFingerprint(context.skill);
+  writeEvidenceArchive({
+    archive: context.archive,
+    reports: [
+      {
+        operation: {
+          id: '20260729T209000.000000Z-promotion',
+          type: 'validate-change',
+          status: 'PASS',
+          promotion_eligible: true,
+        },
+        fingerprints: { sources: { baseline: 'baseline', candidate: currentFingerprint } },
+        observations: [{ case_id: 'first-case', status: 'PASS', role: 'candidate' }],
+      },
+      {
+        operation: { id: '20260729T210000.000000Z-conflict', type: 'run', status: 'UNSTABLE' },
+        fingerprints: { sources: { evaluated: currentFingerprint } },
+        observations: [{ case_id: 'second-case', status: 'FAIL', role: 'observation' }],
+      },
+    ],
+  });
+
+  const evidence = generateEvidenceModel(context).skills[0].evidence;
+
+  assert.equal(evidence.key, 'promotion');
+  assert.deepEqual(evidence.currentResults, { PASS: 1, UNSTABLE: 1 });
+  assert.equal(evidence.currentReports.length, 2);
+  assert.equal(evidence.currentReportGroups.PASS[0].id, '20260729T209000.000000Z-promotion');
+  assert.equal(evidence.currentReportGroups.UNSTABLE[0].id, '20260729T210000.000000Z-conflict');
+});
+
+test('matches the runner fingerprint contract and expected real catalog states', () => {
+  const output = mkdtempSync(join(tmpdir(), 'codex-skills-real-evidence-'));
+  const repository = join(websiteDirectory, '..');
+  const archive = join(repository, 'evaluation-reports');
+  const model = generateEvidenceModel({ repository, archive, output });
+  const bySlug = Object.fromEntries(model.skills.map(skill => [skill.slug, skill]));
+
+  for (const slug of ['execplan-tdd', 'implement-execplan', 'restructure-documentation', 'refactor-design', 'develop-skill-with-evals']) {
+    assert.equal(bySlug[slug].evidence.currentFingerprint, runnerFingerprint(join(repository, slug)));
+  }
+  assert.equal(bySlug['execplan-tdd'].evidence.key, 'promotion');
+  assert.equal(bySlug['implement-execplan'].evidence.key, 'promotion');
+  assert.equal(bySlug['restructure-documentation'].evidence.key, 'promotion');
+  assert.equal(bySlug['refactor-design'].evidence.key, 'partial');
+  assert.equal(bySlug['refactor-design'].evidence.coveredCaseCount, 3);
+  assert.equal(bySlug['refactor-design'].evidence.suiteCaseCount, 12);
+  assert.equal(bySlug['develop-skill-with-evals'].evidence.key, 'historical');
+});
+
+test('matches the runner fingerprint contract for a linked skill file', () => {
+  const context = createEvidenceWorkspace('codex-skills-linked-fingerprint-');
+  writeFileSync(join(context.workspace, 'shared-guidance.md'), 'Shared guidance.\n');
+  symlinkSync(join(context.workspace, 'shared-guidance.md'), join(context.skill, 'linked-guidance.md'));
+  writeEvidenceArchive({ archive: context.archive, reports: [] });
+
+  const evidence = generateEvidenceModel(context).skills[0].evidence;
+
+  assert.equal(evidence.currentFingerprint, runnerFingerprint(context.skill));
+});
+
+test('matches the runner Unicode path ordering in the fingerprint contract', () => {
+  const context = createEvidenceWorkspace('codex-skills-unicode-fingerprint-');
+  writeFileSync(join(context.skill, '\u{e000}.md'), 'Basic multilingual plane.\n');
+  writeFileSync(join(context.skill, '\u{1f600}.md'), 'Astral plane.\n');
+  writeEvidenceArchive({ archive: context.archive, reports: [] });
+
+  const evidence = generateEvidenceModel(context).skills[0].evidence;
+
+  assert.equal(evidence.currentFingerprint, runnerFingerprint(context.skill));
 });

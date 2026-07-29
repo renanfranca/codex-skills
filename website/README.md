@@ -25,6 +25,23 @@ npm run dev
 
 Open `http://localhost:5173/codex-skills/`.
 
+## Derived evidence status
+
+The skill catalog derives evidence status from the current skill source, the archived report fingerprints, and the case IDs in the current `evals/suite.json`. Labels are not maintained by hand.
+
+For operations that compare a baseline with a candidate, only the candidate fingerprint can establish current evidence. For direct runs, the evaluated fingerprint is used. A matching baseline never establishes evidence for the current source, and reports without a comparable fingerprint remain historical.
+
+The catalog selects the strongest applicable status in this order:
+
+1. **Promotion evidence** means an eligible passing promotion matches the current source.
+2. **Complete current coverage** means every case declared by the current suite has at least one matching nonbaseline `PASS`, possibly across several operations.
+3. **Partial current coverage** means there is at least one matching `PASS`, but the declared suite is not completely covered or no suite is declared.
+4. **No current pass** means matching reports exist without a current `PASS`.
+5. **Historical runs** means reports exist, but none matches the current source with a comparable fingerprint.
+6. **No evaluation yet** means no report is archived for the skill.
+
+Complete current coverage does not mean promotion, repeatability, or stability. Promotion remains governed by the runner contract, including valid RED, three stable GREEN results, and the required regression gates. Each evidence panel retains current results by their recorded status so failures and inconclusive or unstable operations remain visible even when stronger evidence takes precedence.
+
 ## Validation
 
 ```bash

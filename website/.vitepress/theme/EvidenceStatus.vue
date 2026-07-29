@@ -1,0 +1,179 @@
+<script setup>
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+
+const props = defineProps({
+  data: {
+    type: String,
+    required: true,
+  },
+  compact: {
+    type: Boolean,
+    default: false,
+  },
+});
+
+const evidence = computed(() => JSON.parse(decodeURIComponent(props.data)));
+const open = ref(false);
+const mobile = ref(false);
+const trigger = ref(null);
+const panel = ref(null);
+const panelStyle = ref({});
+const panelId = `evidence-status-${Math.random().toString(36).slice(2)}`;
+let mediaQuery;
+
+const currentReportGroups = computed(() => Object.entries(evidence.value.currentReportGroups));
+const coverage = computed(() =>
+  evidence.value.suiteCaseCount === null
+    ? 'No suite declared; complete coverage cannot be established.'
+    : `${evidence.value.coveredCaseCount} of ${evidence.value.suiteCaseCount} declared cases have a current pass.`,
+);
+
+function updateMode() {
+  mobile.value = mediaQuery.matches;
+  updatePosition();
+}
+
+function updatePosition() {
+  if (!open.value || mobile.value || !trigger.value) {
+    panelStyle.value = {};
+    return;
+  }
+  const bounds = trigger.value.getBoundingClientRect();
+  const width = Math.min(420, window.innerWidth - 32);
+  const left = Math.max(16, Math.min(bounds.left, window.innerWidth - width - 16));
+  const panelHeight = panel.value?.getBoundingClientRect().height ?? 0;
+  const below = bounds.bottom + 10;
+  const above = bounds.top - panelHeight - 10;
+  const top = below + panelHeight <= window.innerHeight - 16 ? below : Math.max(16, above);
+  panelStyle.value = {
+    left: `${left}px`,
+    top: `${top}px`,
+    width: `${width}px`,
+  };
+}
+
+async function show() {
+  open.value = true;
+  await nextTick();
+  updatePosition();
+  panel.value?.focus();
+}
+
+function close({ restoreFocus = true } = {}) {
+  if (!open.value) return;
+  open.value = false;
+  if (restoreFocus) nextTick(() => trigger.value?.focus());
+}
+
+function handleDocumentClick(event) {
+  if (!open.value || mobile.value) return;
+  if (!panel.value?.contains(event.target) && !trigger.value?.contains(event.target)) {
+    close();
+  }
+}
+
+function handleDocumentKey(event) {
+  if (event.key === 'Escape' && open.value) {
+    event.preventDefault();
+    close();
+  }
+}
+
+onMounted(() => {
+  mediaQuery = window.matchMedia('(max-width: 640px)');
+  updateMode();
+  mediaQuery.addEventListener('change', updateMode);
+  document.addEventListener('click', handleDocumentClick);
+  document.addEventListener('keydown', handleDocumentKey);
+  window.addEventListener('resize', updatePosition);
+  window.addEventListener('scroll', updatePosition, true);
+});
+
+onBeforeUnmount(() => {
+  mediaQuery?.removeEventListener('change', updateMode);
+  document.removeEventListener('click', handleDocumentClick);
+  document.removeEventListener('keydown', handleDocumentKey);
+  window.removeEventListener('resize', updatePosition);
+  window.removeEventListener('scroll', updatePosition, true);
+});
+</script>
+
+<template>
+  <button
+    ref="trigger"
+    class="evidence-status-trigger"
+    :class="{ 'evidence-status-trigger-compact': compact }"
+    type="button"
+    aria-haspopup="dialog"
+    :aria-expanded="open"
+    :aria-controls="panelId"
+    :aria-label="`Explain evidence for ${evidence.skill}: ${evidence.label}`"
+    @click="open ? close() : show()"
+  >
+    <span v-if="!compact" class="evidence-state-indicator" aria-hidden="true"></span>
+    {{ compact ? 'Why this status?' : 'Inspect current evidence' }}
+  </button>
+
+  <Teleport to="body">
+    <div v-if="open && mobile" class="evidence-status-backdrop" data-testid="evidence-backdrop" @click="close()"></div>
+    <section
+      v-if="open"
+      :id="panelId"
+      ref="panel"
+      class="evidence-status-panel"
+      :class="[`evidence-state-${evidence.variant}`, mobile ? 'evidence-status-sheet' : 'evidence-status-popover']"
+      :style="panelStyle"
+      role="dialog"
+      :aria-modal="mobile ? 'true' : undefined"
+      :aria-label="`${evidence.skill} evidence status`"
+      tabindex="-1"
+    >
+      <header>
+        <div>
+          <span>Evidence status</span>
+          <strong><span class="evidence-state-indicator" aria-hidden="true"></span>{{ evidence.label }}</strong>
+        </div>
+        <button type="button" aria-label="Close evidence status" @click="close()">Close</button>
+      </header>
+
+      <p>{{ evidence.description }}</p>
+
+      <dl class="evidence-status-facts">
+        <div>
+          <dt>Suite coverage</dt>
+          <dd>{{ coverage }}</dd>
+        </div>
+        <div>
+          <dt>Current promotion</dt>
+          <dd>{{ evidence.promotion ? 'Passing promotion found' : 'No matching promotion' }}</dd>
+        </div>
+        <div>
+          <dt>Historical reports</dt>
+          <dd>{{ evidence.historicalReportCount }}</dd>
+        </div>
+      </dl>
+
+      <div class="evidence-result-groups">
+        <strong>Current reports by recorded result</strong>
+        <ul v-if="currentReportGroups.length">
+          <li v-for="[result, reports] in currentReportGroups" :key="result">
+            <div>
+              <span :class="`status status-${result.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}`">{{ result }}</span>
+              <span>{{ reports.length }}</span>
+            </div>
+            <ul class="evidence-report-links">
+              <li v-for="report in reports" :key="report.id">
+                <a :href="report.href" @click="close({ restoreFocus: false })">{{ report.operation }} · {{ report.id }}</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+        <p v-else>No archived report matches the current source fingerprint.</p>
+      </div>
+
+      <a class="evidence-history-action" :href="evidence.historyHref" @click="close({ restoreFocus: false })">
+        View evaluation history →
+      </a>
+    </section>
+  </Teleport>
+</template>

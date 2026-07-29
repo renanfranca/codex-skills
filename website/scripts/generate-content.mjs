@@ -1,14 +1,54 @@
-import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const websiteRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const contentConfig = JSON.parse(readFileSync(join(websiteRoot, 'content-config.json'), 'utf8'));
-const evidenceLabels = new Map([
-  ['restructure-documentation', 'Current promotion'],
-  ['refactor-design', 'Current observations'],
-  ['develop-skill-with-evals', 'Historical evidence'],
-]);
+const evidenceStates = Object.freeze({
+  promotion: Object.freeze({
+    key: 'promotion',
+    label: 'Promotion evidence',
+    description: 'A passing, promotion eligible operation matches the current skill source.',
+    variant: 'promotion',
+    priority: 1,
+  }),
+  complete: Object.freeze({
+    key: 'complete',
+    label: 'Complete current coverage',
+    description: 'Every case declared by the current suite has at least one current non-baseline pass.',
+    variant: 'complete',
+    priority: 2,
+  }),
+  partial: Object.freeze({
+    key: 'partial',
+    label: 'Partial current coverage',
+    description: 'Current evidence includes a pass, but it does not cover every declared suite case.',
+    variant: 'partial',
+    priority: 3,
+  }),
+  'no-current-pass': Object.freeze({
+    key: 'no-current-pass',
+    label: 'No current pass',
+    description: 'Reports match the current skill source, but none records a current pass.',
+    variant: 'no-current-pass',
+    priority: 4,
+  }),
+  historical: Object.freeze({
+    key: 'historical',
+    label: 'Historical runs',
+    description: 'Archived reports exist, but none has a comparable fingerprint matching the current skill source.',
+    variant: 'historical',
+    priority: 5,
+  }),
+  'no-evaluation': Object.freeze({
+    key: 'no-evaluation',
+    label: 'No evaluation yet',
+    description: 'No archived evaluation report is available for this skill yet.',
+    variant: 'no-evaluation',
+    priority: 6,
+  }),
+});
 const siteBase = contentConfig.base.replace(/\/$/, '');
 
 function siteRoute(path = '/') {
@@ -76,6 +116,89 @@ function readSkill(path) {
     throw new Error(`Skill name or description is missing from ${path}`);
   }
   return metadata;
+}
+
+function sha256(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function canonicalFingerprintPayload(value) {
+  return JSON.stringify(value).replaceAll(/[\u0080-\uffff]/g, character => {
+    return `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`;
+  });
+}
+
+function compareUnicodeCodePoints(left, right) {
+  const leftPoints = [...left].map(character => character.codePointAt(0));
+  const rightPoints = [...right].map(character => character.codePointAt(0));
+  for (let index = 0; index < Math.min(leftPoints.length, rightPoints.length); index += 1) {
+    if (leftPoints[index] !== rightPoints[index]) {
+      return leftPoints[index] - rightPoints[index];
+    }
+  }
+  return leftPoints.length - rightPoints.length;
+}
+
+function fingerprintFiles(root) {
+  const files = [];
+  function visit(directory) {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      const relativePath = relative(root, path).split('\\').join('/');
+      const parts = relativePath.split('/');
+      if (parts.includes('.git') || parts.includes('__pycache__') || entry.name.endsWith('.pyc')) {
+        continue;
+      }
+      if (entry.isDirectory()) {
+        visit(path);
+      } else if (entry.isFile() || (entry.isSymbolicLink() && statSync(path).isFile())) {
+        files.push([relativePath, path]);
+      }
+    }
+  }
+  visit(root);
+  return Object.fromEntries(
+    files
+      .sort(([left], [right]) => compareUnicodeCodePoints(left, right))
+      .map(([relativePath, path]) => [
+        relativePath,
+        {
+          mode: readFileMode(path),
+          sha256: sha256(readFileSync(path)),
+        },
+      ]),
+  );
+}
+
+function readFileMode(path) {
+  return statSync(path).mode & 0o7777;
+}
+
+function treeFingerprint(root) {
+  return sha256(canonicalFingerprintPayload(fingerprintFiles(root)));
+}
+
+function readSuiteCases(skillRoot) {
+  try {
+    const suite = readJson(join(skillRoot, 'evals', 'suite.json'));
+    if (
+      suite.version !== 1
+      || !Array.isArray(suite.cases)
+      || suite.cases.some(caseId => typeof caseId !== 'string')
+      || new Set(suite.cases).size !== suite.cases.length
+    ) {
+      throw new Error(`Evaluation suite is invalid for ${skillRoot}`);
+    }
+    return suite.cases;
+  } catch (error) {
+    if (error.cause?.code === 'ENOENT' || error.code === 'ENOENT') {
+      return null;
+    }
+    if (error.message.startsWith('Cannot read valid JSON') && error.message.includes('ENOENT')) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 function findSkills(repositoryRoot) {
@@ -162,7 +285,84 @@ function normalizeReport(entry, archiveRoot) {
     totalTokens: report.usage?.total_tokens ?? entry.tokens?.total ?? null,
     limitations: report.limitations ?? [],
     observations: (report.observations ?? []).map(normalizeObservation),
+    fingerprints: report.fingerprints ?? null,
     archivePath: entry.path,
+  };
+}
+
+function evaluatedSourceFingerprint(report) {
+  const sources = report.fingerprints?.sources;
+  if (!sources || typeof sources !== 'object') return null;
+  if (Object.hasOwn(sources, 'baseline')) {
+    return typeof sources.candidate === 'string' ? sources.candidate : null;
+  }
+  return typeof sources.evaluated === 'string' ? sources.evaluated : null;
+}
+
+function groupCurrentReports(reports) {
+  return Object.fromEntries(
+    [...new Set(reports.map(report => report.status))].sort().map(status => [
+      status,
+      reports
+        .filter(report => report.status === status)
+        .map(report => ({
+          id: report.id,
+          operation: report.operation,
+          status: report.status,
+          href: reportRoute(report),
+        })),
+    ]),
+  );
+}
+
+function deriveEvidence(skillRoot, reports) {
+  const currentFingerprint = treeFingerprint(skillRoot);
+  const suiteCases = readSuiteCases(skillRoot);
+  const currentReports = reports.filter(report => evaluatedSourceFingerprint(report) === currentFingerprint);
+  const currentReportIds = new Set(currentReports.map(report => report.id));
+  const historicalReports = reports.filter(report => !currentReportIds.has(report.id));
+  const coveredCases = [
+    ...new Set(
+      currentReports.flatMap(report =>
+        report.observations
+          .filter(observation => observation.role !== 'baseline' && observation.status === 'PASS')
+          .map(observation => observation.caseId),
+      ),
+    ),
+  ].sort();
+  const promotionReport = currentReports.find(report => report.status === 'PASS' && report.promotionEligible === true) ?? null;
+  const currentReportGroups = groupCurrentReports(currentReports);
+  const hasCurrentPass = coveredCases.length > 0 || currentReports.some(report => report.status === 'PASS');
+  const hasCompleteCoverage = suiteCases !== null && suiteCases.length > 0 && suiteCases.every(caseId => coveredCases.includes(caseId));
+  let state;
+  if (promotionReport) {
+    state = evidenceStates.promotion;
+  } else if (hasCompleteCoverage) {
+    state = evidenceStates.complete;
+  } else if (hasCurrentPass) {
+    state = evidenceStates.partial;
+  } else if (currentReports.length > 0) {
+    state = evidenceStates['no-current-pass'];
+  } else if (reports.length > 0) {
+    state = evidenceStates.historical;
+  } else {
+    state = evidenceStates['no-evaluation'];
+  }
+
+  return {
+    ...state,
+    currentFingerprint,
+    promotionReport,
+    currentReports,
+    currentReportGroups,
+    currentResults: Object.fromEntries(
+      Object.entries(currentReportGroups).map(([status, groupedReports]) => [status, groupedReports.length]),
+    ),
+    coveredCases,
+    coveredCaseCount: coveredCases.length,
+    suiteCases,
+    suiteCaseCount: suiteCases?.length ?? null,
+    historicalReportCount: historicalReports.length,
   };
 }
 
@@ -207,6 +407,48 @@ function statusClass(status) {
 
 function reportRoute(report) {
   return siteRoute(`/evaluations/${encodeURIComponent(report.skill)}/${encodeURIComponent(report.id)}`);
+}
+
+function evidenceComponentData(skill) {
+  return encodeURIComponent(
+    JSON.stringify({
+      skill: skill.name,
+      key: skill.evidence.key,
+      label: skill.evidence.label,
+      description: skill.evidence.description,
+      variant: skill.evidence.variant,
+      currentResults: skill.evidence.currentResults,
+      currentReportGroups: skill.evidence.currentReportGroups,
+      coveredCaseCount: skill.evidence.coveredCaseCount,
+      suiteCaseCount: skill.evidence.suiteCaseCount,
+      promotion: skill.evidence.promotionReport !== null,
+      historicalReportCount: skill.evidence.historicalReportCount,
+      historyHref: siteRoute(`/skills/${skill.slug}#evaluation-history`),
+    }),
+  );
+}
+
+function renderEvidenceSummary(skill, { compact = false } = {}) {
+  return `<EvidenceStatus data="${escapeHtml(evidenceComponentData(skill))}"${compact ? ' compact' : ''}></EvidenceStatus>`;
+}
+
+function renderEvidenceLegend() {
+  const items = Object.values(evidenceStates)
+    .sort((left, right) => left.priority - right.priority)
+    .map(
+      state => `<li class="evidence-state evidence-state-${state.variant}">
+  <span class="evidence-state-indicator" aria-hidden="true"></span>
+  <div><strong>${escapeHtml(state.label)}</strong><p>${escapeHtml(state.description)}</p></div>
+</li>`,
+    )
+    .join('\n');
+  return `<details class="evidence-legend">
+<summary>How to read evidence status</summary>
+<p>Each status describes the strongest evidence tied to the current skill source. Color is only a secondary cue.</p>
+<ol>
+${items}
+</ol>
+</details>`;
 }
 
 function renderFragment(fragment) {
@@ -357,10 +599,14 @@ description: ${yamlString(skill.description)}
 
 <p class="lede">${escapeHtml(skill.description)}</p>
 
-<div class="evidence-callout">
-  <span>Evidence status</span>
-  <strong>${escapeHtml(skill.evidenceLabel)}</strong>
-  <p>${escapeHtml(skill.evidenceExplanation)}</p>
+<div class="evidence-callout evidence-state evidence-state-${skill.evidence.variant}">
+  <span class="evidence-state-indicator" aria-hidden="true"></span>
+  <div>
+    <span>Evidence status</span>
+    <strong>${escapeHtml(skill.evidence.label)}</strong>
+    <p>${escapeHtml(skill.evidence.description)}</p>
+  </div>
+  ${renderEvidenceSummary(skill)}
 </div>
 
 ## Evaluation history
@@ -377,12 +623,20 @@ function renderSkillIndex(skills) {
   const cards = skills
     .map(
       skill =>
-        `<a class="skill-card" href="${siteRoute(`/skills/${skill.slug}`)}">
+        `<article class="skill-card evidence-state evidence-state-${skill.evidence.variant}">
   <span class="skill-index">${String(skills.indexOf(skill) + 1).padStart(2, '0')}</span>
-  <h2>${escapeHtml(skill.name)}</h2>
-  <p>${escapeHtml(skill.description)}</p>
-  <footer><span>${escapeHtml(skill.evidenceLabel)}</span><strong>${skill.reports.length} reports →</strong></footer>
-</a>`,
+  <a class="skill-card-main" href="${siteRoute(`/skills/${skill.slug}`)}">
+    <h2>${escapeHtml(skill.name)}</h2>
+    <p>${escapeHtml(skill.description)}</p>
+  </a>
+  <footer>
+    <span class="skill-evidence-label"><span class="evidence-state-indicator" aria-hidden="true"></span>${escapeHtml(skill.evidence.label)}</span>
+    <div class="skill-card-actions">
+      ${renderEvidenceSummary(skill, { compact: true })}
+      <a class="skill-history-link" href="${siteRoute(`/skills/${skill.slug}#evaluation-history`)}">${skill.reports.length} reports →</a>
+    </div>
+  </footer>
+</article>`,
     )
     .join('\n');
   return `---
@@ -395,6 +649,8 @@ description: Reusable Codex workflows and the evidence currently archived for th
 # Reusable workflows,<br>with inspectable evidence.
 
 <p class="lede">Each skill packages a focused way of working. Its page distinguishes the instructions from the evidence recorded by previous evaluation runs.</p>
+
+${renderEvidenceLegend()}
 
 <div class="skill-grid">
 ${cards}
@@ -502,19 +758,6 @@ ${featured}
 `;
 }
 
-function evidenceExplanation(skill, reportCount) {
-  if (reportCount === 0) {
-    return 'The skill is available, but this archive does not currently contain an evaluation report for it.';
-  }
-  if (skill === 'restructure-documentation') {
-    return 'The archive contains the promotion campaign currently used as direct evidence for this skill.';
-  }
-  if (skill === 'refactor-design') {
-    return 'The archive contains recent observation runs that demonstrate and calibrate this skill.';
-  }
-  return 'The archive preserves historical runs. They describe past executions, not a guarantee about a changed skill or runtime.';
-}
-
 function writeOutput(path, content) {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content.endsWith('\n') ? content : `${content}\n`);
@@ -532,10 +775,12 @@ export function generateContent({ repositoryRoot, archiveRoot, outputRoot }) {
   const reports = manifest.reports.map(entry => normalizeReport(entry, archiveRoot)).sort((left, right) => right.id.localeCompare(left.id));
   const skills = findSkills(repositoryRoot).map(skill => {
     const skillReports = reports.filter(report => report.skill === skill.slug);
+    const evidence = deriveEvidence(join(repositoryRoot, skill.slug), skillReports);
     return {
       ...skill,
-      evidenceLabel: evidenceLabels.get(skill.slug) ?? (skillReports.length ? 'Historical evidence' : 'No archived evidence'),
-      evidenceExplanation: evidenceExplanation(skill.slug, skillReports.length),
+      evidence,
+      evidenceLabel: evidence.label,
+      evidenceExplanation: evidence.description,
       reports: skillReports,
     };
   });
