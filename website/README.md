@@ -50,7 +50,9 @@ The catalog selects the strongest applicable status in this order:
 
 Complete current coverage does not establish RED, repetition, stability, regression, or promotion. Each evidence panel retains current results by their recorded status so failures and inconclusive or unstable operations remain visible even when stronger evidence takes precedence.
 
-A validated promotion panel projects recorded effort exclusively from its archived report: executed executor, judge, and total sessions; total and cached input tokens; duration; and runtime and token telemetry completeness. A session is one isolated executor or judge invocation recorded by qualification. Deterministic checks can qualify behavior with zero sessions.
+A validated promotion panel projects recorded effort exclusively from its archived report: executed executor, judge, and total sessions; total and cached input tokens; duration; and runtime and token telemetry completeness.
+
+A model session is one isolated, ephemeral `codex exec --json` invocation started by the evaluation runner. The executor performs the evaluated task; an optional judge evaluates the result in a separate invocation. A model session is not a message, conversational turn, deterministic check, or complete promotion. Deterministic checks consume zero model sessions.
 
 Token totals measure recorded workload, not an observed financial charge. Missing archived telemetry remains `Not recorded`; the website does not infer values or reconstruct cost.
 

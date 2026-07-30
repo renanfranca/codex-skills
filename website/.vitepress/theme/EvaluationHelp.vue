@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { evaluationGlossary } from '../../scripts/evaluation-glossary.mjs';
+import GlossaryDescription from './GlossaryDescription.vue';
 
 const props = defineProps({
   field: { type: String, default: '' },
@@ -31,9 +32,9 @@ const guideGroups = Object.freeze([
     title: 'How an evaluation is produced',
     entries: [
       evaluationGlossary.runner,
-      entryWithLabel('Executor', 'An isolated model invocation that performs the evaluated task.'),
-      entryWithLabel('Judge', 'An optional isolated model invocation that evaluates the executor result.'),
-      evaluationGlossary.fields.sessions,
+      evaluationGlossary.executor,
+      evaluationGlossary.judge,
+      evaluationGlossary.modelSession,
       evaluationGlossary.concepts.evidenceStatus,
       ...Object.entries(evaluationGlossary.evidenceStatuses).map(([code, value]) => ({ ...value, code })),
       evaluationGlossary.concepts.operationType,
@@ -44,7 +45,9 @@ const guideGroups = Object.freeze([
   {
     title: 'Execution facts',
     entries: [
-      ...Object.values(evaluationGlossary.fields),
+      ...Object.entries(evaluationGlossary.fields)
+        .filter(([key]) => key !== 'sessions')
+        .map(([, value]) => value),
       ...Object.entries(evaluationGlossary.failureCategories).map(([key, value]) => ({
         ...value,
         code: key === 'none' ? 'null' : key,
@@ -62,10 +65,6 @@ const guideGroups = Object.freeze([
     ],
   },
 ]);
-
-function entryWithLabel(label, description) {
-  return { label, description, applicability: 'Model backed evaluations' };
-}
 
 function updateMode() {
   mobile.value = mediaQuery.matches;
@@ -189,14 +188,14 @@ onBeforeUnmount(() => {
                 <dt>
                   {{ item.label }} <code v-if="item.code">{{ item.code }}</code>
                 </dt>
-                <dd>{{ item.description }}</dd>
+                <dd><GlossaryDescription :entry="item" /></dd>
               </div>
             </dl>
           </section>
         </div>
       </template>
       <template v-else>
-        <p>{{ definition?.description }}</p>
+        <p><GlossaryDescription v-if="definition" :entry="definition" /></p>
         <dl class="evaluation-current-value">
           <div>
             <dt>Current value</dt>

@@ -1,6 +1,27 @@
-const entry = (label, description, applicability = 'All evaluation reports') => Object.freeze({ label, description, applicability });
+const entry = (label, description, applicability = 'All evaluation reports', segments = null) =>
+  Object.freeze({
+    label,
+    description,
+    applicability,
+    ...(segments
+      ? {
+          segments: Object.freeze(segments.map(segment => Object.freeze(segment))),
+        }
+      : {}),
+  });
 
 export const knownObservationRoles = Object.freeze(['baseline', 'candidate', 'regression', 'observation']);
+
+const modelSessionDescription =
+  'A model session is one isolated, ephemeral codex exec --json invocation started by the evaluation runner. The executor performs the evaluated task; an optional judge evaluates the result in a separate invocation. A model session is not a message, conversational turn, deterministic check, or complete promotion. Deterministic checks consume zero model sessions.';
+const modelSession = entry('Executed sessions', modelSessionDescription, 'Model backed evaluations', [
+  { type: 'text', text: 'A model session is one isolated, ephemeral ' },
+  { type: 'code', text: 'codex exec --json' },
+  {
+    type: 'text',
+    text: ' invocation started by the evaluation runner. The executor performs the evaluated task; an optional judge evaluates the result in a separate invocation. A model session is not a message, conversational turn, deterministic check, or complete promotion. Deterministic checks consume zero model sessions.',
+  },
+]);
 
 export const evaluationGlossary = Object.freeze({
   concepts: Object.freeze({
@@ -22,6 +43,9 @@ export const evaluationGlossary = Object.freeze({
     'Evaluation runner',
     'The program run_skill_evals.py that coordinates gates, isolated workspaces, the executor, the judge, deterministic checks, and report archiving.',
   ),
+  executor: entry('Executor', 'The executor performs the evaluated task in one isolated model invocation.', 'Model backed evaluations'),
+  judge: entry('Judge', 'An optional judge evaluates the result in a separate invocation.', 'Model backed evaluations'),
+  modelSession,
   evidenceStatuses: Object.freeze({
     promotion: Object.freeze({
       ...entry(
@@ -139,10 +163,7 @@ export const evaluationGlossary = Object.freeze({
       'Judge reasoning effort',
       'The reasoning effort recorded for the judge, or Not used when judging was not applicable. Values are not a closed taxonomy.',
     ),
-    sessions: entry(
-      'Executed sessions',
-      'One session is one isolated executor or judge invocation recorded by qualification. Deterministic checks can consume zero sessions.',
-    ),
+    sessions: modelSession,
     plannedSessions: entry(
       'Planned maximum sessions',
       'The maximum executor and judge invocations authorized by the plan; skipped judge work can make execution lower.',

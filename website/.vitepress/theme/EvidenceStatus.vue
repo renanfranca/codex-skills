@@ -1,5 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { evaluationGlossary } from '../../scripts/evaluation-glossary.mjs';
+import GlossaryDescription from './GlossaryDescription.vue';
 
 const props = defineProps({
   data: {
@@ -215,11 +217,8 @@ onBeforeUnmount(() => {
               <dd>{{ formatCompleteness(evidence.promotionSummary.telemetry.usageComplete) }}</dd>
             </div>
           </dl>
-          <p>
-            A session is one isolated executor or judge invocation recorded by qualification. Deterministic checks can consume zero
-            sessions.
-          </p>
-          <p>Tokens are aggregate workload telemetry, not an observed financial charge.</p>
+          <p><GlossaryDescription :entry="evaluationGlossary.modelSession" /></p>
+          <p><GlossaryDescription :entry="evaluationGlossary.fields.totalTokens" /></p>
           <a class="evidence-promotion-report" :href="evidence.promotionSummary.report.href" @click="close({ restoreFocus: false })">
             Inspect promotion report
           </a>

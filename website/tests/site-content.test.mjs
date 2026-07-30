@@ -374,6 +374,22 @@ test('publishes the complete evaluation vocabulary as independent concepts', () 
   ]);
   assert.deepEqual(Object.keys(model.evaluationGlossary.results), ['PASS', 'FAIL', 'ERROR', 'INCONCLUSIVE', 'INVALID_RED', 'UNSTABLE']);
   assert.match(model.evaluationGlossary.runner.description, /run_skill_evals\.py/);
+  assert.match(model.evaluationGlossary.executor.description, /performs the evaluated task/);
+  assert.match(model.evaluationGlossary.judge.description, /optional.*evaluates the result.*separate invocation/i);
+  assert.equal(model.evaluationGlossary.modelSession.description, model.evaluationGlossary.fields.sessions.description);
+  assert.match(model.evaluationGlossary.modelSession.description, /isolated, ephemeral codex exec --json invocation/);
+  assert.match(model.evaluationGlossary.modelSession.description, /started by the evaluation runner/);
+  assert.match(model.evaluationGlossary.modelSession.description, /executor performs the evaluated task/);
+  assert.match(model.evaluationGlossary.modelSession.description, /optional judge evaluates the result in a separate invocation/);
+  assert.match(
+    model.evaluationGlossary.modelSession.description,
+    /not a message, conversational turn, deterministic check, or complete promotion/,
+  );
+  assert.match(model.evaluationGlossary.modelSession.description, /Deterministic checks consume zero model sessions/);
+  assert.deepEqual(
+    model.evaluationGlossary.modelSession.segments.filter(segment => segment.type === 'code'),
+    [{ type: 'code', text: 'codex exec --json' }],
+  );
 });
 
 test('rejects archived operations and roles without glossary definitions', () => {

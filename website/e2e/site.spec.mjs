@@ -38,6 +38,17 @@ async function contrastRatio(locator) {
   });
 }
 
+async function expectModelSessionDefinition(container) {
+  await expect(container.getByText(/isolated, ephemeral codex exec --json invocation started by the evaluation runner/i)).toBeVisible();
+  await expect(
+    container.getByText(/executor performs the evaluated task.*optional judge evaluates the result in a separate invocation/i),
+  ).toBeVisible();
+  await expect(container.getByText(/not a message, conversational turn, deterministic check, or complete promotion/i)).toBeVisible();
+  await expect(container.getByText(/Deterministic checks consume zero model sessions/)).toBeVisible();
+  await expect(container.getByText('codex exec --json', { exact: true })).toHaveCount(1);
+  await expect(container.getByText('codex exec --json', { exact: true })).toHaveJSProperty('tagName', 'CODE');
+}
+
 test('a reader can move from the project purpose to the skill catalog', async ({ page }) => {
   const consoleErrors = [];
   page.on('console', message => {
@@ -146,9 +157,8 @@ test('a validated promotion explains qualification and recorded effort', async (
   await expect(panel.getByText('Duration', { exact: true })).toBeVisible();
   await expect(panel.getByText('Runtime telemetry', { exact: true })).toBeVisible();
   await expect(panel.getByText('Token telemetry', { exact: true })).toBeVisible();
-  await expect(panel.getByText(/one isolated executor or judge invocation recorded by qualification/i)).toBeVisible();
-  await expect(panel.getByText(/Deterministic checks can consume zero sessions/)).toBeVisible();
-  await expect(panel.getByText(/not an observed financial charge/)).toBeVisible();
+  await expectModelSessionDefinition(panel);
+  await expect(panel.getByText(/Aggregate workload telemetry.*not an observed financial charge/i)).toBeVisible();
   await expect(panel.getByRole('link', { name: 'Inspect promotion report' })).toHaveAttribute(
     'href',
     /\/evaluations\/restructure-documentation\/20260727T233326\.147750Z-48228593ef91$/,
@@ -310,9 +320,26 @@ test('report vocabulary is learnable in context and in the complete guide', asyn
   await expect(fieldPanel).toBeHidden();
   await expect(executorHelp).toBeFocused();
 
+  const sessionsHelp = factGrid.getByRole('button', { name: /Executed sessions/ });
+  await sessionsHelp.focus();
+  await page.keyboard.press('Enter');
+  const sessionsPanel = page.getByRole('dialog', { name: 'Executed sessions help' });
+  await expectModelSessionDefinition(sessionsPanel);
+  await page.keyboard.press('Escape');
+  await expect(sessionsPanel).toBeHidden();
+  await expect(sessionsHelp).toBeFocused();
+
+  if (testInfo.project.name === 'mobile') {
+    await page.getByRole('heading', { level: 2, name: 'Execution facts' }).evaluate(element => {
+      window.scrollTo(0, window.scrollY + element.getBoundingClientRect().top - 48);
+    });
+  }
   await page.getByRole('button', { name: 'Learn how to read this report' }).click();
   const guide = page.getByRole('dialog', { name: 'Learn how to read this report' });
   await expect(guide.getByText(/program run_skill_evals\.py/)).toBeVisible();
+  const modelSessionEntry = guide.locator('dl > div').filter({ hasText: 'Executed sessions' });
+  await expect(modelSessionEntry).toHaveCount(1);
+  await expectModelSessionDefinition(modelSessionEntry);
   await expect(guide.locator('dt').filter({ hasText: 'RED/GREEN check' })).toBeVisible();
   await expect(guide.getByText('verify-change', { exact: true })).toBeVisible();
   await expect(guide.locator('dt').filter({ hasText: 'Invalid RED' })).toBeVisible();
