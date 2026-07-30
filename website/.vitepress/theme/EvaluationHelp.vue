@@ -15,6 +15,7 @@ const trigger = ref(null);
 const panel = ref(null);
 const panelStyle = ref({});
 const panelId = `evaluation-help-${Math.random().toString(36).slice(2)}`;
+let mediaQuery;
 
 const definition = computed(() => evaluationGlossary.fields[props.field] ?? evaluationGlossary.observationFields[props.field] ?? null);
 const taxonomy = computed(() => {
@@ -67,28 +68,43 @@ function entryWithLabel(label, description) {
 }
 
 function updateMode() {
-  mobile.value = window.matchMedia('(max-width: 640px)').matches;
+  mobile.value = mediaQuery.matches;
+  updatePosition();
 }
 
-function updatePosition() {
+async function updatePosition() {
   if (!open.value || mobile.value || props.guide || !trigger.value) {
     panelStyle.value = {};
     return;
   }
-  const rect = trigger.value.getBoundingClientRect();
   const width = Math.min(400, window.innerWidth - 32);
+  const initialBounds = trigger.value.getBoundingClientRect();
+  const initialLeft = Math.max(16, Math.min(initialBounds.left, window.innerWidth - width - 16));
+  panelStyle.value = {
+    ...panelStyle.value,
+    width: `${width}px`,
+    left: `${initialLeft}px`,
+  };
+  await nextTick();
+  if (!open.value || mobile.value || props.guide || !trigger.value || !panel.value) return;
+
+  const bounds = trigger.value.getBoundingClientRect();
+  const left = Math.max(16, Math.min(bounds.left, window.innerWidth - width - 16));
+  const panelHeight = panel.value?.getBoundingClientRect().height ?? 0;
+  const below = bounds.bottom + 10;
+  const above = bounds.top - panelHeight - 10;
+  const top = below + panelHeight <= window.innerHeight - 16 ? below : Math.max(16, above);
   panelStyle.value = {
     width: `${width}px`,
-    top: `${Math.min(rect.bottom + 10, window.innerHeight - 360)}px`,
-    left: `${Math.max(16, Math.min(rect.left, window.innerWidth - width - 16))}px`,
+    top: `${top}px`,
+    left: `${left}px`,
   };
 }
 
 async function show() {
   open.value = true;
-  updateMode();
   await nextTick();
-  updatePosition();
+  await updatePosition();
   panel.value?.focus();
 }
 
@@ -107,18 +123,21 @@ function handleDocumentKey(event) {
 }
 
 onMounted(() => {
+  mediaQuery = window.matchMedia('(max-width: 640px)');
   updateMode();
-  window.addEventListener('resize', updateMode);
-  window.addEventListener('resize', updatePosition);
+  mediaQuery.addEventListener('change', updateMode);
   document.addEventListener('click', handleDocumentClick);
   document.addEventListener('keydown', handleDocumentKey);
+  window.addEventListener('resize', updatePosition);
+  window.addEventListener('scroll', updatePosition, true);
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateMode);
-  window.removeEventListener('resize', updatePosition);
+  mediaQuery?.removeEventListener('change', updateMode);
   document.removeEventListener('click', handleDocumentClick);
   document.removeEventListener('keydown', handleDocumentKey);
+  window.removeEventListener('resize', updatePosition);
+  window.removeEventListener('scroll', updatePosition, true);
 });
 </script>
 

@@ -931,6 +931,7 @@ body {
 .evaluation-help-panel {
   position: fixed;
   z-index: 110;
+  box-sizing: border-box;
   overflow: auto;
   max-height: min(760px, calc(100vh - 32px));
   padding: 24px;

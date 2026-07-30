@@ -269,6 +269,50 @@ test('report vocabulary is learnable in context and in the complete guide', asyn
   await expect(page.getByRole('button', { name: 'Learn how to read this report' })).toBeFocused();
 });
 
+test('contextual help stays inside the desktop viewport while the document scrolls', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'Desktop popovers use anchored positioning; mobile uses a bottom sheet.');
+  const report = archiveManifest.reports.find(item => item.status === 'PASS');
+  await page.goto(`evaluations/${report.skill}/${report.operation_id}`);
+
+  const failureCategory = page.getByRole('button', { name: /Failure category/ }).first();
+  await failureCategory.evaluate(element => element.scrollIntoView({ block: 'end' }));
+  await failureCategory.click();
+  const tallPanel = page.getByRole('dialog', { name: 'Failure category help' });
+  const tallBounds = await tallPanel.evaluate(element => {
+    const bounds = element.getBoundingClientRect();
+    return {
+      top: bounds.top,
+      bottom: bounds.bottom,
+      viewportHeight: window.innerHeight,
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+    };
+  });
+
+  expect(tallBounds.top).toBeGreaterThanOrEqual(16);
+  expect(tallBounds.bottom).toBeLessThanOrEqual(tallBounds.viewportHeight - 16);
+  expect(tallBounds.scrollHeight).toBeGreaterThan(tallBounds.clientHeight);
+  await page.keyboard.press('Escape');
+
+  const executorModel = page.getByRole('button', { name: /Executor model/ }).first();
+  await executorModel.evaluate(element => element.scrollIntoView({ block: 'center' }));
+  await executorModel.click();
+  const anchoredPanel = page.getByRole('dialog', { name: 'Executor model help' });
+  const initialTop = await anchoredPanel.evaluate(element => element.getBoundingClientRect().top);
+  await page.evaluate(async () => {
+    window.scrollBy(0, 160);
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
+  const scrolledBounds = await anchoredPanel.evaluate(element => {
+    const bounds = element.getBoundingClientRect();
+    return { top: bounds.top, bottom: bounds.bottom, viewportHeight: window.innerHeight };
+  });
+
+  expect(scrolledBounds.top).not.toBe(initialTop);
+  expect(scrolledBounds.top).toBeGreaterThanOrEqual(16);
+  expect(scrolledBounds.bottom).toBeLessThanOrEqual(scrolledBounds.viewportHeight - 16);
+});
+
 test('the project and skill catalog fit the available viewport', async ({ page }) => {
   await page.goto('./');
 
