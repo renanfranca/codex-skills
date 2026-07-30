@@ -59,3 +59,5 @@ Follow Conventional Commits used in history: `feat(skill-name): add ...`, `chore
 ## Security & Agent Guidance
 
 Do not add credentials, personal data, proprietary source, full transcripts, or generated model responses to fixtures. Do not commit, push, publish, or modify managed system skills unless explicitly requested.
+
+Run GitHub CLI commands outside the filesystem sandbox. The sandbox may not inherit the host's GitHub CLI authentication and can incorrectly report that its credentials have expired.

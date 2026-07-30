@@ -298,6 +298,9 @@ test('retained report code is readable and expandable in both themes', async ({ 
 test('report vocabulary is learnable in context and in the complete guide', async ({ page }, testInfo) => {
   const report = archiveManifest.reports.find(item => item.status === 'PASS');
   await page.goto(`evaluations/${report.skill}/${report.operation_id}`);
+  await page.evaluate(() => {
+    document.documentElement.style.scrollBehavior = 'auto';
+  });
 
   const factGrid = page.locator('.fact-grid').first();
   const executorHelp = factGrid.getByRole('button', { name: /Executor model/ });
@@ -314,7 +317,7 @@ test('report vocabulary is learnable in context and in the complete guide', asyn
   } else {
     await expect(fieldPanel).toHaveClass(/evaluation-help-popover/);
   }
-  await expect(page).toHaveScreenshot('execution-facts-help.png', { maxDiffPixelRatio: 0.01 });
+  await expect(page).toHaveScreenshot('execution-facts-help.png');
 
   await page.keyboard.press('Escape');
   await expect(fieldPanel).toBeHidden();
@@ -329,11 +332,6 @@ test('report vocabulary is learnable in context and in the complete guide', asyn
   await expect(sessionsPanel).toBeHidden();
   await expect(sessionsHelp).toBeFocused();
 
-  if (testInfo.project.name === 'mobile') {
-    await page.getByRole('heading', { level: 2, name: 'Execution facts' }).evaluate(element => {
-      window.scrollTo(0, window.scrollY + element.getBoundingClientRect().top - 48);
-    });
-  }
   await page.getByRole('button', { name: 'Learn how to read this report' }).click();
   const guide = page.getByRole('dialog', { name: 'Learn how to read this report' });
   await expect(guide.getByText(/program run_skill_evals\.py/)).toBeVisible();
@@ -345,7 +343,17 @@ test('report vocabulary is learnable in context and in the complete guide', asyn
   await expect(guide.locator('dt').filter({ hasText: 'Invalid RED' })).toBeVisible();
   await expect(guide.locator('dt').filter({ hasText: 'No evaluation yet' })).toBeVisible();
   await expect(guide.getByText(/answer different questions/i)).toBeVisible();
-  await expect(page).toHaveScreenshot('evaluation-vocabulary-guide.png', { maxDiffPixelRatio: 0.01 });
+  if (testInfo.project.name === 'mobile') {
+    await page.evaluate(async () => {
+      window.scrollTo({
+        top: 0,
+        behavior: 'instant',
+      });
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    });
+    await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(0);
+  }
+  await expect(page).toHaveScreenshot('evaluation-vocabulary-guide.png');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await guide.getByRole('button', { name: 'Close evaluation help' }).click();
@@ -383,7 +391,7 @@ test('contextual help stays inside the desktop viewport while the document scrol
   const anchoredPanel = page.getByRole('dialog', { name: 'Executor model help' });
   const initialTop = await anchoredPanel.evaluate(element => element.getBoundingClientRect().top);
   await page.evaluate(async () => {
-    window.scrollBy(0, 160);
+    window.scrollBy({ top: 160, behavior: 'instant' });
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   });
   const scrolledBounds = await anchoredPanel.evaluate(element => {

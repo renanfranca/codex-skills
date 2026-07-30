@@ -7,10 +7,10 @@ The documentation site for the repository's reusable Codex workflows and archive
 - Node.js 24 or newer
 - npm 11.7.0
 - Python 3 for evaluation archive validation
+- Docker Engine for the Playwright visual checkpoint
 
 ```bash
 npm ci
-npm exec -- playwright install chromium
 ```
 
 ## Local environment
@@ -71,12 +71,20 @@ npm run test:e2e
 
 The browser suite runs the same journeys with desktop Chromium and a fully emulated Pixel 7 profile. `npm run test:e2e` builds the site first and starts a local preview automatically.
 
+The public E2E command runs Playwright in the same digest-pinned official Playwright 1.62.0 Jammy container used by GitHub Actions. The runner forwards additional Playwright arguments, so update all existing visual baselines in that environment with:
+
+```bash
+npm run test:e2e -- --update-snapshots
+```
+
+The container uses `--init`, host IPC, the invoking user, and an isolated temporary volume for `node_modules`. Its first execution downloads the pinned image. `npm run test:e2e:direct` is an internal command for GitHub Actions or a shell already running inside that exact container; do not use it to create host baselines.
+
 ## Content and publication
 
 - `content-config.json` records website-only catalog decisions such as compatibility skills excluded from the active catalog.
 - `scripts/generate-content.mjs` creates the home page, skill pages, evaluation history, and report evidence pages.
 - `.vitepress/` contains the GitHub Pages base path, navigation, and visual theme.
-- `.github/workflows/deploy-website.yml` validates, tests, builds, and deploys the static artifact after changes reach `main`.
+- `.github/workflows/deploy-website.yml` validates, tests, builds, and deploys the static artifact after changes reach `main`. Its build job uses the same pinned visual-test container as the local runner.
 
 GitHub Pages must use **GitHub Actions** as its publishing source. The workflow publishes `website/.vitepress/dist` to `https://renanfranca.github.io/codex-skills/`.
 

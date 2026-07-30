@@ -23,6 +23,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.0-jammy@sha256:b012874f829d298730411256666afcaeaeebaf505a0cf4c2f668d6dedb3d1e80
+      options: --init --ipc=host
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -34,21 +37,25 @@ jobs:
           cache: npm
           cache-dependency-path: website/package-lock.json
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
       - name: Install website dependencies
         run: npm ci --prefix website
         env:
           HUSKY: 0
 
-      - name: Install Playwright Chromium
-        run: npm exec -- playwright install --with-deps chromium
-        working-directory: website
-
       - name: Run deterministic behavior tests
         run: npm test --prefix website
 
+      - name: Build website
+        run: npm run build --prefix website
+
       - name: Run public path checkpoints
         id: public_path_checkpoints
-        run: npm run test:e2e --prefix website
+        run: npm run test:e2e:direct --prefix website
 
       - name: Upload Playwright failure diagnostics
         if: ${{ failure() && steps.public_path_checkpoints.outcome == 'failure' }}

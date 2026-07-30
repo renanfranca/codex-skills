@@ -16,8 +16,8 @@
     "prettier:format": "prettier --write .",
     "preview": "vitepress preview",
     "test": "node --test",
-    "pretest:e2e": "npm run build",
-    "test:e2e": "playwright test"
+    "test:e2e": "bash scripts/run-playwright-container.sh",
+    "test:e2e:direct": "playwright test"
   },
   "devDependencies": {
     "@playwright/test": "1.62.0",
