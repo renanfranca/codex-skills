@@ -3,6 +3,41 @@ import { readFileSync } from 'node:fs';
 
 const archiveManifest = JSON.parse(readFileSync(new URL('../../evaluation-reports/manifest.json', import.meta.url), 'utf8'));
 
+async function contrastRatio(locator) {
+  return locator.evaluate(element => {
+    const parseColor = value => {
+      const channels = value.match(/[\d.]+/g)?.map(Number);
+      if (!channels || channels.length < 3) throw new Error(`Unsupported computed color: ${value}`);
+      return [channels[0], channels[1], channels[2], channels[3] ?? 1];
+    };
+    const composite = (foreground, background) => {
+      const alpha = foreground[3] + background[3] * (1 - foreground[3]);
+      return [
+        (foreground[0] * foreground[3] + background[0] * background[3] * (1 - foreground[3])) / alpha,
+        (foreground[1] * foreground[3] + background[1] * background[3] * (1 - foreground[3])) / alpha,
+        (foreground[2] * foreground[3] + background[2] * background[3] * (1 - foreground[3])) / alpha,
+        alpha,
+      ];
+    };
+    const backgrounds = [];
+    for (let current = element; current; current = current.parentElement) {
+      backgrounds.push(parseColor(getComputedStyle(current).backgroundColor));
+    }
+    const background = backgrounds.reverse().reduce((result, layer) => composite(layer, result), [255, 255, 255, 1]);
+    const foreground = composite(parseColor(getComputedStyle(element).color), background);
+    const luminance = color => {
+      const linearChannels = color.slice(0, 3).map(channel => {
+        const value = channel / 255;
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      });
+      return linearChannels[0] * 0.2126 + linearChannels[1] * 0.7152 + linearChannels[2] * 0.0722;
+    };
+    const lighter = Math.max(luminance(foreground), luminance(background));
+    const darker = Math.min(luminance(foreground), luminance(background));
+    return (lighter + 0.05) / (darker + 0.05);
+  });
+}
+
 test('a reader can move from the project purpose to the skill catalog', async ({ page }) => {
   const consoleErrors = [];
   page.on('console', message => {
@@ -210,23 +245,44 @@ test('evidence remains readable in light and dark themes', async ({ page }) => {
   await expect(card.getByText('Partial current coverage', { exact: true })).toBeVisible();
 });
 
-test('a reader can expand the retained code diff for an observation', async ({ page }) => {
-  await page.goto('skills/refactor-design');
-  await page
-    .getByRole('link', { name: /run[\s\S]*PASS/ })
-    .first()
-    .click();
+test('retained report code is readable and expandable in both themes', async ({ page }) => {
+  await page.goto('evaluations/execplan-tdd/20260729T181620.575049Z-cc3d76bb204a');
+
+  const operation = page.locator('.lede code').nth(0);
+  const operationId = page.locator('.lede code').nth(1);
 
   const diffSummary = page.getByText('View code diff').first();
   await expect(diffSummary).toBeVisible();
   await diffSummary.click();
 
-  await expect(page.locator('code').filter({ hasText: '--- a/' }).first()).toBeVisible();
+  const diffBlock = page.locator('.language-diff').first();
+  await expect(diffBlock.locator('code').filter({ hasText: '--- /dev/null' })).toBeVisible();
+  const contextLine = diffBlock.locator('.line > span').filter({ hasText: 'unittest.main()' });
+  const language = diffBlock.locator('.lang');
+
   const fragmentSummary = page.getByText('Code fragments').first();
   await expect(fragmentSummary).toBeVisible();
   await fragmentSummary.click();
   await expect(page.getByText('Before', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('After', { exact: true }).first()).toBeVisible();
+
+  for (const code of [operation, operationId, contextLine, language]) {
+    expect(await contrastRatio(code)).toBeGreaterThanOrEqual(4.5);
+  }
+  const lightBlockBackground = await diffBlock.evaluate(element => getComputedStyle(element).backgroundColor);
+
+  const themeSwitch = page.getByRole('switch', { name: 'Switch to dark theme' });
+  if (!(await themeSwitch.isVisible())) {
+    await page.getByRole('button', { name: 'mobile navigation' }).click();
+  }
+  await themeSwitch.click();
+  await expect(page.locator('html')).toHaveClass(/dark/);
+
+  for (const code of [operation, operationId, contextLine, language]) {
+    expect(await contrastRatio(code)).toBeGreaterThanOrEqual(4.5);
+  }
+  expect(await diffBlock.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(lightBlockBackground);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 test('report vocabulary is learnable in context and in the complete guide', async ({ page }, testInfo) => {

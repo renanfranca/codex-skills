@@ -18,7 +18,9 @@
   --vp-c-gutter: #e8e4d8;
   --vp-nav-bg-color: rgba(243, 240, 231, 0.88);
   --vp-code-block-bg: #20201c;
-  --vp-code-color: #f1eee5;
+  --vp-code-block-color: #f1eee5;
+  --vp-code-color: #171713;
+  --vp-code-lang-color: #bbb8ad;
   --vp-layout-max-width: 1500px;
   --evidence-promotion-accent: #2f6b3a;
   --evidence-promotion-surface: #e2eddf;
@@ -49,6 +51,7 @@
   --vp-c-divider: rgba(243, 240, 231, 0.15);
   --vp-c-gutter: #20201c;
   --vp-nav-bg-color: rgba(23, 23, 19, 0.9);
+  --vp-code-color: #f1eee5;
   --evidence-promotion-accent: #8dc597;
   --evidence-promotion-surface: #203326;
   --evidence-complete-accent: #75cbd0;
@@ -61,6 +64,10 @@
   --evidence-historical-surface: #2c283d;
   --evidence-no-evaluation-accent: #b8b5aa;
   --evidence-no-evaluation-surface: #302f2a;
+}
+
+html:not(.dark) .vp-code span {
+  color: var(--shiki-dark, inherit);
 }
 
 html {
