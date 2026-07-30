@@ -47,7 +47,17 @@ jobs:
         run: npm test --prefix website
 
       - name: Run public path checkpoints
+        id: public_path_checkpoints
         run: npm run test:e2e --prefix website
+
+      - name: Upload Playwright failure diagnostics
+        if: ${{ failure() && steps.public_path_checkpoints.outcome == 'failure' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-test-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: website/test-results
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
