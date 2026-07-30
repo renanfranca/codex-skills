@@ -67,8 +67,12 @@ test('generates a factual skill history from an archived evaluation', () => {
         skill: { path: './example-skill', name: 'example-skill' },
         runtime: {
           executor: { model: 'gpt-example', reasoning_effort: 'medium' },
+          judge: { required: true, model: 'gpt-judge', reasoning_effort: 'high' },
         },
-        sessions: { executed: 1 },
+        sessions: {
+          planned: { executor: 1, judge: 1, total: 2 },
+          executed: { executor: 1, judge: 1, total: 2 },
+        },
         usage: { total_tokens: 42 },
         observations: [
           {
@@ -83,6 +87,7 @@ test('generates a factual skill history from an archived evaluation', () => {
             },
             judge: {
               enabled: true,
+              executed: true,
               verdict: 'PASS',
               rationale: 'The observable behavior matched the contract.',
               evidence: ['The public command exited successfully.'],
@@ -120,11 +125,50 @@ test('generates a factual skill history from an archived evaluation', () => {
   assert.equal(model.skills[0].name, 'example-skill');
   assert.equal(model.skills[0].description, 'Explain an example behavior with evidence.');
   assert.equal(model.skills[0].reports[0].status, 'PASS');
+  assert.deepEqual(model.reports[0].runtimeByRole, {
+    executor: { model: 'gpt-example', reasoningEffort: 'medium' },
+    judge: { applicable: true, model: 'gpt-judge', reasoningEffort: 'high' },
+  });
+  assert.deepEqual(model.reports[0].sessionsByRole.executed, { executor: 1, judge: 1, total: 2 });
+  assert.deepEqual(model.reports[0].sessionsByRole.planned, { executor: 1, judge: 1, total: 2 });
+  assert.equal(model.reports[0].judgeState, 'Executed');
   assert.match(reportPage, /The observable behavior matched the contract\./);
   assert.match(reportPage, /--- a\/example\.py\n\+\+\+ b\/example\.py/);
   assert.match(reportPage, /Code fragments/);
   assert.match(reportPage, /print\("before"\)/);
   assert.match(reportPage, /print\("after"\)/);
+  assert.match(reportPage, /Exploratory evaluation[\s\S]*<code>run<\/code>/);
+  assert.match(reportPage, /<EvaluationHelp guide>/);
+  assert.match(reportPage, /<EvaluationHelp[\s\S]*field="executorModel"/);
+  assert.match(reportPage, /field="executorModel"/);
+  assert.match(reportPage, /field="judgeModel"/);
+  assert.match(reportPage, /field="sessions"/);
+  assert.match(reportPage, /None/);
+
+  const reportPath = join(reportDirectory, 'report.json');
+  const report = JSON.parse(readFileSync(reportPath, 'utf8'));
+  for (const [judge, displayedState] of [
+    [{ enabled: false, executed: false, verdict: 'PASS' }, 'Not used'],
+    [{ enabled: true, executed: false, verdict: 'SKIPPED' }, 'Skipped'],
+  ]) {
+    Object.assign(report.observations[0].judge, judge);
+    writeFileSync(reportPath, `${JSON.stringify(report)}\n`);
+    execFileSync(
+      process.execPath,
+      [
+        join(websiteDirectory, 'scripts', 'generate-content.mjs'),
+        '--repository-root',
+        repository,
+        '--archive',
+        archive,
+        '--output',
+        output,
+      ],
+      { stdio: 'pipe' },
+    );
+    const updatedModel = JSON.parse(readFileSync(join(output, 'data.json'), 'utf8'));
+    assert.equal(updatedModel.reports[0].observations[0].judgeDisplay, displayedState);
+  }
 });
 
 test('keeps a failed operation and explains its recorded failure category', () => {
@@ -162,7 +206,7 @@ test('keeps a failed operation and explains its recorded failure category', () =
         id: operationId,
         type: 'run',
         status: 'ERROR',
-        failure_category: 'runtime_configuration',
+        failure_category: 'infrastructure',
       },
       skill: { name: 'example-skill' },
       observations: [],
@@ -179,8 +223,47 @@ test('keeps a failed operation and explains its recorded failure category', () =
   const reportPage = readFileSync(join(output, 'evaluations', 'example-skill', `${operationId}.md`), 'utf8');
 
   assert.match(reportPage, /Recorded result[\s\S]*ERROR/);
-  assert.match(reportPage, /Failure category[\s\S]*runtime_configuration/);
+  assert.match(reportPage, /field="failureCategory" current="infrastructure"/);
   assert.match(reportPage, /The executor did not start\./);
+
+  const reportPath = join(reportDirectory, 'report.json');
+  const report = JSON.parse(readFileSync(reportPath, 'utf8'));
+  for (const [recordedValue, displayedValue] of [
+    ['contract', 'contract'],
+    [null, 'None'],
+  ]) {
+    report.operation.failure_category = recordedValue;
+    writeFileSync(reportPath, `${JSON.stringify(report)}\n`);
+    execFileSync(
+      process.execPath,
+      [
+        join(websiteDirectory, 'scripts', 'generate-content.mjs'),
+        '--repository-root',
+        repository,
+        '--archive',
+        archive,
+        '--output',
+        output,
+      ],
+      { stdio: 'pipe' },
+    );
+    assert.match(
+      readFileSync(join(output, 'evaluations', 'example-skill', `${operationId}.md`), 'utf8'),
+      new RegExp(`field="failureCategory" current="${displayedValue}"`),
+    );
+  }
+
+  delete report.operation.failure_category;
+  writeFileSync(reportPath, `${JSON.stringify(report)}\n`);
+  execFileSync(
+    process.execPath,
+    [join(websiteDirectory, 'scripts', 'generate-content.mjs'), '--repository-root', repository, '--archive', archive, '--output', output],
+    { stdio: 'pipe' },
+  );
+  assert.match(
+    readFileSync(join(output, 'evaluations', 'example-skill', `${operationId}.md`), 'utf8'),
+    /field="failureCategory" current="Not recorded"/,
+  );
 });
 
 test('rejects a manifest report path outside the evaluation archive', () => {
@@ -257,6 +340,99 @@ test('generates a project landing page that leads readers to evidence', () => {
   assert.match(homePage, new RegExp(`${manifest.report_count} archived operations`));
   assert.match(homePage, /href="\/codex-skills\/skills\/"/);
   assert.match(homePage, /href="\/codex-skills\/evaluations\/"/);
+});
+
+test('publishes the complete evaluation vocabulary as independent concepts', () => {
+  const output = mkdtempSync(join(tmpdir(), 'codex-skills-glossary-'));
+  const repository = join(websiteDirectory, '..');
+
+  execFileSync(
+    process.execPath,
+    [
+      join(websiteDirectory, 'scripts', 'generate-content.mjs'),
+      '--repository-root',
+      repository,
+      '--archive',
+      join(repository, 'evaluation-reports'),
+      '--output',
+      output,
+    ],
+    { stdio: 'pipe' },
+  );
+
+  const model = JSON.parse(readFileSync(join(output, 'data.json'), 'utf8'));
+
+  assert.equal(model.evaluationGlossary.concepts.evidenceStatus.label, 'Evidence status');
+  assert.equal(model.evaluationGlossary.concepts.operationType.label, 'Operation type');
+  assert.equal(model.evaluationGlossary.concepts.recordedResult.label, 'Recorded result');
+  assert.deepEqual(Object.keys(model.evaluationGlossary.operations), [
+    'run',
+    'verify-change',
+    'stability',
+    'probe-change',
+    'validate-change',
+  ]);
+  assert.deepEqual(Object.keys(model.evaluationGlossary.results), ['PASS', 'FAIL', 'ERROR', 'INCONCLUSIVE', 'INVALID_RED', 'UNSTABLE']);
+  assert.match(model.evaluationGlossary.runner.description, /run_skill_evals\.py/);
+});
+
+test('rejects archived operations and roles without glossary definitions', () => {
+  const workspace = mkdtempSync(join(tmpdir(), 'codex-skills-undocumented-taxonomy-'));
+  const repository = join(workspace, 'repository');
+  const archive = join(repository, 'evaluation-reports');
+  const operationId = '20260730T120000.000000Z-unknown';
+  const reportDirectory = join(archive, 'example-skill', 'operations', operationId);
+  const output = join(workspace, 'generated');
+  const reportPath = `example-skill/operations/${operationId}/report.json`;
+
+  mkdirSync(join(repository, 'example-skill'), { recursive: true });
+  mkdirSync(reportDirectory, { recursive: true });
+  writeFileSync(join(repository, 'example-skill', 'SKILL.md'), '---\nname: example-skill\ndescription: Reject undocumented values.\n---\n');
+  writeFileSync(
+    join(archive, 'manifest.json'),
+    `${JSON.stringify({
+      report_count: 1,
+      reports: [{ skill: 'example-skill', operation_id: operationId, operation: 'future-operation', path: reportPath }],
+    })}\n`,
+  );
+  writeFileSync(join(reportDirectory, 'report.json'), '{"operation":{"type":"future-operation"},"observations":[]}\n');
+
+  const generate = () =>
+    execFileSync(
+      process.execPath,
+      [
+        join(websiteDirectory, 'scripts', 'generate-content.mjs'),
+        '--repository-root',
+        repository,
+        '--archive',
+        archive,
+        '--output',
+        output,
+      ],
+      { stdio: 'pipe' },
+    );
+
+  assert.throws(generate, error => {
+    assert.match(error.stderr.toString(), /unknown operation "future-operation"/);
+    return true;
+  });
+
+  writeFileSync(
+    join(archive, 'manifest.json'),
+    `${JSON.stringify({
+      report_count: 1,
+      reports: [{ skill: 'example-skill', operation_id: operationId, operation: 'run', path: reportPath }],
+    })}\n`,
+  );
+  writeFileSync(
+    join(reportDirectory, 'report.json'),
+    '{"operation":{"type":"run"},"observations":[{"case_id":"example","role":"future-role"}]}\n',
+  );
+
+  assert.throws(generate, error => {
+    assert.match(error.stderr.toString(), /unknown role "future-role"/);
+    return true;
+  });
 });
 
 test('renders archived text as evidence instead of executable markup', () => {

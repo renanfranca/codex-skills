@@ -864,6 +864,189 @@ body {
   color: var(--vp-c-text-2);
 }
 
+.report-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 72px;
+}
+
+.vp-doc .report-section-heading h2 {
+  margin: 0;
+}
+
+.evaluation-guide-trigger,
+.evaluation-field-trigger {
+  border: 0;
+  background: transparent;
+  color: var(--vp-c-text-3);
+  cursor: pointer;
+  font-family: var(--vp-font-family-mono);
+}
+
+.evaluation-guide-trigger {
+  min-height: 44px;
+  padding: 8px 0;
+  color: var(--vp-c-brand-1);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.evaluation-field-trigger {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.evaluation-field-trigger span {
+  color: var(--vp-c-brand-1);
+  font-family: inherit;
+  font-size: 0.76rem;
+  letter-spacing: 0;
+}
+
+.evaluation-guide-trigger:focus-visible,
+.evaluation-field-trigger:focus-visible,
+.evaluation-help-panel button:focus-visible {
+  outline: 3px solid var(--vp-c-brand-1);
+  outline-offset: 3px;
+}
+
+.evaluation-help-backdrop {
+  position: fixed;
+  z-index: 109;
+  background: rgba(0, 0, 0, 0.62);
+  inset: 0;
+}
+
+.evaluation-help-panel {
+  position: fixed;
+  z-index: 110;
+  overflow: auto;
+  max-height: min(760px, calc(100vh - 32px));
+  padding: 24px;
+  border: 1px solid var(--vp-c-divider);
+  border-top: 5px solid var(--vp-c-brand-1);
+  background: var(--vp-c-bg-elv);
+  color: var(--vp-c-text-1);
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.3);
+}
+
+.evaluation-help-panel > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.evaluation-help-panel > header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.evaluation-help-panel > header span,
+.evaluation-current-value dt {
+  color: var(--vp-c-text-3);
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.67rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.evaluation-help-panel > header strong {
+  font-size: 1.2rem;
+}
+
+.evaluation-help-panel > header button {
+  min-height: 44px;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: var(--vp-c-text-1);
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.evaluation-help-panel > p,
+.evaluation-help-panel dd {
+  color: var(--vp-c-text-2);
+  line-height: 1.55;
+}
+
+.evaluation-help-popover {
+  border-radius: 3px;
+}
+
+.evaluation-help-guide {
+  top: 50%;
+  left: 50%;
+  width: min(980px, calc(100vw - 48px));
+  transform: translate(-50%, -50%);
+}
+
+.evaluation-current-value,
+.evaluation-taxonomy dl,
+.evaluation-guide-groups dl {
+  margin: 20px 0 0;
+}
+
+.evaluation-current-value div,
+.evaluation-taxonomy dl div,
+.evaluation-guide-groups dl div {
+  padding: 12px 0;
+  border-top: 1px solid var(--vp-c-divider);
+}
+
+.evaluation-current-value dd,
+.evaluation-taxonomy dd,
+.evaluation-guide-groups dd {
+  margin: 5px 0 0;
+}
+
+.evaluation-current-value dd {
+  font-family: var(--vp-font-family-mono);
+  overflow-wrap: anywhere;
+}
+
+.evaluation-taxonomy > strong {
+  display: block;
+  margin-top: 24px;
+}
+
+.evaluation-taxonomy dt,
+.evaluation-guide-groups dt {
+  font-weight: 750;
+}
+
+.evaluation-taxonomy dt code,
+.evaluation-guide-groups dt code {
+  margin-left: 8px;
+  overflow-wrap: anywhere;
+}
+
+.evaluation-guide-groups {
+  display: grid;
+  margin-top: 28px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px;
+}
+
+.vp-doc .evaluation-guide-groups h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  letter-spacing: -0.03em;
+}
+
 .status-panel.status-pass {
   border-left: 5px solid #5a7b54;
 }
@@ -893,7 +1076,7 @@ body {
   border-bottom: 1px solid var(--vp-c-divider);
 }
 
-.fact-grid span {
+.fact-grid > div > span {
   color: var(--vp-c-text-3);
   font-family: var(--vp-font-family-mono);
   font-size: 0.68rem;
@@ -1131,8 +1314,19 @@ body {
   .fragment-versions,
   .evidence-legend ol,
   .evidence-gate-list,
-  .evidence-effort-grid {
+  .evidence-effort-grid,
+  .evaluation-guide-groups {
     grid-template-columns: 1fr;
+  }
+
+  .report-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .evaluation-guide-trigger {
+    text-align: left;
   }
 
   .skill-card {
@@ -1166,6 +1360,18 @@ body {
     left: 0;
     width: 100%;
     max-height: min(82vh, 720px);
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .evaluation-help-sheet {
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: min(84vh, 740px);
     border-right: 0;
     border-bottom: 0;
     border-left: 0;

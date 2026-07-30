@@ -1,0 +1,205 @@
+<script setup>
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { evaluationGlossary } from '../../scripts/evaluation-glossary.mjs';
+
+const props = defineProps({
+  field: { type: String, default: '' },
+  current: { type: String, default: 'Not recorded' },
+  detail: { type: String, default: '' },
+  guide: { type: Boolean, default: false },
+});
+
+const open = ref(false);
+const mobile = ref(false);
+const trigger = ref(null);
+const panel = ref(null);
+const panelStyle = ref({});
+const panelId = `evaluation-help-${Math.random().toString(36).slice(2)}`;
+
+const definition = computed(() => evaluationGlossary.fields[props.field] ?? evaluationGlossary.observationFields[props.field] ?? null);
+const taxonomy = computed(() => {
+  if (props.field === 'failureCategory') return evaluationGlossary.failureCategories;
+  if (props.field === 'result') return evaluationGlossary.results;
+  if (props.field === 'kind') return evaluationGlossary.kinds;
+  if (props.field === 'role') return evaluationGlossary.roles;
+  if (props.field === 'judge') return { ...evaluationGlossary.judgeStates, ...evaluationGlossary.judgeVerdicts };
+  return null;
+});
+const guideGroups = Object.freeze([
+  {
+    title: 'How an evaluation is produced',
+    entries: [
+      evaluationGlossary.runner,
+      entryWithLabel('Executor', 'An isolated model invocation that performs the evaluated task.'),
+      entryWithLabel('Judge', 'An optional isolated model invocation that evaluates the executor result.'),
+      evaluationGlossary.fields.sessions,
+      evaluationGlossary.concepts.evidenceStatus,
+      ...Object.entries(evaluationGlossary.evidenceStatuses).map(([code, value]) => ({ ...value, code })),
+      evaluationGlossary.concepts.operationType,
+      evaluationGlossary.concepts.recordedResult,
+    ],
+  },
+  { title: 'Operations', entries: Object.entries(evaluationGlossary.operations).map(([key, value]) => ({ ...value, code: key })) },
+  {
+    title: 'Execution facts',
+    entries: [
+      ...Object.values(evaluationGlossary.fields),
+      ...Object.entries(evaluationGlossary.failureCategories).map(([key, value]) => ({
+        ...value,
+        code: key === 'none' ? 'null' : key,
+      })),
+    ],
+  },
+  {
+    title: 'Observations',
+    entries: [
+      ...Object.entries(evaluationGlossary.results).map(([code, value]) => ({ ...value, code })),
+      ...Object.entries(evaluationGlossary.kinds).map(([code, value]) => ({ ...value, code })),
+      ...Object.entries(evaluationGlossary.roles).map(([code, value]) => ({ ...value, code })),
+      ...Object.entries(evaluationGlossary.judgeStates).map(([code, value]) => ({ ...value, code })),
+      ...Object.entries(evaluationGlossary.judgeVerdicts).map(([code, value]) => ({ ...value, code })),
+    ],
+  },
+]);
+
+function entryWithLabel(label, description) {
+  return { label, description, applicability: 'Model backed evaluations' };
+}
+
+function updateMode() {
+  mobile.value = window.matchMedia('(max-width: 640px)').matches;
+}
+
+function updatePosition() {
+  if (!open.value || mobile.value || props.guide || !trigger.value) {
+    panelStyle.value = {};
+    return;
+  }
+  const rect = trigger.value.getBoundingClientRect();
+  const width = Math.min(400, window.innerWidth - 32);
+  panelStyle.value = {
+    width: `${width}px`,
+    top: `${Math.min(rect.bottom + 10, window.innerHeight - 360)}px`,
+    left: `${Math.max(16, Math.min(rect.left, window.innerWidth - width - 16))}px`,
+  };
+}
+
+async function show() {
+  open.value = true;
+  updateMode();
+  await nextTick();
+  updatePosition();
+  panel.value?.focus();
+}
+
+function close({ restoreFocus = true } = {}) {
+  open.value = false;
+  if (restoreFocus) nextTick(() => trigger.value?.focus());
+}
+
+function handleDocumentClick(event) {
+  if (!open.value || mobile.value || props.guide) return;
+  if (!panel.value?.contains(event.target) && !trigger.value?.contains(event.target)) close();
+}
+
+function handleDocumentKey(event) {
+  if (open.value && event.key === 'Escape') close();
+}
+
+onMounted(() => {
+  updateMode();
+  window.addEventListener('resize', updateMode);
+  window.addEventListener('resize', updatePosition);
+  document.addEventListener('click', handleDocumentClick);
+  document.addEventListener('keydown', handleDocumentKey);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateMode);
+  window.removeEventListener('resize', updatePosition);
+  document.removeEventListener('click', handleDocumentClick);
+  document.removeEventListener('keydown', handleDocumentKey);
+});
+</script>
+
+<template>
+  <button
+    v-if="guide"
+    ref="trigger"
+    type="button"
+    class="evaluation-guide-trigger"
+    :aria-expanded="open"
+    :aria-controls="panelId"
+    @click="show"
+  >
+    Learn how to read this report
+  </button>
+  <button v-else ref="trigger" type="button" class="evaluation-field-trigger" :aria-expanded="open" :aria-controls="panelId" @click="show">
+    {{ definition?.label ?? field }} <span aria-hidden="true">ⓘ</span>
+  </button>
+
+  <Teleport to="body">
+    <div v-if="open && (mobile || guide)" class="evaluation-help-backdrop" data-testid="evaluation-help-backdrop" @click="close()"></div>
+    <section
+      v-if="open"
+      :id="panelId"
+      ref="panel"
+      class="evaluation-help-panel"
+      :class="[mobile ? 'evaluation-help-sheet' : guide ? 'evaluation-help-guide' : 'evaluation-help-popover']"
+      :style="panelStyle"
+      role="dialog"
+      :aria-modal="mobile || guide ? 'true' : undefined"
+      :aria-label="guide ? 'Learn how to read this report' : `${definition?.label ?? field} help`"
+      tabindex="-1"
+    >
+      <header>
+        <div>
+          <span>{{ guide ? 'Evaluation vocabulary' : 'Execution fact' }}</span>
+          <strong>{{ guide ? 'Learn how to read this report' : definition?.label }}</strong>
+        </div>
+        <button type="button" aria-label="Close evaluation help" @click="close()">Close</button>
+      </header>
+
+      <template v-if="guide">
+        <p>Evidence status, operation type, and recorded result answer different questions. Read them independently.</p>
+        <div class="evaluation-guide-groups">
+          <section v-for="group in guideGroups" :key="group.title">
+            <h2>{{ group.title }}</h2>
+            <dl>
+              <div v-for="item in group.entries" :key="`${item.label}-${item.code ?? ''}`">
+                <dt>
+                  {{ item.label }} <code v-if="item.code">{{ item.code }}</code>
+                </dt>
+                <dd>{{ item.description }}</dd>
+              </div>
+            </dl>
+          </section>
+        </div>
+      </template>
+      <template v-else>
+        <p>{{ definition?.description }}</p>
+        <dl class="evaluation-current-value">
+          <div>
+            <dt>Current value</dt>
+            <dd>{{ current }}</dd>
+          </div>
+          <div v-if="detail">
+            <dt>Related detail</dt>
+            <dd>{{ detail }}</dd>
+          </div>
+        </dl>
+        <section v-if="taxonomy" class="evaluation-taxonomy">
+          <strong>Possible values</strong>
+          <dl>
+            <div v-for="(item, key) in taxonomy" :key="key">
+              <dt>
+                <code>{{ key === 'none' ? 'null' : key }}</code> {{ item.label }}
+              </dt>
+              <dd>{{ item.description }}</dd>
+            </div>
+          </dl>
+        </section>
+      </template>
+    </section>
+  </Teleport>
+</template>

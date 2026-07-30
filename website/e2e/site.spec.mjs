@@ -111,11 +111,9 @@ test('a validated promotion explains qualification and recorded effort', async (
   await expect(panel.getByText('Duration', { exact: true })).toBeVisible();
   await expect(panel.getByText('Runtime telemetry', { exact: true })).toBeVisible();
   await expect(panel.getByText('Token telemetry', { exact: true })).toBeVisible();
-  await expect(panel.getByText(/isolated, ephemeral execution of codex exec --json/)).toBeVisible();
-  await expect(panel.getByText(/executor performs the task.*judge evaluates the result/i)).toBeVisible();
-  await expect(panel.getByText(/not a message, conversational turn, or complete promotion/i)).toBeVisible();
-  await expect(panel.getByText(/Deterministic checks consume zero sessions/)).toBeVisible();
-  await expect(panel.getByText(/Tokens measure recorded workload, not observed financial cost/)).toBeVisible();
+  await expect(panel.getByText(/one isolated executor or judge invocation recorded by qualification/i)).toBeVisible();
+  await expect(panel.getByText(/Deterministic checks can consume zero sessions/)).toBeVisible();
+  await expect(panel.getByText(/not an observed financial charge/)).toBeVisible();
   await expect(panel.getByRole('link', { name: 'Inspect promotion report' })).toHaveAttribute(
     'href',
     /\/evaluations\/restructure-documentation\/20260727T233326\.147750Z-48228593ef91$/,
@@ -229,6 +227,46 @@ test('a reader can expand the retained code diff for an observation', async ({ p
   await fragmentSummary.click();
   await expect(page.getByText('Before', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('After', { exact: true }).first()).toBeVisible();
+});
+
+test('report vocabulary is learnable in context and in the complete guide', async ({ page }, testInfo) => {
+  const report = archiveManifest.reports.find(item => item.status === 'PASS');
+  await page.goto(`evaluations/${report.skill}/${report.operation_id}`);
+
+  const factGrid = page.locator('.fact-grid').first();
+  const executorHelp = factGrid.getByRole('button', { name: /Executor model/ });
+  const targetSize = await executorHelp.boundingBox();
+  expect(targetSize.height).toBeGreaterThanOrEqual(44);
+  await executorHelp.focus();
+  await page.keyboard.press('Enter');
+
+  const fieldPanel = page.getByRole('dialog', { name: 'Executor model help' });
+  await expect(fieldPanel.getByText('Current value', { exact: true })).toBeVisible();
+  await expect(fieldPanel.getByText(/schema accepts an open string/i)).toBeVisible();
+  if (testInfo.project.name === 'mobile') {
+    await expect(fieldPanel).toHaveClass(/evaluation-help-sheet/);
+  } else {
+    await expect(fieldPanel).toHaveClass(/evaluation-help-popover/);
+  }
+  await expect(page).toHaveScreenshot('execution-facts-help.png');
+
+  await page.keyboard.press('Escape');
+  await expect(fieldPanel).toBeHidden();
+  await expect(executorHelp).toBeFocused();
+
+  await page.getByRole('button', { name: 'Learn how to read this report' }).click();
+  const guide = page.getByRole('dialog', { name: 'Learn how to read this report' });
+  await expect(guide.getByText(/program run_skill_evals\.py/)).toBeVisible();
+  await expect(guide.locator('dt').filter({ hasText: 'RED/GREEN check' })).toBeVisible();
+  await expect(guide.getByText('verify-change', { exact: true })).toBeVisible();
+  await expect(guide.locator('dt').filter({ hasText: 'Invalid RED' })).toBeVisible();
+  await expect(guide.locator('dt').filter({ hasText: 'No evaluation yet' })).toBeVisible();
+  await expect(guide.getByText(/answer different questions/i)).toBeVisible();
+  await expect(page).toHaveScreenshot('evaluation-vocabulary-guide.png');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  await guide.getByRole('button', { name: 'Close evaluation help' }).click();
+  await expect(page.getByRole('button', { name: 'Learn how to read this report' })).toBeFocused();
 });
 
 test('the project and skill catalog fit the available viewport', async ({ page }) => {

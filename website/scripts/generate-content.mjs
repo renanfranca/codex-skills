@@ -2,60 +2,15 @@ import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, w
 import { createHash } from 'node:crypto';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { evaluationGlossary, knownObservationRoles, operationDisplay } from './evaluation-glossary.mjs';
 
 const websiteRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const contentConfig = JSON.parse(readFileSync(join(websiteRoot, 'content-config.json'), 'utf8'));
-const evidenceStates = Object.freeze({
-  promotion: Object.freeze({
-    key: 'promotion',
-    label: 'Validated promotion',
-    description:
-      'A current qualification records valid RED, three stable GREEN results per affected case, and proportional regression when required.',
-    qualificationGates: Object.freeze([
-      'Valid RED',
-      'Three stable GREEN results per affected case',
-      'Proportional regression when required',
-      'Current source fingerprint',
-    ]),
-    variant: 'promotion',
-    priority: 1,
-  }),
-  complete: Object.freeze({
-    key: 'complete',
-    label: 'Complete current coverage',
-    description: 'Every declared case has one current non-baseline pass; RED, repetition, stability, and promotion are not established.',
-    variant: 'complete',
-    priority: 2,
-  }),
-  partial: Object.freeze({
-    key: 'partial',
-    label: 'Partial current coverage',
-    description: 'Current evidence includes a pass, but it does not cover every declared suite case.',
-    variant: 'partial',
-    priority: 3,
-  }),
-  'no-current-pass': Object.freeze({
-    key: 'no-current-pass',
-    label: 'No current pass',
-    description: 'Reports match the current skill source, but none records a current pass.',
-    variant: 'no-current-pass',
-    priority: 4,
-  }),
-  historical: Object.freeze({
-    key: 'historical',
-    label: 'Historical runs',
-    description: 'Archived reports exist, but none has a comparable fingerprint matching the current skill source.',
-    variant: 'historical',
-    priority: 5,
-  }),
-  'no-evaluation': Object.freeze({
-    key: 'no-evaluation',
-    label: 'No evaluation yet',
-    description: 'No archived evaluation report is available for this skill yet.',
-    variant: 'no-evaluation',
-    priority: 6,
-  }),
-});
+const evidenceStates = Object.freeze(
+  Object.fromEntries(
+    Object.entries(evaluationGlossary.evidenceStatuses).map(([key, definition]) => [key, Object.freeze({ key, ...definition })]),
+  ),
+);
 const siteBase = contentConfig.base.replace(/\/$/, '');
 
 function siteRoute(path = '/') {
@@ -101,6 +56,35 @@ function readJson(path) {
   } catch (error) {
     throw new Error(`Cannot read valid JSON from ${path}: ${error.message}`);
   }
+}
+
+function assertTaxonomy(name, actualValues, glossaryValues) {
+  const actual = [...actualValues].sort();
+  const documented = [...glossaryValues].sort();
+  if (JSON.stringify(actual) !== JSON.stringify(documented)) {
+    throw new Error(`${name} glossary is out of sync: schema has [${actual.join(', ')}], glossary has [${documented.join(', ')}]`);
+  }
+}
+
+function validateEvaluationGlossary() {
+  const references = join(websiteRoot, '..', 'develop-skill-with-evals', 'references');
+  const reportSchema = readJson(join(references, 'eval-report.schema.json'));
+  const resultSchema = readJson(join(references, 'eval-result.schema.json'));
+
+  assertTaxonomy('Operation', reportSchema.properties.operation.properties.type.enum, Object.keys(evaluationGlossary.operations));
+  assertTaxonomy('Recorded result', reportSchema.properties.operation.properties.status.enum, Object.keys(evaluationGlossary.results));
+  assertTaxonomy('Observation kind', resultSchema.properties.results.items.properties.kind.enum, Object.keys(evaluationGlossary.kinds));
+  assertTaxonomy(
+    'Judge verdict',
+    resultSchema.properties.results.items.properties.judge.properties.verdict.enum,
+    Object.keys(evaluationGlossary.judgeVerdicts),
+  );
+  assertTaxonomy(
+    'Failure category',
+    reportSchema.properties.operation.properties.failure_category.enum.map(value => value ?? 'none'),
+    Object.keys(evaluationGlossary.failureCategories).filter(value => value !== 'not-recorded'),
+  );
+  assertTaxonomy('Observation role', knownObservationRoles, Object.keys(evaluationGlossary.roles));
 }
 
 function readSkill(path) {
@@ -242,12 +226,27 @@ function findSkills(repositoryRoot) {
 }
 
 function normalizeObservation(observation) {
+  for (const [taxonomy, value, definitions] of [
+    ['result', observation.status, evaluationGlossary.results],
+    ['kind', observation.kind, evaluationGlossary.kinds],
+    ['role', observation.role, evaluationGlossary.roles],
+    ['judge verdict', observation.judge?.verdict, evaluationGlossary.judgeVerdicts],
+  ]) {
+    if (value !== undefined && !Object.hasOwn(definitions, value)) {
+      throw new Error(`Archived observation has unknown ${taxonomy} "${value}"`);
+    }
+  }
+  const judgeState = observation.judge?.enabled === false ? 'not-used' : observation.judge?.executed === true ? 'executed' : 'skipped';
+  const judgeDisplay =
+    judgeState === 'not-used' ? 'Not used' : judgeState === 'skipped' ? 'Skipped' : (observation.judge?.verdict ?? 'Not recorded');
   return {
     caseId: observation.case_id ?? 'Not recorded',
     status: observation.status ?? 'Not recorded',
     kind: observation.kind ?? 'Not recorded',
     role: observation.role ?? 'Not recorded',
     judgeVerdict: observation.judge?.verdict ?? 'Not recorded',
+    judgeState,
+    judgeDisplay,
     judgeRationale: observation.judge?.rationale ?? 'Not recorded',
     judgeEvidence: observation.judge?.evidence ?? [],
     mechanicalPassed: observation.mechanical?.passed ?? null,
@@ -256,6 +255,14 @@ function normalizeObservation(observation) {
     changedFiles: observation.evidence?.changed_files ?? [],
     diff: observation.evidence?.diff ?? '',
     fragments: observation.evidence?.fragments ?? [],
+  };
+}
+
+function normalizeSessionCounts(sessions) {
+  return {
+    executor: typeof sessions === 'object' && sessions !== null ? (sessions.executor ?? null) : null,
+    judge: typeof sessions === 'object' && sessions !== null ? (sessions.judge ?? null) : null,
+    total: typeof sessions === 'object' && sessions !== null ? (sessions.total ?? null) : (sessions ?? null),
   };
 }
 
@@ -274,15 +281,41 @@ function normalizeReport(entry, archiveRoot) {
   }
   const report = readJson(sourcePath);
   const operation = report.operation ?? {};
+  const operationType = entry.operation ?? operation.type;
+  if (operationType !== undefined && !Object.hasOwn(evaluationGlossary.operations, operationType)) {
+    throw new Error(`Archived report has unknown operation "${operationType}"`);
+  }
+  const operationStatus = entry.status ?? operation.status;
+  if (operationStatus !== undefined && !Object.hasOwn(evaluationGlossary.results, operationStatus)) {
+    throw new Error(`Archived report has unknown result "${operationStatus}"`);
+  }
+  if (
+    Object.hasOwn(operation, 'failure_category')
+    && operation.failure_category !== null
+    && !Object.hasOwn(evaluationGlossary.failureCategories, operation.failure_category)
+  ) {
+    throw new Error(`Archived report has unknown failure category "${operation.failure_category}"`);
+  }
   const executedSessions = report.sessions?.executed;
+  const plannedSessions = report.sessions?.planned;
+  const observations = (report.observations ?? []).map(normalizeObservation);
+  const judgeApplicable =
+    report.runtime?.judge?.required === true || observations.some(observation => observation.judgeState !== 'not-used');
+  const failureCategory = Object.hasOwn(operation, 'failure_category')
+    ? operation.failure_category === null
+      ? 'None'
+      : operation.failure_category
+    : 'Not recorded';
   return {
     id: entry.operation_id,
     skill: entry.skill,
-    status: entry.status ?? operation.status ?? 'Not recorded',
-    operation: entry.operation ?? operation.type ?? 'Not recorded',
+    status: operationStatus ?? 'Not recorded',
+    operation: operationType ?? 'Not recorded',
+    operationLabel: evaluationGlossary.operations[operationType]?.label ?? 'Not recorded',
+    operationDisplay: operationType ? operationDisplay(operationType) : 'Not recorded',
     workflow: operation.workflow ?? 'Not recorded',
     promotionEligible: operation.promotion_eligible ?? null,
-    failureCategory: operation.failure_category ?? 'Not recorded',
+    failureCategory,
     provenance: report.provenance ?? 'Not recorded',
     startedAt: report.started_at ?? 'Not recorded',
     finishedAt: report.finished_at ?? 'Not recorded',
@@ -291,12 +324,28 @@ function normalizeReport(entry, archiveRoot) {
     reasoningEffort: entry.reasoning_effort ?? report.runtime?.executor?.reasoning_effort ?? 'Not recorded',
     sessions: entry.sessions ?? report.sessions?.executed ?? null,
     totalTokens: report.usage?.total_tokens ?? entry.tokens?.total ?? null,
-    promotionEffort: {
-      sessions: {
-        executor: typeof executedSessions === 'object' ? (executedSessions.executor ?? null) : null,
-        judge: typeof executedSessions === 'object' ? (executedSessions.judge ?? null) : null,
-        total: typeof executedSessions === 'object' ? (executedSessions.total ?? null) : (executedSessions ?? null),
+    runtimeByRole: {
+      executor: {
+        model: report.runtime?.executor?.model ?? entry.model ?? 'Not recorded',
+        reasoningEffort: report.runtime?.executor?.reasoning_effort ?? entry.reasoning_effort ?? 'Not recorded',
       },
+      judge: {
+        applicable: judgeApplicable,
+        model: judgeApplicable ? (report.runtime?.judge?.model ?? 'Not recorded') : 'Not used',
+        reasoningEffort: judgeApplicable ? (report.runtime?.judge?.reasoning_effort ?? 'Not recorded') : 'Not used',
+      },
+    },
+    sessionsByRole: {
+      planned: normalizeSessionCounts(plannedSessions),
+      executed: normalizeSessionCounts(executedSessions),
+    },
+    judgeState: judgeApplicable
+      ? observations.some(observation => observation.judgeState === 'executed')
+        ? 'Executed'
+        : 'Skipped'
+      : 'Not used',
+    promotionEffort: {
+      sessions: normalizeSessionCounts(executedSessions),
       tokens: {
         total: report.usage?.total_tokens ?? null,
         cachedInput: report.usage?.cached_input_tokens ?? null,
@@ -308,7 +357,7 @@ function normalizeReport(entry, archiveRoot) {
       },
     },
     limitations: report.limitations ?? [],
-    observations: (report.observations ?? []).map(normalizeObservation),
+    observations,
     fingerprints: report.fingerprints ?? null,
     archivePath: entry.path,
   };
@@ -332,6 +381,7 @@ function groupCurrentReports(reports) {
         .map(report => ({
           id: report.id,
           operation: report.operation,
+          operationDisplay: report.operationDisplay,
           status: report.status,
           href: reportRoute(report),
         })),
@@ -408,6 +458,19 @@ function formatDuration(durationMs) {
   const seconds = durationMs / 1000;
   if (seconds < 60) return `${seconds.toFixed(1)} s`;
   return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
+}
+
+function formatNumber(value) {
+  return value === null || value === undefined ? 'Not recorded' : new Intl.NumberFormat('en').format(value);
+}
+
+function formatSessions(sessions) {
+  const { executor, judge, total } = sessions;
+  return `${formatNumber(total)} total · ${formatNumber(executor)} executor · ${formatNumber(judge)} judge`;
+}
+
+function renderHelpFact(field, value, { detail = '', status = '' } = {}) {
+  return `<div><EvaluationHelp field="${field}" current="${escapeHtml(value)}"${detail ? ` detail="${escapeHtml(detail)}"` : ''}></EvaluationHelp><strong${status ? ` class="${status}"` : ''}>${escapeHtml(value)}</strong></div>`;
 }
 
 function formatDate(value) {
@@ -534,10 +597,10 @@ function renderObservation(observation) {
   return `### ${escapeHtml(observation.caseId)}
 
 <div class="fact-grid">
-  <div><span>Result</span><strong class="status status-${statusClass(observation.status)}">${escapeHtml(observation.status)}</strong></div>
-  <div><span>Kind</span><strong>${escapeHtml(observation.kind)}</strong></div>
-  <div><span>Role</span><strong>${escapeHtml(observation.role)}</strong></div>
-  <div><span>Judge</span><strong>${escapeHtml(observation.judgeVerdict)}</strong></div>
+  ${renderHelpFact('result', observation.status, { status: `status status-${statusClass(observation.status)}` })}
+  ${renderHelpFact('kind', observation.kind)}
+  ${renderHelpFact('role', observation.role)}
+  ${renderHelpFact('judge', observation.judgeDisplay)}
 </div>
 
 ${escapeHtml(observation.judgeRationale)}
@@ -579,7 +642,7 @@ outline: [2, 3]
 
 # ${escapeHtml(report.skill)}
 
-<p class="lede">A recorded <strong>${escapeHtml(report.operation)}</strong> operation for <code>${escapeHtml(report.id)}</code>.</p>
+<p class="lede">A recorded <strong>${escapeHtml(report.operationLabel)}</strong> operation (<code>${escapeHtml(report.operation)}</code>) for <code>${escapeHtml(report.id)}</code>.</p>
 
 <div class="report-hero status-panel status-${statusClass(report.status)}">
   <div>
@@ -589,16 +652,23 @@ outline: [2, 3]
   <p>This page projects the archived report. Missing information remains explicitly unrecorded.</p>
 </div>
 
-## Execution facts
+<div class="report-section-heading">
+  <h2 id="execution-facts" tabindex="-1">Execution facts</h2>
+  <EvaluationHelp guide></EvaluationHelp>
+</div>
 
 <div class="fact-grid">
-  <div><span>Started</span><strong>${escapeHtml(formatStarted(report.startedAt))}</strong></div>
-  <div><span>Duration</span><strong>${formatDuration(report.durationMs)}</strong></div>
-  <div><span>Model</span><strong>${escapeHtml(report.model)}</strong></div>
-  <div><span>Reasoning effort</span><strong>${escapeHtml(report.reasoningEffort)}</strong></div>
-  <div><span>Sessions</span><strong>${escapeHtml(report.sessions ?? 'Not recorded')}</strong></div>
-  <div><span>Total tokens</span><strong>${escapeHtml(report.totalTokens ?? 'Not recorded')}</strong></div>
-  <div><span>Failure category</span><strong>${escapeHtml(report.failureCategory)}</strong></div>
+  ${renderHelpFact('startedAt', formatStarted(report.startedAt))}
+  ${renderHelpFact('duration', formatDuration(report.durationMs))}
+  ${renderHelpFact('executorModel', report.runtimeByRole.executor.model)}
+  ${renderHelpFact('executorReasoningEffort', report.runtimeByRole.executor.reasoningEffort)}
+  ${renderHelpFact('judgeModel', report.runtimeByRole.judge.model)}
+  ${renderHelpFact('judgeReasoningEffort', report.runtimeByRole.judge.reasoningEffort)}
+  ${renderHelpFact('sessions', formatSessions(report.sessionsByRole.executed), {
+    detail: `Planned maximum: ${formatSessions(report.sessionsByRole.planned)}`,
+  })}
+  ${renderHelpFact('totalTokens', formatNumber(report.totalTokens))}
+  ${renderHelpFact('failureCategory', report.failureCategory)}
 </div>
 
 ## Observations
@@ -619,7 +689,7 @@ function renderSkill(skill) {
         .map(
           report =>
             `<a class="history-row" href="${reportRoute(report)}">
-  <span><strong>${escapeHtml(report.operation)}</strong><small>${escapeHtml(formatStarted(report.startedAt))}</small></span>
+  <span><strong>${escapeHtml(report.operationDisplay)}</strong><small>${escapeHtml(formatStarted(report.startedAt))}</small></span>
   <span class="status status-${statusClass(report.status)}">${escapeHtml(report.status)}</span>
 </a>`,
         )
@@ -648,6 +718,8 @@ description: ${yamlString(skill.description)}
 </div>
 
 ## Evaluation history
+
+<p>Operation type describes how evidence was produced. It does not determine the result or evidence strength by itself.</p>
 
 <div class="history-list">
 ${reports}
@@ -701,7 +773,7 @@ function renderEvaluationIndex(reports) {
     .map(
       report =>
         `<a class="history-row" href="${reportRoute(report)}">
-  <span><strong>${escapeHtml(report.skill)}</strong><small>${escapeHtml(report.operation)} · ${escapeHtml(formatStarted(report.startedAt))}</small></span>
+  <span><strong>${escapeHtml(report.skill)}</strong><small>${escapeHtml(report.operationDisplay)} · ${escapeHtml(formatStarted(report.startedAt))}</small></span>
   <span class="status status-${statusClass(report.status)}">${escapeHtml(report.status)}</span>
 </a>`,
     )
@@ -716,6 +788,8 @@ description: Recorded evaluation operations, including passing and failing resul
 # Evidence is useful<br>when it remains inspectable.
 
 <p class="lede">This history includes successful, failed, and incomplete operations. Each entry links claims to mechanical checks, judge evidence, and code changes retained in the canonical report.</p>
+
+<p>Operation type describes how evidence was produced. It does not determine the result or evidence strength by itself.</p>
 
 <div class="history-list">
 ${rows}
@@ -802,6 +876,7 @@ function writeOutput(path, content) {
 }
 
 export function generateContent({ repositoryRoot, archiveRoot, outputRoot }) {
+  validateEvaluationGlossary();
   const manifest = readJson(join(archiveRoot, 'manifest.json'));
   if (!Array.isArray(manifest.reports)) {
     throw new Error('Archive manifest reports must be an array');
@@ -831,7 +906,7 @@ export function generateContent({ repositoryRoot, archiveRoot, outputRoot }) {
   }
   writeOutput(
     join(outputRoot, 'data.json'),
-    `${JSON.stringify({ generatedFrom: relative(repositoryRoot, archiveRoot), skills, reports }, null, 2)}\n`,
+    `${JSON.stringify({ generatedFrom: relative(repositoryRoot, archiveRoot), evaluationGlossary, skills, reports }, null, 2)}\n`,
   );
   writeOutput(join(outputRoot, 'index.md'), renderHome(skills, reports));
   writeOutput(join(outputRoot, 'skills', 'index.md'), renderSkillIndex(skills));

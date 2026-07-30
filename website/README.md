@@ -25,7 +25,15 @@ npm run dev
 
 Open `http://localhost:5173/codex-skills/`.
 
-## Derived evidence status
+## Evaluation vocabulary and evidence status
+
+The website keeps one `evaluationGlossary` in `scripts/evaluation-glossary.mjs`. Generated reports use it for complete label contextual help, human operation names, evidence status, and the broad “Learn how to read this report” guide. The guide defines the evaluation runner as `run_skill_evals.py` and keeps three questions separate:
+
+- Evidence status describes the strength and currency of evidence.
+- Operation type describes how the evidence was produced.
+- Recorded result describes what happened in that operation.
+
+The generator validates closed glossary taxonomies against `eval-report.schema.json` and `eval-result.schema.json`. It also rejects archived observation roles outside the runner's known role set. Model and reasoning effort remain open strings because their schemas do not define exhaustive lists.
 
 The skill catalog derives evidence status from the current skill source, the archived report fingerprints, and the case IDs in the current `evals/suite.json`. Labels are not maintained by hand.
 
@@ -42,9 +50,13 @@ The catalog selects the strongest applicable status in this order:
 
 Complete current coverage does not establish RED, repetition, stability, regression, or promotion. Each evidence panel retains current results by their recorded status so failures and inconclusive or unstable operations remain visible even when stronger evidence takes precedence.
 
-A validated promotion panel projects recorded effort exclusively from its archived report: executed executor, judge, and total sessions; total and cached input tokens; duration; and runtime and token telemetry completeness. A session is one isolated, ephemeral execution of `codex exec --json` started by the runner. The executor performs the task, while a judge separately evaluates the result when semantic interpretation is required. A session is not a message, conversational turn, or complete promotion. Deterministic checks can qualify behavior with zero sessions.
+A validated promotion panel projects recorded effort exclusively from its archived report: executed executor, judge, and total sessions; total and cached input tokens; duration; and runtime and token telemetry completeness. A session is one isolated executor or judge invocation recorded by qualification. Deterministic checks can qualify behavior with zero sessions.
 
 Token totals measure recorded workload, not an observed financial charge. Missing archived telemetry remains `Not recorded`; the website does not infer values or reconstruct cost.
+
+Report execution facts retain compatibility fields in generated `data.json` and add `runtimeByRole`, `sessionsByRole`, and `judgeState`. Explicit `failure_category: null` renders as `None`; an absent property renders as `Not recorded`. A disabled judge renders as `Not used`, an enabled judge that did not execute renders as `Skipped`, and an executed judge renders its archived verdict.
+
+On desktop, a complete fact label opens an anchored popover. On narrow viewports it opens a scrollable bottom sheet. The complete guide uses the same responsive component and includes canonical values that may be absent from the current report.
 
 ## Validation
 
