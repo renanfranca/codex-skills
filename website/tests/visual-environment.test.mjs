@@ -24,4 +24,6 @@ test('keeps local and CI visual checkpoints on the packaged Playwright version a
   assert.match(localRunner, /docker run --rm --init --ipc=host/);
   assert.match(workflow, /npm run test:e2e:direct --prefix website/);
   assert.doesNotMatch(workflow, /playwright install/);
+  assert.doesNotMatch(workflow, /actions\/setup-python/);
+  assert.match(workflow, /- name: Verify container Python\s+run: python3 --version/);
 });

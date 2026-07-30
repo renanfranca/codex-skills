@@ -37,10 +37,8 @@ jobs:
           cache: npm
           cache-dependency-path: website/package-lock.json
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
+      - name: Verify container Python
+        run: python3 --version
 
       - name: Install website dependencies
         run: npm ci --prefix website
