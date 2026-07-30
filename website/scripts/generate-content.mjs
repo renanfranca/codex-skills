@@ -8,15 +8,22 @@ const contentConfig = JSON.parse(readFileSync(join(websiteRoot, 'content-config.
 const evidenceStates = Object.freeze({
   promotion: Object.freeze({
     key: 'promotion',
-    label: 'Promotion evidence',
-    description: 'A passing, promotion eligible operation matches the current skill source.',
+    label: 'Validated promotion',
+    description:
+      'A current qualification records valid RED, three stable GREEN results per affected case, and proportional regression when required.',
+    qualificationGates: Object.freeze([
+      'Valid RED',
+      'Three stable GREEN results per affected case',
+      'Proportional regression when required',
+      'Current source fingerprint',
+    ]),
     variant: 'promotion',
     priority: 1,
   }),
   complete: Object.freeze({
     key: 'complete',
     label: 'Complete current coverage',
-    description: 'Every case declared by the current suite has at least one current non-baseline pass.',
+    description: 'Every declared case has one current non-baseline pass; RED, repetition, stability, and promotion are not established.',
     variant: 'complete',
     priority: 2,
   }),
@@ -267,6 +274,7 @@ function normalizeReport(entry, archiveRoot) {
   }
   const report = readJson(sourcePath);
   const operation = report.operation ?? {};
+  const executedSessions = report.sessions?.executed;
   return {
     id: entry.operation_id,
     skill: entry.skill,
@@ -283,6 +291,22 @@ function normalizeReport(entry, archiveRoot) {
     reasoningEffort: entry.reasoning_effort ?? report.runtime?.executor?.reasoning_effort ?? 'Not recorded',
     sessions: entry.sessions ?? report.sessions?.executed ?? null,
     totalTokens: report.usage?.total_tokens ?? entry.tokens?.total ?? null,
+    promotionEffort: {
+      sessions: {
+        executor: typeof executedSessions === 'object' ? (executedSessions.executor ?? null) : null,
+        judge: typeof executedSessions === 'object' ? (executedSessions.judge ?? null) : null,
+        total: typeof executedSessions === 'object' ? (executedSessions.total ?? null) : (executedSessions ?? null),
+      },
+      tokens: {
+        total: report.usage?.total_tokens ?? null,
+        cachedInput: report.usage?.cached_input_tokens ?? null,
+      },
+      durationMs: report.duration_ms ?? null,
+      telemetry: {
+        runtimeComplete: report.runtime?.complete ?? null,
+        usageComplete: report.usage?.complete ?? null,
+      },
+    },
     limitations: report.limitations ?? [],
     observations: (report.observations ?? []).map(normalizeObservation),
     fingerprints: report.fingerprints ?? null,
@@ -313,6 +337,17 @@ function groupCurrentReports(reports) {
         })),
     ]),
   );
+}
+
+function promotionSummary(report) {
+  if (!report) return null;
+  return {
+    report: {
+      id: report.id,
+      href: reportRoute(report),
+    },
+    ...report.promotionEffort,
+  };
 }
 
 function deriveEvidence(skillRoot, reports) {
@@ -353,6 +388,7 @@ function deriveEvidence(skillRoot, reports) {
     ...state,
     currentFingerprint,
     promotionReport,
+    promotionSummary: promotionSummary(promotionReport),
     currentReports,
     currentReportGroups,
     currentResults: Object.fromEntries(
@@ -417,11 +453,13 @@ function evidenceComponentData(skill) {
       label: skill.evidence.label,
       description: skill.evidence.description,
       variant: skill.evidence.variant,
+      qualificationGates: skill.evidence.qualificationGates ?? [],
       currentResults: skill.evidence.currentResults,
       currentReportGroups: skill.evidence.currentReportGroups,
       coveredCaseCount: skill.evidence.coveredCaseCount,
       suiteCaseCount: skill.evidence.suiteCaseCount,
       promotion: skill.evidence.promotionReport !== null,
+      promotionSummary: skill.evidence.promotionSummary,
       historicalReportCount: skill.evidence.historicalReportCount,
       historyHref: siteRoute(`/skills/${skill.slug}#evaluation-history`),
     }),

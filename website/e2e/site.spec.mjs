@@ -70,7 +70,7 @@ test('the evidence legend explains all six statuses without relying on color', a
   await page.getByText('How to read evidence status').click();
   const legend = page.locator('.evidence-legend');
   for (const label of [
-    'Promotion evidence',
+    'Validated promotion',
     'Complete current coverage',
     'Partial current coverage',
     'No current pass',
@@ -81,6 +81,45 @@ test('the evidence legend explains all six statuses without relying on color', a
   }
   await expect(legend.locator('.evidence-state-indicator')).toHaveCount(6);
   await expect(legend.getByText('Color is only a secondary cue.')).toBeVisible();
+});
+
+test('a validated promotion explains qualification and recorded effort', async ({ page }, testInfo) => {
+  await page.goto('skills/');
+
+  const card = page.locator('article.skill-card').filter({ hasText: 'restructure-documentation' });
+  const trigger = card.getByRole('button', { name: /Explain evidence for restructure-documentation/ });
+  if (testInfo.project.name === 'mobile') {
+    await trigger.tap();
+  } else {
+    await trigger.click();
+  }
+
+  const panel = page.getByRole('dialog', { name: 'restructure-documentation evidence status' });
+  await expect(panel.locator('header').getByText('Validated promotion', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Qualification gates', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Valid RED', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Three stable GREEN results per affected case', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Proportional regression when required', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Current source fingerprint', { exact: true })).toBeVisible();
+
+  await expect(panel.getByText('Recorded effort', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Executor sessions', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Judge sessions', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Total sessions', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Total tokens', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Cached input tokens', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Duration', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Runtime telemetry', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Token telemetry', { exact: true })).toBeVisible();
+  await expect(panel.getByText(/isolated, ephemeral execution of codex exec --json/)).toBeVisible();
+  await expect(panel.getByText(/executor performs the task.*judge evaluates the result/i)).toBeVisible();
+  await expect(panel.getByText(/not a message, conversational turn, or complete promotion/i)).toBeVisible();
+  await expect(panel.getByText(/Deterministic checks consume zero sessions/)).toBeVisible();
+  await expect(panel.getByText(/Tokens measure recorded workload, not observed financial cost/)).toBeVisible();
+  await expect(panel.getByRole('link', { name: 'Inspect promotion report' })).toHaveAttribute(
+    'href',
+    /\/evaluations\/restructure-documentation\/20260727T233326\.147750Z-48228593ef91$/,
+  );
 });
 
 test('a reader can inspect current evidence in the viewport appropriate panel', async ({ page }, testInfo) => {

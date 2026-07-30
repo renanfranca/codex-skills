@@ -27,6 +27,24 @@ const coverage = computed(() =>
     ? 'No suite declared; complete coverage cannot be established.'
     : `${evidence.value.coveredCaseCount} of ${evidence.value.suiteCaseCount} declared cases have a current pass.`,
 );
+const numberFormatter = new Intl.NumberFormat('en');
+
+function formatRecordedNumber(value) {
+  return value === null ? 'Not recorded' : numberFormatter.format(value);
+}
+
+function formatDuration(durationMs) {
+  if (durationMs === null) return 'Not recorded';
+  if (durationMs < 1000) return `${durationMs} ms`;
+  const seconds = durationMs / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)} s`;
+  return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
+}
+
+function formatCompleteness(value) {
+  if (value === null) return 'Not recorded';
+  return value ? 'Complete' : 'Incomplete';
+}
 
 function updateMode() {
   mobile.value = mediaQuery.matches;
@@ -144,7 +162,7 @@ onBeforeUnmount(() => {
           <dd>{{ coverage }}</dd>
         </div>
         <div>
-          <dt>Current promotion</dt>
+          <dt>Validated promotion</dt>
           <dd>{{ evidence.promotion ? 'Passing promotion found' : 'No matching promotion' }}</dd>
         </div>
         <div>
@@ -152,6 +170,62 @@ onBeforeUnmount(() => {
           <dd>{{ evidence.historicalReportCount }}</dd>
         </div>
       </dl>
+
+      <div v-if="evidence.promotionSummary" class="evidence-promotion-detail">
+        <section>
+          <strong>Qualification gates</strong>
+          <ul class="evidence-gate-list">
+            <li v-for="gate in evidence.qualificationGates" :key="gate">{{ gate }}</li>
+          </ul>
+        </section>
+
+        <section>
+          <strong>Recorded effort</strong>
+          <dl class="evidence-effort-grid">
+            <div>
+              <dt>Executor sessions</dt>
+              <dd>{{ formatRecordedNumber(evidence.promotionSummary.sessions.executor) }}</dd>
+            </div>
+            <div>
+              <dt>Judge sessions</dt>
+              <dd>{{ formatRecordedNumber(evidence.promotionSummary.sessions.judge) }}</dd>
+            </div>
+            <div>
+              <dt>Total sessions</dt>
+              <dd>{{ formatRecordedNumber(evidence.promotionSummary.sessions.total) }}</dd>
+            </div>
+            <div>
+              <dt>Total tokens</dt>
+              <dd>{{ formatRecordedNumber(evidence.promotionSummary.tokens.total) }}</dd>
+            </div>
+            <div>
+              <dt>Cached input tokens</dt>
+              <dd>{{ formatRecordedNumber(evidence.promotionSummary.tokens.cachedInput) }}</dd>
+            </div>
+            <div>
+              <dt>Duration</dt>
+              <dd>{{ formatDuration(evidence.promotionSummary.durationMs) }}</dd>
+            </div>
+            <div>
+              <dt>Runtime telemetry</dt>
+              <dd>{{ formatCompleteness(evidence.promotionSummary.telemetry.runtimeComplete) }}</dd>
+            </div>
+            <div>
+              <dt>Token telemetry</dt>
+              <dd>{{ formatCompleteness(evidence.promotionSummary.telemetry.usageComplete) }}</dd>
+            </div>
+          </dl>
+          <p>
+            Each session is one isolated, ephemeral execution of <code>codex exec --json</code> started by the runner. The executor performs
+            the task; the judge evaluates the result. A session is not a message, conversational turn, or complete promotion.
+          </p>
+          <p>Deterministic checks consume zero sessions.</p>
+          <p>Tokens measure recorded workload, not observed financial cost.</p>
+          <a class="evidence-promotion-report" :href="evidence.promotionSummary.report.href" @click="close({ restoreFocus: false })">
+            Inspect promotion report
+          </a>
+        </section>
+      </div>
 
       <div class="evidence-result-groups">
         <strong>Current reports by recorded result</strong>

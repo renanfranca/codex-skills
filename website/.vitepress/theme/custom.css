@@ -721,6 +721,90 @@ body {
   line-height: 1.45;
 }
 
+.evidence-promotion-detail {
+  display: grid;
+  gap: 20px;
+  margin: 24px 0;
+}
+
+.evidence-promotion-detail > section {
+  padding-top: 18px;
+  border-top: 1px solid color-mix(in srgb, var(--evidence-accent) 40%, transparent);
+}
+
+.evidence-promotion-detail > section > strong {
+  font-size: 0.92rem;
+}
+
+.evidence-gate-list {
+  display: grid;
+  margin: 12px 0 0 !important;
+  padding: 0 !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  list-style: none;
+}
+
+.evidence-gate-list li {
+  position: relative;
+  padding-left: 16px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.evidence-gate-list li::before {
+  position: absolute;
+  left: 0;
+  color: var(--evidence-accent);
+  content: '✓';
+  font-weight: 800;
+}
+
+.evidence-effort-grid {
+  display: grid;
+  margin: 12px 0 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid color-mix(in srgb, var(--evidence-accent) 28%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--evidence-accent) 28%, transparent);
+}
+
+.evidence-effort-grid div {
+  min-width: 0;
+  padding: 10px;
+  border-right: 1px solid color-mix(in srgb, var(--evidence-accent) 28%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--evidence-accent) 28%, transparent);
+}
+
+.evidence-effort-grid dt {
+  color: var(--vp-c-text-3);
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.evidence-effort-grid dd {
+  margin: 5px 0 0;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}
+
+.evidence-promotion-detail p {
+  margin: 10px 0;
+  color: var(--vp-c-text-2);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.evidence-promotion-report {
+  display: inline-flex;
+  margin-top: 6px;
+  color: var(--vp-c-text-1) !important;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .evidence-result-groups > strong {
   font-size: 0.86rem;
 }
@@ -1045,7 +1129,9 @@ body {
   .skill-grid,
   .fact-grid,
   .fragment-versions,
-  .evidence-legend ol {
+  .evidence-legend ol,
+  .evidence-gate-list,
+  .evidence-effort-grid {
     grid-template-columns: 1fr;
   }
 

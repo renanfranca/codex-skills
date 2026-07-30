@@ -33,14 +33,18 @@ For operations that compare a baseline with a candidate, only the candidate fing
 
 The catalog selects the strongest applicable status in this order:
 
-1. **Promotion evidence** means an eligible passing promotion matches the current source.
-2. **Complete current coverage** means every case declared by the current suite has at least one matching nonbaseline `PASS`, possibly across several operations.
+1. **Validated promotion** means a promotion eligible `PASS` matches the current source and records an integrated qualification: valid RED, three stable GREEN results for each affected case, proportional regression when the declared impact requires it, and the current candidate fingerprint.
+2. **Complete current coverage** means every case declared by the current suite has one matching nonbaseline `PASS`, possibly across several operations.
 3. **Partial current coverage** means there is at least one matching `PASS`, but the declared suite is not completely covered or no suite is declared.
 4. **No current pass** means matching reports exist without a current `PASS`.
 5. **Historical runs** means reports exist, but none matches the current source with a comparable fingerprint.
 6. **No evaluation yet** means no report is archived for the skill.
 
-Complete current coverage does not mean promotion, repeatability, or stability. Promotion remains governed by the runner contract, including valid RED, three stable GREEN results, and the required regression gates. Each evidence panel retains current results by their recorded status so failures and inconclusive or unstable operations remain visible even when stronger evidence takes precedence.
+Complete current coverage does not establish RED, repetition, stability, regression, or promotion. Each evidence panel retains current results by their recorded status so failures and inconclusive or unstable operations remain visible even when stronger evidence takes precedence.
+
+A validated promotion panel projects recorded effort exclusively from its archived report: executed executor, judge, and total sessions; total and cached input tokens; duration; and runtime and token telemetry completeness. A session is one isolated, ephemeral execution of `codex exec --json` started by the runner. The executor performs the task, while a judge separately evaluates the result when semantic interpretation is required. A session is not a message, conversational turn, or complete promotion. Deterministic checks can qualify behavior with zero sessions.
+
+Token totals measure recorded workload, not an observed financial charge. Missing archived telemetry remains `Not recorded`; the website does not infer values or reconstruct cost.
 
 ## Validation
 

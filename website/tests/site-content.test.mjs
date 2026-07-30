@@ -446,6 +446,20 @@ test('identifies an eligible passing promotion for the current candidate source'
             candidate: currentFingerprint,
           },
         },
+        duration_ms: 125_000,
+        runtime: { complete: true },
+        sessions: {
+          executed: {
+            executor: 4,
+            judge: 3,
+            total: 7,
+          },
+        },
+        usage: {
+          total_tokens: 345_678,
+          cached_input_tokens: 234_567,
+          complete: true,
+        },
         observations: [
           { case_id: 'first-case', status: 'FAIL', role: 'baseline' },
           { case_id: 'first-case', status: 'PASS', role: 'candidate' },
@@ -457,9 +471,29 @@ test('identifies an eligible passing promotion for the current candidate source'
   const skill = generateEvidenceModel(context).skills[0];
 
   assert.equal(skill.evidence.key, 'promotion');
-  assert.equal(skill.evidence.label, 'Promotion evidence');
+  assert.equal(skill.evidence.label, 'Validated promotion');
   assert.equal(skill.evidence.currentFingerprint, currentFingerprint);
   assert.equal(skill.evidence.promotionReport.id, promotionId);
+  assert.deepEqual(skill.evidence.promotionSummary, {
+    report: {
+      id: promotionId,
+      href: `/codex-skills/evaluations/example-skill/${promotionId}`,
+    },
+    sessions: {
+      executor: 4,
+      judge: 3,
+      total: 7,
+    },
+    tokens: {
+      total: 345_678,
+      cachedInput: 234_567,
+    },
+    durationMs: 125_000,
+    telemetry: {
+      runtimeComplete: true,
+      usageComplete: true,
+    },
+  });
   assert.deepEqual(skill.evidence.currentResults, { PASS: 1 });
   assert.equal(skill.evidence.historicalReportCount, 0);
 });
@@ -489,7 +523,81 @@ test('treats a promotion as historical after the skill source changes', () => {
   assert.equal(evidence.key, 'historical');
   assert.notEqual(evidence.currentFingerprint, promotionFingerprint);
   assert.equal(evidence.promotionReport, null);
+  assert.equal(evidence.promotionSummary, null);
   assert.equal(evidence.historicalReportCount, 1);
+});
+
+test('preserves missing promotion effort as unrecorded telemetry', () => {
+  const context = createEvidenceWorkspace();
+  const currentFingerprint = runnerFingerprint(context.skill);
+  const promotionId = '20260729T201500.000000Z-missing-telemetry';
+  writeEvidenceArchive({
+    archive: context.archive,
+    reports: [
+      {
+        operation: {
+          id: promotionId,
+          type: 'validate-change',
+          status: 'PASS',
+          promotion_eligible: true,
+        },
+        fingerprints: { sources: { baseline: 'baseline', candidate: currentFingerprint } },
+        observations: [{ case_id: 'first-case', status: 'PASS', role: 'candidate' }],
+      },
+    ],
+  });
+
+  const evidence = generateEvidenceModel(context).skills[0].evidence;
+
+  assert.deepEqual(evidence.promotionSummary, {
+    report: {
+      id: promotionId,
+      href: `/codex-skills/evaluations/example-skill/${promotionId}`,
+    },
+    sessions: {
+      executor: null,
+      judge: null,
+      total: null,
+    },
+    tokens: {
+      total: null,
+      cachedInput: null,
+    },
+    durationMs: null,
+    telemetry: {
+      runtimeComplete: null,
+      usageComplete: null,
+    },
+  });
+});
+
+test('does not infer session roles from a legacy total', () => {
+  const context = createEvidenceWorkspace();
+  const currentFingerprint = runnerFingerprint(context.skill);
+  writeEvidenceArchive({
+    archive: context.archive,
+    reports: [
+      {
+        operation: {
+          id: '20260729T201600.000000Z-legacy-sessions',
+          type: 'validate-change',
+          status: 'PASS',
+          promotion_eligible: true,
+        },
+        fingerprints: { sources: { baseline: 'baseline', candidate: currentFingerprint } },
+        sessions: { executed: 4 },
+        observations: [{ case_id: 'first-case', status: 'PASS', role: 'candidate' }],
+      },
+    ],
+  });
+
+  const sessions = generateEvidenceModel(context).skills[0].evidence.promotionSummary.sessions;
+
+  assert.deepEqual(sessions, {
+    executor: null,
+    judge: null,
+    total: 4,
+  });
 });
 
 test('never treats a matching baseline as evidence for the current source', () => {
@@ -544,6 +652,7 @@ test('combines current passing cases across operations into complete suite cover
 
   assert.equal(evidence.key, 'complete');
   assert.equal(evidence.label, 'Complete current coverage');
+  assert.equal(evidence.promotionSummary, null);
   assert.deepEqual(evidence.coveredCases, ['first-case', 'second-case']);
   assert.equal(evidence.coveredCaseCount, 2);
   assert.equal(evidence.suiteCaseCount, 2);
