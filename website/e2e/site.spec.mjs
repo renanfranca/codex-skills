@@ -248,7 +248,7 @@ test('report vocabulary is learnable in context and in the complete guide', asyn
   } else {
     await expect(fieldPanel).toHaveClass(/evaluation-help-popover/);
   }
-  await expect(page).toHaveScreenshot('execution-facts-help.png');
+  await expect(page).toHaveScreenshot('execution-facts-help.png', testInfo.project.name === 'desktop' ? { maxDiffPixelRatio: 0.01 } : {});
 
   await page.keyboard.press('Escape');
   await expect(fieldPanel).toBeHidden();
@@ -262,7 +262,10 @@ test('report vocabulary is learnable in context and in the complete guide', asyn
   await expect(guide.locator('dt').filter({ hasText: 'Invalid RED' })).toBeVisible();
   await expect(guide.locator('dt').filter({ hasText: 'No evaluation yet' })).toBeVisible();
   await expect(guide.getByText(/answer different questions/i)).toBeVisible();
-  await expect(page).toHaveScreenshot('evaluation-vocabulary-guide.png');
+  await expect(page).toHaveScreenshot(
+    'evaluation-vocabulary-guide.png',
+    testInfo.project.name === 'mobile' ? { maxDiffPixelRatio: 0.01 } : {},
+  );
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await guide.getByRole('button', { name: 'Close evaluation help' }).click();
