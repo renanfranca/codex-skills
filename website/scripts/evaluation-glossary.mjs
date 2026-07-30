@@ -172,6 +172,22 @@ export const evaluationGlossary = Object.freeze({
       'Total tokens',
       'Aggregate workload telemetry from recorded model events. It is not an observed financial charge, and missing telemetry is not inferred.',
     ),
+    cachedInputTokens: entry(
+      'Cached input tokens',
+      'The cached subset of recorded input tokens. It remains part of input tokens and is not added to the total again.',
+    ),
+    reasoningOutputTokens: entry(
+      'Reasoning output tokens',
+      'The reasoning subset of output tokens. It is reported separately for visibility but is not added to total tokens again.',
+    ),
+    usageEvents: entry(
+      'Normalized usage events',
+      'Each archived normalized telemetry event preserves its recorded token decomposition, origin and scope. Event count and missing fields are not inferred.',
+    ),
+    apiReferenceEstimate: entry(
+      'API reference estimate',
+      'A reference produced from recorded tokens and a dated API price table. It is not an observed charge or invoice, and it can remain unavailable when archived telemetry cannot support an exact calculation.',
+    ),
     failureCategory: entry('Failure category', 'Whether a recorded failure belongs to the behavior contract or infrastructure.'),
   }),
   observationFields: Object.freeze({

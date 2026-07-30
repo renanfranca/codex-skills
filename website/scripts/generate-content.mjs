@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { evaluationGlossary, knownObservationRoles, operationDisplay } from './evaluation-glossary.mjs';
+import { formatEstimateStatus, formatMoney } from './telemetry-format.mjs';
 
 const websiteRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const contentConfig = JSON.parse(readFileSync(join(websiteRoot, 'content-config.json'), 'utf8'));
@@ -266,6 +267,127 @@ function normalizeSessionCounts(sessions) {
   };
 }
 
+function normalizeUsageEvent(event) {
+  return {
+    sequence: event.sequence ?? null,
+    sourceEventType: event.source_event_type ?? null,
+    scope: event.scope ?? null,
+    inputTokens: event.input_tokens ?? null,
+    cachedInputTokens: event.cached_input_tokens ?? null,
+    outputTokens: event.output_tokens ?? null,
+    reasoningOutputTokens: event.reasoning_output_tokens ?? null,
+    totalTokens: event.total_tokens ?? null,
+    complete: event.complete ?? null,
+    reasoningOutputTokensComplete: event.reasoning_output_tokens_complete ?? null,
+  };
+}
+
+function normalizeUsage(usage) {
+  return {
+    inputTokens: usage?.input_tokens ?? null,
+    cachedInputTokens: usage?.cached_input_tokens ?? null,
+    outputTokens: usage?.output_tokens ?? null,
+    reasoningOutputTokens: usage?.reasoning_output_tokens ?? null,
+    totalTokens: usage?.total_tokens ?? null,
+    complete: usage?.complete ?? null,
+    reasoningOutputTokensComplete: usage?.reasoning_output_tokens_complete ?? null,
+    events: (usage?.events ?? []).map(normalizeUsageEvent),
+    eventCount: usage?.event_count ?? null,
+    eventsComplete: usage?.events_complete ?? null,
+  };
+}
+
+function normalizeLongContext(longContext) {
+  if (longContext === null || longContext === undefined) return null;
+  return {
+    inputTokenThreshold: longContext.input_token_threshold ?? null,
+    inputMultiplier: longContext.input_multiplier ?? null,
+    outputMultiplier: longContext.output_multiplier ?? null,
+    appliesPer: longContext.applies_per ?? null,
+  };
+}
+
+function normalizePricing(pricing) {
+  if (pricing === null || pricing === undefined) return null;
+  const snapshot = pricing.snapshot;
+  return {
+    applied: pricing.applied ?? null,
+    snapshot:
+      snapshot === null || snapshot === undefined
+        ? null
+        : {
+            version: snapshot.version ?? null,
+            effectiveDate: snapshot.effective_date ?? null,
+            source: snapshot.source ?? null,
+            currency: snapshot.currency ?? null,
+            unit: snapshot.unit ?? null,
+            models: Object.fromEntries(
+              Object.entries(snapshot.models ?? {}).map(([model, rates]) => [
+                model,
+                {
+                  input: rates.input ?? null,
+                  cachedInput: rates.cached_input ?? null,
+                  output: rates.output ?? null,
+                  longContext: normalizeLongContext(rates.long_context),
+                },
+              ]),
+            ),
+            limitations: snapshot.limitations ?? [],
+          },
+    limitations: pricing.limitations ?? [],
+  };
+}
+
+function normalizeApiReferenceEstimate(estimate) {
+  if (estimate === null || estimate === undefined) return null;
+  const calculation = estimate.calculation;
+  const assessment = estimate.long_context_assessment;
+  return {
+    available: estimate.available ?? null,
+    status: estimate.status ?? null,
+    currency: estimate.currency ?? null,
+    amount: estimate.amount ?? null,
+    baseRateAmount: estimate.base_rate_amount ?? null,
+    actualCharge: estimate.actual_charge ?? null,
+    billingMode: estimate.billing_mode ?? null,
+    calculation:
+      calculation === null || calculation === undefined
+        ? null
+        : {
+            model: calculation.model ?? null,
+            unit: calculation.unit ?? null,
+            tokens: {
+              uncachedInput: calculation.tokens?.uncached_input ?? null,
+              cachedInput: calculation.tokens?.cached_input ?? null,
+              output: calculation.tokens?.output ?? null,
+              reasoningOutput: calculation.tokens?.reasoning_output ?? null,
+            },
+            rates: {
+              input: calculation.rates?.input ?? null,
+              cachedInput: calculation.rates?.cached_input ?? null,
+              output: calculation.rates?.output ?? null,
+              longContext: normalizeLongContext(calculation.rates?.long_context),
+            },
+            components: {
+              input: calculation.components?.input ?? null,
+              cachedInput: calculation.components?.cached_input ?? null,
+              output: calculation.components?.output ?? null,
+            },
+            reasoningNote: calculation.reasoning_note ?? null,
+          },
+    longContextAssessment:
+      assessment === null || assessment === undefined
+        ? null
+        : {
+            inputTokenThreshold: assessment.input_token_threshold ?? null,
+            appliesPer: assessment.applies_per ?? null,
+            triggeringEventSequences: assessment.triggering_event_sequences ?? [],
+            observedEventScopes: assessment.observed_event_scopes ?? [],
+          },
+    limitations: estimate.limitations ?? [],
+  };
+}
+
 function normalizeReport(entry, archiveRoot) {
   if (!entry.path || !entry.skill || !entry.operation_id) {
     throw new Error('Archive manifest contains a report without path, skill, or operation_id');
@@ -299,6 +421,9 @@ function normalizeReport(entry, archiveRoot) {
   const executedSessions = report.sessions?.executed;
   const plannedSessions = report.sessions?.planned;
   const observations = (report.observations ?? []).map(normalizeObservation);
+  const usage = normalizeUsage(report.usage);
+  const pricing = normalizePricing(report.pricing);
+  const apiReferenceEstimate = normalizeApiReferenceEstimate(report.api_reference_estimate);
   const judgeApplicable =
     report.runtime?.judge?.required === true || observations.some(observation => observation.judgeState !== 'not-used');
   const failureCategory = Object.hasOwn(operation, 'failure_category')
@@ -324,6 +449,9 @@ function normalizeReport(entry, archiveRoot) {
     reasoningEffort: entry.reasoning_effort ?? report.runtime?.executor?.reasoning_effort ?? 'Not recorded',
     sessions: entry.sessions ?? report.sessions?.executed ?? null,
     totalTokens: report.usage?.total_tokens ?? entry.tokens?.total ?? null,
+    usage,
+    pricing,
+    apiReferenceEstimate,
     runtimeByRole: {
       executor: {
         model: report.runtime?.executor?.model ?? entry.model ?? 'Not recorded',
@@ -347,13 +475,25 @@ function normalizeReport(entry, archiveRoot) {
     promotionEffort: {
       sessions: normalizeSessionCounts(executedSessions),
       tokens: {
-        total: report.usage?.total_tokens ?? null,
-        cachedInput: report.usage?.cached_input_tokens ?? null,
+        input: usage.inputTokens,
+        cachedInput: usage.cachedInputTokens,
+        output: usage.outputTokens,
+        reasoningOutput: usage.reasoningOutputTokens,
+        total: usage.totalTokens,
       },
+      eventCount: usage.eventCount,
       durationMs: report.duration_ms ?? null,
+      apiReferenceEstimate: {
+        status: apiReferenceEstimate?.status ?? null,
+        currency: apiReferenceEstimate?.currency ?? null,
+        amount: apiReferenceEstimate?.amount ?? null,
+        baseRateAmount: apiReferenceEstimate?.baseRateAmount ?? null,
+      },
       telemetry: {
         runtimeComplete: report.runtime?.complete ?? null,
-        usageComplete: report.usage?.complete ?? null,
+        usageComplete: usage.complete,
+        reasoningOutputTokensComplete: usage.reasoningOutputTokensComplete,
+        eventsComplete: usage.eventsComplete,
       },
     },
     limitations: report.limitations ?? [],
@@ -462,6 +602,11 @@ function formatDuration(durationMs) {
 
 function formatNumber(value) {
   return value === null || value === undefined ? 'Not recorded' : new Intl.NumberFormat('en').format(value);
+}
+
+function formatCompleteness(value) {
+  if (value === null || value === undefined) return 'Not recorded';
+  return value ? 'Complete' : 'Incomplete';
 }
 
 function formatSessions(sessions) {
@@ -624,6 +769,131 @@ ${checks}
 **Changed files:** ${changedFiles}${diff}${fragments}`;
 }
 
+function renderTokenUsage(usage) {
+  const eventRows = usage.events
+    .map(
+      event =>
+        `| ${tableCell(formatNumber(event.sequence))} | ${tableCell(event.sourceEventType)} | ${tableCell(event.scope)} | ${tableCell(formatNumber(event.inputTokens))} | ${tableCell(formatNumber(event.cachedInputTokens))} | ${tableCell(formatNumber(event.outputTokens))} | ${tableCell(formatNumber(event.reasoningOutputTokens))} | ${tableCell(formatNumber(event.totalTokens))} | ${tableCell(formatCompleteness(event.complete))} | ${tableCell(formatCompleteness(event.reasoningOutputTokensComplete))} |`,
+    )
+    .join('\n');
+  const events = usage.events.length
+    ? `<details class="evidence-details usage-events">
+<summary>Normalized usage events (${formatNumber(usage.eventCount)})</summary>
+
+| Sequence | Origin | Scope | Input | Cached input | Output | Reasoning output | Total | Token telemetry | Reasoning telemetry |
+| ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+${eventRows}
+
+</details>`
+    : '<p>No normalized usage events were recorded.</p>';
+
+  return `## Token usage
+
+<p>Cached input is part of input tokens. Reasoning output is part of output tokens, so it is not added to the total again.</p>
+
+<div class="fact-grid token-facts">
+  <div><span class="label">Input tokens</span><strong>${escapeHtml(formatNumber(usage.inputTokens))}</strong></div>
+  <div><span class="label">Cached input tokens</span><strong>${escapeHtml(formatNumber(usage.cachedInputTokens))}</strong></div>
+  <div><span class="label">Output tokens</span><strong>${escapeHtml(formatNumber(usage.outputTokens))}</strong></div>
+  <div><span class="label">Reasoning output tokens</span><strong>${escapeHtml(formatNumber(usage.reasoningOutputTokens))}</strong></div>
+  <div><span class="label">Total tokens</span><strong>${escapeHtml(formatNumber(usage.totalTokens))}</strong></div>
+  <div><span class="label">Token telemetry</span><strong>${escapeHtml(formatCompleteness(usage.complete))}</strong></div>
+  <div><span class="label">Reasoning telemetry</span><strong>${escapeHtml(formatCompleteness(usage.reasoningOutputTokensComplete))}</strong></div>
+  <div><span class="label">Usage events</span><strong>${escapeHtml(formatNumber(usage.eventCount))}</strong></div>
+  <div><span class="label">Event telemetry</span><strong>${escapeHtml(formatCompleteness(usage.eventsComplete))}</strong></div>
+</div>
+
+${events}`;
+}
+
+function renderEstimateCalculation(calculation, currency) {
+  if (!calculation) return '<p>Calculation components and prices were not recorded.</p>';
+  const longContext = calculation.rates.longContext;
+  const longContextThreshold = longContext
+    ? `${formatNumber(longContext.inputTokenThreshold)} input tokens per ${longContext.appliesPer ?? 'Not recorded'}`
+    : 'Not recorded';
+  return `### Recorded calculation
+
+<div class="fact-grid estimate-calculation">
+  <div><span class="label">Model</span><strong>${escapeHtml(calculation.model ?? 'Not recorded')}</strong></div>
+  <div><span class="label">Unit</span><strong>${escapeHtml(calculation.unit ?? 'Not recorded')}</strong></div>
+  <div><span class="label">Uncached input tokens</span><strong>${escapeHtml(formatNumber(calculation.tokens.uncachedInput))}</strong></div>
+  <div><span class="label">Cached input tokens</span><strong>${escapeHtml(formatNumber(calculation.tokens.cachedInput))}</strong></div>
+  <div><span class="label">Output tokens</span><strong>${escapeHtml(formatNumber(calculation.tokens.output))}</strong></div>
+  <div><span class="label">Reasoning output tokens</span><strong>${escapeHtml(formatNumber(calculation.tokens.reasoningOutput))}</strong></div>
+  <div><span class="label">Input price</span><strong>${escapeHtml(formatMoney(currency, calculation.rates.input))} per million tokens</strong></div>
+  <div><span class="label">Cached input price</span><strong>${escapeHtml(formatMoney(currency, calculation.rates.cachedInput))} per million tokens</strong></div>
+  <div><span class="label">Output price</span><strong>${escapeHtml(formatMoney(currency, calculation.rates.output))} per million tokens</strong></div>
+  <div><span class="label">Input component</span><strong>${escapeHtml(formatMoney(currency, calculation.components.input))}</strong></div>
+  <div><span class="label">Cached input component</span><strong>${escapeHtml(formatMoney(currency, calculation.components.cachedInput))}</strong></div>
+  <div><span class="label">Output component</span><strong>${escapeHtml(formatMoney(currency, calculation.components.output))}</strong></div>
+  <div><span class="label">Long context threshold</span><strong>${escapeHtml(longContextThreshold)}</strong></div>
+</div>
+
+${escapeHtml(calculation.reasoningNote ?? 'No reasoning note was recorded.')}`;
+}
+
+function renderApiReferenceEstimate(report) {
+  const estimate = report.apiReferenceEstimate;
+  if (!estimate) {
+    return `## API reference estimate
+
+<div class="empty-state">Not recorded</div>
+
+<p>No API reference estimate was archived. The website does not calculate one.</p>`;
+  }
+  const amount = estimate.status === 'indeterminate-long-context' ? estimate.baseRateAmount : estimate.amount;
+  const amountLabel =
+    estimate.status === 'indeterminate-long-context'
+      ? `${formatMoney(estimate.currency, amount)} (base-rate reference only)`
+      : formatMoney(estimate.currency, amount);
+  const amountTitle = estimate.status === 'indeterminate-long-context' ? 'Base-rate reference' : 'Reference value';
+  const exactAvailability =
+    estimate.status === 'indeterminate-long-context'
+      ? '<p class="estimate-warning"><strong>Exact estimate unavailable.</strong> The archived event scope cannot establish whether the request-level long-context multiplier applies.</p>'
+      : estimate.status === 'unavailable'
+        ? '<p class="estimate-warning">No exact or base-rate value is available from this report.</p>'
+        : '';
+  const assessment = estimate.longContextAssessment;
+  const assessmentFacts = assessment
+    ? `<div class="fact-grid long-context-facts">
+  <div><span class="label">Long context threshold</span><strong>${escapeHtml(formatNumber(assessment.inputTokenThreshold))} input tokens per ${escapeHtml(assessment.appliesPer ?? 'Not recorded')}</strong></div>
+  <div><span class="label">Triggering event sequences</span><strong>${escapeHtml(assessment.triggeringEventSequences.length ? assessment.triggeringEventSequences.join(', ') : 'None')}</strong></div>
+  <div><span class="label">Observed event scopes</span><strong>${escapeHtml(assessment.observedEventScopes.length ? assessment.observedEventScopes.join(', ') : 'None')}</strong></div>
+</div>`
+    : '<p>Long context assessment: Not recorded.</p>';
+  const limitations = estimate.limitations.length
+    ? estimate.limitations.map(item => `- ${escapeHtml(item)}`).join('\n')
+    : 'No estimate limitations were recorded.';
+  const snapshot = report.pricing?.snapshot;
+
+  return `## API reference estimate
+
+<p>This is an API reference estimate, not an observed charge or invoice.</p>
+
+<div class="fact-grid estimate-facts">
+  <div><span class="label">Status</span><strong>${escapeHtml(formatEstimateStatus(estimate.status))}</strong></div>
+  <div><span class="label">${amountTitle}</span><strong>${escapeHtml(amountLabel)}</strong></div>
+  <div><span class="label">Currency</span><strong>${escapeHtml(estimate.currency ?? 'Not recorded')}</strong></div>
+  <div><span class="label">Billing mode</span><strong>${escapeHtml(estimate.billingMode ?? 'Not recorded')}</strong></div>
+  <div><span class="label">Observed charge</span><strong>${estimate.actualCharge === null ? 'Not recorded' : estimate.actualCharge ? 'Yes' : 'No'}</strong></div>
+  <div><span class="label">Price date</span><strong>${escapeHtml(snapshot?.effectiveDate ?? 'Not recorded')}</strong></div>
+  <div><span class="label">Price unit</span><strong>${escapeHtml(snapshot?.unit ?? 'Not recorded')}</strong></div>
+</div>
+
+${exactAvailability}
+
+${renderEstimateCalculation(estimate.calculation, estimate.currency)}
+
+### Long context assessment
+
+${assessmentFacts}
+
+### Estimate limitations
+
+${limitations}`;
+}
+
 function renderReport(report) {
   const observations = report.observations.length
     ? report.observations.map(renderObservation).join('\n\n')
@@ -670,6 +940,10 @@ outline: [2, 3]
   ${renderHelpFact('totalTokens', formatNumber(report.totalTokens))}
   ${renderHelpFact('failureCategory', report.failureCategory)}
 </div>
+
+${renderTokenUsage(report.usage)}
+
+${renderApiReferenceEstimate(report)}
 
 ## Observations
 

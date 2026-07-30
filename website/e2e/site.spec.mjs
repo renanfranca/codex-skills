@@ -152,17 +152,29 @@ test('a validated promotion explains qualification and recorded effort', async (
   await expect(panel.getByText('Executor sessions', { exact: true })).toBeVisible();
   await expect(panel.getByText('Judge sessions', { exact: true })).toBeVisible();
   await expect(panel.getByText('Total sessions', { exact: true })).toBeVisible();
-  await expect(panel.getByText('Total tokens', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Input tokens', { exact: true })).toBeVisible();
   await expect(panel.getByText('Cached input tokens', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Output tokens', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Reasoning output tokens', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Total tokens', { exact: true })).toBeVisible();
   await expect(panel.getByText('Duration', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Usage events', { exact: true })).toBeVisible();
+  await expect(panel.getByText('API reference estimate', { exact: true })).toBeVisible();
   await expect(panel.getByText('Runtime telemetry', { exact: true })).toBeVisible();
   await expect(panel.getByText('Token telemetry', { exact: true })).toBeVisible();
   await expectModelSessionDefinition(panel);
   await expect(panel.getByText(/Aggregate workload telemetry.*not an observed financial charge/i)).toBeVisible();
-  await expect(panel.getByRole('link', { name: 'Inspect promotion report' })).toHaveAttribute(
-    'href',
-    /\/evaluations\/restructure-documentation\/20260727T233326\.147750Z-48228593ef91$/,
-  );
+  const reportLink = panel.getByRole('link', { name: 'Inspect promotion report' });
+  await expect(reportLink).toHaveAttribute('href', /\/evaluations\/restructure-documentation\/20260727T233326\.147750Z-48228593ef91$/);
+  await reportLink.click();
+
+  await expect(page).toHaveURL(/\/evaluations\/restructure-documentation\/20260727T233326\.147750Z-48228593ef91$/);
+  await expect(page.getByRole('heading', { level: 2, name: 'Token usage' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'API reference estimate' })).toBeVisible();
+  const usageEvents = page.getByText(/Normalized usage events \(\d+\)/).first();
+  await expect(usageEvents).toBeVisible();
+  expect(await usageEvents.evaluate(summary => summary.parentElement.open)).toBe(false);
+  await expect(page.getByText(/not an observed charge or invoice/i)).toBeVisible();
 });
 
 test('a reader can inspect current evidence in the viewport appropriate panel', async ({ page }, testInfo) => {

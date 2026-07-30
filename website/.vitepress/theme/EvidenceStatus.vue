@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { evaluationGlossary } from '../../scripts/evaluation-glossary.mjs';
+import { formatApiReferenceEstimate } from '../../scripts/telemetry-format.mjs';
 import GlossaryDescription from './GlossaryDescription.vue';
 
 const props = defineProps({
@@ -197,16 +198,36 @@ onBeforeUnmount(() => {
               <dd>{{ formatRecordedNumber(evidence.promotionSummary.sessions.total) }}</dd>
             </div>
             <div>
-              <dt>Total tokens</dt>
-              <dd>{{ formatRecordedNumber(evidence.promotionSummary.tokens.total) }}</dd>
+              <dt>Input tokens</dt>
+              <dd>{{ formatRecordedNumber(evidence.promotionSummary.tokens.input) }}</dd>
             </div>
             <div>
               <dt>Cached input tokens</dt>
               <dd>{{ formatRecordedNumber(evidence.promotionSummary.tokens.cachedInput) }}</dd>
             </div>
             <div>
+              <dt>Output tokens</dt>
+              <dd>{{ formatRecordedNumber(evidence.promotionSummary.tokens.output) }}</dd>
+            </div>
+            <div>
+              <dt>Reasoning output tokens</dt>
+              <dd>{{ formatRecordedNumber(evidence.promotionSummary.tokens.reasoningOutput) }}</dd>
+            </div>
+            <div>
+              <dt>Total tokens</dt>
+              <dd>{{ formatRecordedNumber(evidence.promotionSummary.tokens.total) }}</dd>
+            </div>
+            <div>
               <dt>Duration</dt>
               <dd>{{ formatDuration(evidence.promotionSummary.durationMs) }}</dd>
+            </div>
+            <div>
+              <dt>Usage events</dt>
+              <dd>{{ formatRecordedNumber(evidence.promotionSummary.eventCount) }}</dd>
+            </div>
+            <div>
+              <dt>API reference estimate</dt>
+              <dd>{{ formatApiReferenceEstimate(evidence.promotionSummary.apiReferenceEstimate) }}</dd>
             </div>
             <div>
               <dt>Runtime telemetry</dt>

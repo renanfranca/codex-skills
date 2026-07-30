@@ -50,11 +50,15 @@ The catalog selects the strongest applicable status in this order:
 
 Complete current coverage does not establish RED, repetition, stability, regression, or promotion. Each evidence panel retains current results by their recorded status so failures and inconclusive or unstable operations remain visible even when stronger evidence takes precedence.
 
-A validated promotion panel projects recorded effort exclusively from its archived report: executed executor, judge, and total sessions; total and cached input tokens; duration; and runtime and token telemetry completeness.
+A validated promotion panel projects recorded effort exclusively from its archived report: executed executor, judge, and total sessions; input, cached input, output, reasoning output, and total tokens; duration; normalized usage event count; API reference estimate value or status; and runtime and token telemetry completeness.
 
 A model session is one isolated, ephemeral `codex exec --json` invocation started by the evaluation runner. The executor performs the evaluated task; an optional judge evaluates the result in a separate invocation. A model session is not a message, conversational turn, deterministic check, or complete promotion. Deterministic checks consume zero model sessions.
 
-Token totals measure recorded workload, not an observed financial charge. Missing archived telemetry remains `Not recorded`; the website does not infer values or reconstruct cost.
+Token totals measure recorded workload, not an observed financial charge. Cached input is a subset of input tokens. Reasoning output is a subset of output tokens, so it is displayed separately but never added to the total again.
+
+Each report page preserves the archived usage decomposition, completeness fields, event count, event completeness, and every normalized event with its recorded origin, scope, and token fields. The event table is collapsed by default. An empty or legacy report remains explicit: missing archived telemetry appears as `Not recorded`, and the website does not derive event counts, cache ratios, token subtotals, or costs.
+
+An **API reference estimate** applies an archived dated API price table to recorded usage. It is never an observed charge, ChatGPT billing statement, or invoice. Report pages show the archived status, currency, amount, base rate amount, calculation tokens, prices, components, long context assessment, and limitations. Monetary values retain their recorded decimal value without scientific notation. When request scoped long context pricing cannot be audited from event scope, the page labels the base rate amount as reference only and states that the exact estimate is unavailable.
 
 Report execution facts retain compatibility fields in generated `data.json` and add `runtimeByRole`, `sessionsByRole`, and `judgeState`. Explicit `failure_category: null` renders as `None`; an absent property renders as `Not recorded`. A disabled judge renders as `Not used`, an enabled judge that did not execute renders as `Skipped`, and an executed judge renders its archived verdict.
 
@@ -83,6 +87,7 @@ The container uses `--init`, host IPC, the invoking user, and an isolated tempor
 
 - `content-config.json` records website-only catalog decisions such as compatibility skills excluded from the active catalog.
 - `scripts/generate-content.mjs` creates the home page, skill pages, evaluation history, and report evidence pages.
+- `scripts/telemetry-format.mjs` keeps API reference values and statuses consistent between generated reports and interactive promotion panels.
 - `.vitepress/` contains the GitHub Pages base path, navigation, and visual theme.
 - `.github/workflows/deploy-website.yml` validates, tests, builds, and deploys the static artifact after changes reach `main`. Its build job uses the same pinned visual-test container as the local runner.
 
