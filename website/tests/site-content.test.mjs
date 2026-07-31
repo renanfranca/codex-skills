@@ -67,6 +67,8 @@ test('publishes every active evaluation including cases without archived observa
   );
 
   const skillModel = JSON.parse(readFileSync(join(output, 'data.json'), 'utf8')).skills[0];
+  const semanticPage = readFileSync(join(output, 'skills', 'example-skill', 'evaluations', 'semantic-case.md'), 'utf8');
+  const deterministicPage = readFileSync(join(output, 'skills', 'example-skill', 'evaluations', 'deterministic-case.md'), 'utf8');
 
   assert.deepEqual(
     skillModel.evaluations.map(evaluation => [evaluation.caseId, evaluation.kind, evaluation.evidence.label]),
@@ -85,6 +87,13 @@ test('publishes every active evaluation including cases without archived observa
   assert.equal(skillModel.evaluations[1].prompt, null);
   assert.equal(skillModel.evaluations[1].judge.applicable, false);
   assert.deepEqual(skillModel.historicalEvaluations, []);
+  assert.match(semanticPage, /<EvaluationHelp context="evaluation" field="kind" current="behavioral"/);
+  assert.match(semanticPage, /<strong>Behavioral<\/strong> <code>behavioral<\/code>[\s\S]*user visible or public contract behavior/);
+  assert.match(semanticPage, /<strong>Nonbehavioral<\/strong> <code>non_behavioral<\/code>[\s\S]*does not require semantic task execution/);
+  assert.match(semanticPage, /<strong>Trigger<\/strong> <code>trigger<\/code>[\s\S]*selected and invoked appropriately/);
+  assert.match(semanticPage, /<strong>Deterministic<\/strong> <code>deterministic<\/code>[\s\S]*zero model sessions/);
+  assert.match(semanticPage, /Expected executor exit code/);
+  assert.doesNotMatch(deterministicPage, /Expected executor exit code/);
 });
 
 test('renders an active evaluation card and a linked current-definition page', () => {
@@ -116,6 +125,7 @@ test('renders an active evaluation card and a linked current-definition page', (
           required_paths: ['result.txt'],
           commands: [{ argv: ['python3', 'check.py'], exit_code: 0 }],
         },
+        oracle: { commands: [{ argv: ['python3', '{oracle_dir}/check.py'], exit_code: 0 }] },
         judge: { enabled: true, criteria: ['Reject <script>alert(1)</script>.'], no_action_acceptable: false },
       },
       null,
@@ -136,22 +146,167 @@ test('renders an active evaluation card and a linked current-definition page', (
   const evaluationPage = readFileSync(join(output, 'skills', 'example-skill', 'evaluations', 'safe-case.md'), 'utf8');
 
   assert.match(skillPage, /## Active evaluations/);
+  assert.match(skillPage, /Each card links a current case definition to its current evidence and recorded operation history\./);
   assert.match(skillPage, /href="\/codex-skills\/skills\/example-skill\/evaluations\/safe-case"/);
   assert.match(skillPage, /Safe case[\s\S]*Not evaluated yet[\s\S]*Behavioral/);
   assert.match(skillPage, /id="operation-history"/);
   assert.match(skillPage, /id="evaluation-history"/);
   assert.match(evaluationPage, /# Safe case/);
-  assert.match(evaluationPage, /Current evidence[\s\S]*Not evaluated yet/);
+  assert.match(
+    evaluationPage,
+    /An evaluation is the persistent case definition\. An observation is one case result recorded inside an operation, and an operation is the complete runner invocation\./,
+  );
+  assert.match(evaluationPage, /<EvaluationHelp context="evaluation" field="currentEvidence"/);
+  assert.match(evaluationPage, /<EvaluationHelp context="evaluation" field="latestRecordedResult"/);
+  assert.match(evaluationPage, /<EvaluationHelp context="evaluation" field="suiteState"/);
+  assert.match(evaluationPage, /field="currentEvidence" current="Not evaluated yet"/);
+  assert.doesNotMatch(evaluationPage, /Skill contracts mapped to this case/);
+  assert.doesNotMatch(evaluationPage, /Rubric families sampled by this case/);
+  assert.doesNotMatch(evaluationPage, /coverage map|traceability manifest/i);
   assert.match(evaluationPage, /## Current definition flow/);
+  assert.match(
+    evaluationPage,
+    /The flow connects the current public inputs to each declared verification mechanism and its possible result\./,
+  );
   assert.match(evaluationPage, /class="evaluation-flow/);
   assert.match(evaluationPage, /href="#public-input"/);
   assert.match(evaluationPage, /href="#mechanical-checks"/);
+  assert.match(evaluationPage, /href="#oracle-verification"/);
   assert.match(evaluationPage, /href="#judge-verification"/);
   assert.match(evaluationPage, /## Public prompt/);
+  assert.match(evaluationPage, /This is the public task supplied to the executor for this case\./);
   assert.match(evaluationPage, /Treat <img src=x onerror=alert\(1\)> as text\./);
   assert.doesNotMatch(evaluationPage, /<script>alert\(1\)<\/script>/);
   assert.match(evaluationPage, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
-  assert.match(evaluationPage, /No coverage map is declared for this skill/);
+  assert.match(evaluationPage, /Mechanical checks are deterministic requirements recorded by the case definition\./);
+  assert.match(evaluationPage, /Oracle verification applies repository-owned commands outside the executor workspace/);
+  assert.match(evaluationPage, /Judge verification applies the declared semantic criteria after earlier checks allow it to run\./);
+  assert.match(evaluationPage, /The latest operation is the newest archived runner invocation related to this case/);
+  assert.match(evaluationPage, /Operation history lists complete runner invocations that contain observations for this case/);
+});
+
+test('explains complete and partial coverage mappings as declarations with their verification mechanisms', () => {
+  const workspace = mkdtempSync(join(tmpdir(), 'codex-skills-evaluation-coverage-'));
+  const repository = join(workspace, 'repository');
+  const archive = join(repository, 'evaluation-reports');
+  const skill = join(repository, 'example-skill');
+  const caseRoot = join(skill, 'evals', 'cases', 'mapped-case');
+  const output = join(workspace, 'generated');
+
+  mkdirSync(caseRoot, { recursive: true });
+  mkdirSync(archive, { recursive: true });
+  writeFileSync(join(skill, 'SKILL.md'), '---\nname: example-skill\ndescription: Explain coverage declarations.\n---\n');
+  writeFileSync(join(skill, 'evals', 'suite.json'), `${JSON.stringify({ version: 1, cases: ['mapped-case'] }, null, 2)}\n`);
+  writeFileSync(
+    join(caseRoot, 'case.json'),
+    `${JSON.stringify(
+      {
+        id: 'mapped-case',
+        kind: 'deterministic',
+        mechanical: { commands: [{ argv: ['python3', 'check.py'], exit_code: 0 }] },
+        judge: { enabled: false, criteria: [] },
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  writeFileSync(
+    join(skill, 'evals', 'coverage.json'),
+    `${JSON.stringify(
+      {
+        version: 1,
+        contracts: [
+          {
+            id: 'complete-contract',
+            statement: 'Protect the complete public contract.',
+            guarantee: 'complete',
+            mappings: [{ case_id: 'mapped-case', dimension: 'public-result', evidence: ['mechanical', 'oracle'] }],
+          },
+          {
+            id: 'partial-contract',
+            statement: 'Sample a context-sensitive contract.',
+            guarantee: 'partial',
+            limitation: 'The fixture samples one supported context.',
+            mappings: [{ case_id: 'mapped-case', dimension: 'context-sample', evidence: ['judge', 'executor_response'] }],
+          },
+        ],
+        rubric_families: [
+          {
+            id: 'safe-boundaries',
+            source: 'references/rubric.md',
+            guarantee: 'partial',
+            limitation: 'The fixture samples one boundary.',
+            sections: ['Boundary ownership'],
+            mappings: [
+              {
+                case_id: 'mapped-case',
+                dimension: 'boundary-sample',
+                evidence: ['mechanical', 'changed_paths'],
+              },
+            ],
+          },
+        ],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  writeFileSync(join(archive, 'manifest.json'), '{"version":1,"report_count":0,"reports":[]}\n');
+
+  execFileSync(
+    process.execPath,
+    [join(websiteDirectory, 'scripts', 'generate-content.mjs'), '--repository-root', repository, '--archive', archive, '--output', output],
+    { stdio: 'pipe' },
+  );
+
+  const model = JSON.parse(readFileSync(join(output, 'data.json'), 'utf8'));
+  const skillPage = readFileSync(join(output, 'skills', 'example-skill.md'), 'utf8');
+  const evaluationPage = readFileSync(join(output, 'skills', 'example-skill', 'evaluations', 'mapped-case.md'), 'utf8');
+
+  assert.deepEqual(
+    model.skills[0].evaluations[0].coverage.map(contract => [contract.guarantee, contract.dimension, contract.evidence]),
+    [
+      ['complete', 'public-result', ['mechanical', 'oracle']],
+      ['partial', 'context-sample', ['judge', 'executor_response']],
+    ],
+  );
+  assert.deepEqual(model.skills[0].traceability, {
+    declared: true,
+    executableCaseCount: 1,
+    skillContractCount: 2,
+    skillContractMappingCount: 2,
+    rubricFamilyCount: 1,
+    rubricFamilyMappingCount: 1,
+  });
+  assert.deepEqual(
+    model.skills[0].evaluations[0].rubricCoverage.map(family => [family.id, family.dimension, family.evidence]),
+    [['safe-boundaries', 'boundary-sample', ['mechanical', 'changed_paths']]],
+  );
+  assert.match(skillPage, /<code>suite\.json<\/code> declares 1 executable case/);
+  assert.match(skillPage, /2 skill contracts and 2 mappings/);
+  assert.match(skillPage, /1 rubric family and 1 mapping/);
+  assert.match(skillPage, /Traceability does not select, group, repeat, or score executable cases/);
+  assert.match(evaluationPage, /field="coverageLevel" current="complete"/);
+  assert.match(evaluationPage, /field="coverageLevel" current="partial"/);
+  assert.match(evaluationPage, /## Skill contracts mapped to this case/);
+  assert.match(evaluationPage, /filtered view of the skill's optional <code>coverage\.json<\/code> traceability manifest/);
+  assert.match(evaluationPage, /Complete contract <code>complete-contract<\/code>/);
+  assert.match(evaluationPage, /Partial contract <code>partial-contract<\/code>/);
+  assert.match(evaluationPage, /## Rubric families sampled by this case/);
+  assert.match(evaluationPage, /Safe boundaries <code>safe-boundaries<\/code>/);
+  assert.match(evaluationPage, /field="mappingLabel"[\s\S]*Public result[\s\S]*<code>public-result<\/code>/);
+  assert.match(evaluationPage, /field="mappingLabel"[\s\S]*Boundary sample[\s\S]*<code>boundary-sample<\/code>/);
+  assert.doesNotMatch(evaluationPage, />Dimension</);
+  assert.match(evaluationPage, /Mechanical checks[\s\S]*<code>mechanical<\/code>[\s\S]*deterministic/);
+  assert.match(evaluationPage, /Hidden oracle[\s\S]*<code>oracle<\/code>[\s\S]*case specific/);
+  assert.match(evaluationPage, /Semantic judge[\s\S]*<code>judge<\/code>[\s\S]*semantic/);
+  assert.match(evaluationPage, /Executor response[\s\S]*<code>executor_response<\/code>[\s\S]*structured response/);
+  assert.match(evaluationPage, /Changed paths[\s\S]*<code>changed_paths<\/code>[\s\S]*files changed/);
+  assert.match(evaluationPage, /Limitation:[\s\S]*The fixture samples one supported context\./);
+  assert.match(
+    evaluationPage,
+    /This deterministic case does not use an executor prompt; its public fixture files are the declared inputs\./,
+  );
 });
 
 test('generates a factual skill history from an archived evaluation', () => {
@@ -511,6 +666,14 @@ test('publishes the complete evaluation vocabulary as independent concepts', () 
   assert.equal(model.evaluationGlossary.concepts.evidenceStatus.label, 'Evidence status');
   assert.equal(model.evaluationGlossary.concepts.operationType.label, 'Operation type');
   assert.equal(model.evaluationGlossary.concepts.recordedResult.label, 'Recorded result');
+  assert.equal(model.evaluationGlossary.evaluationPage.concepts.evaluation.label, 'Evaluation');
+  assert.equal(model.evaluationGlossary.evaluationPage.concepts.observation.label, 'Observation');
+  assert.equal(model.evaluationGlossary.evaluationPage.concepts.operation.label, 'Operation');
+  assert.deepEqual(Object.keys(model.evaluationGlossary.evaluationPage.coverageLevels), ['complete', 'partial']);
+  assert.match(model.evaluationGlossary.evaluationPage.fields.coverageLevel.description, /not an execution result/i);
+  assert.equal(model.evaluationGlossary.evaluationPage.fields.mappingLabel.label, 'Mapping label');
+  assert.match(model.evaluationGlossary.evaluationPage.fields.mappingLabel.description, /local technical identifier/i);
+  assert.match(model.evaluationGlossary.evaluationPage.fields.mappingLabel.description, /does not select, group, repeat, score/i);
   assert.deepEqual(Object.keys(model.evaluationGlossary.operations), [
     'run',
     'verify-change',
@@ -866,6 +1029,7 @@ test('separates archived-only case IDs as historical evaluations without inventi
   });
 
   const skill = generateEvidenceModel(context).skills[0];
+  const historicalPage = readFileSync(join(context.output, 'skills', 'example-skill', 'evaluations', 'retired-case.md'), 'utf8');
 
   assert.equal(skill.evaluations[0].state, 'active');
   assert.equal(skill.historicalEvaluations.length, 1);
@@ -883,6 +1047,17 @@ test('separates archived-only case IDs as historical evaluations without inventi
   assert.equal(Object.hasOwn(skill.historicalEvaluations[0], 'prompt'), false);
   assert.equal(Object.hasOwn(skill.historicalEvaluations[0], 'caseFingerprint'), false);
   assert.equal(Object.hasOwn(skill.historicalEvaluations[0], 'mechanical'), false);
+  assert.match(
+    historicalPage,
+    /An evaluation is the persistent case definition\. An observation is one case result recorded inside an operation, and an operation is the complete runner invocation\./,
+  );
+  assert.match(historicalPage, /<EvaluationHelp context="evaluation" field="suiteState" current="Historical"/);
+  assert.match(historicalPage, /<EvaluationHelp context="evaluation" field="latestRecordedResult" current="PASS"/);
+  assert.match(
+    historicalPage,
+    /Operation history remains available because archived operations contain observations for this case\. The current suite no longer provides a definition to display\./,
+  );
+  assert.match(historicalPage, /This history lists complete archived runner invocations, not a reconstructed case definition\./);
 });
 
 test('publishes stable case evidence keys with candidate, regression, baseline, and fingerprint precedence', () => {
@@ -1837,7 +2012,24 @@ test('matches the runner fingerprint contract and expected real catalog states',
   assert.equal(bySlug['refactor-design'].evidence.key, 'partial');
   assert.equal(bySlug['refactor-design'].evidence.coveredCaseCount, 3);
   assert.equal(bySlug['refactor-design'].evidence.suiteCaseCount, 12);
+  assert.deepEqual(bySlug['refactor-design'].traceability, {
+    declared: true,
+    executableCaseCount: 12,
+    skillContractCount: 11,
+    skillContractMappingCount: 21,
+    rubricFamilyCount: 5,
+    rubricFamilyMappingCount: 8,
+  });
+  assert.equal(
+    bySlug['refactor-design'].evaluations.find(evaluation => evaluation.caseId === 'hidden-invocation-state').rubricCoverage.length,
+    1,
+  );
+  const refactorSkillPage = readFileSync(join(output, 'skills', 'refactor-design.md'), 'utf8');
+  assert.match(refactorSkillPage, /<code>suite\.json<\/code> declares 12 executable cases/);
+  assert.match(refactorSkillPage, /11 skill contracts and 21 mappings/);
+  assert.match(refactorSkillPage, /5 rubric families and 8 mappings/);
   assert.equal(bySlug['develop-skill-with-evals'].evidence.key, 'historical');
+  assert.equal(bySlug['develop-skill-with-evals'].traceability, null);
 });
 
 test('matches the runner fingerprint contract for a linked skill file', () => {

@@ -245,6 +245,12 @@ example-skill/
 }
 ```
 
+`suite.json` is the only one of these manifests that defines which cases are executable. An optional `coverage.json` does something different: it records traceability from skill contracts and rubric families to cases already named by the suite. It does not select, group, repeat, prioritize, or score cases, and it cannot change the order or gates used by the runner.
+
+Traceability is a many to many relation. One contract or rubric family can map to several cases, and one case can sample several contracts or families. For that reason, a `case_id` can legitimately appear in several mappings without causing the case to run more than once. Each mapping's `dimension` is only a local technical label used to distinguish the aspect being traced. The runner gives it no independent execution meaning.
+
+The deterministic [`coverage-contract`](refactor-design/evals/cases/coverage-contract/case.json) case validates that `refactor-design`'s optional matrix is internally consistent: fingerprints are current, mapped cases belong to the suite, identifiers and dimensions obey the manifest rules, and declared evidence is compatible. It does not judge whether the skill behaved correctly in a semantic scenario. That evidence comes only from executing the applicable semantic cases and their configured checks.
+
 Each `case.json` combines runner configuration with the expected contract. The fields most useful during supervision are:
 
 | Field | Meaning |
@@ -265,7 +271,7 @@ See the [evaluation contract](develop-skill-with-evals/references/eval-contract.
 
 ## Coverage as a traceable contract
 
-A traceable coverage manifest connects requirements to the observations intended to protect them. This section uses `refactor-design` as the running example: its manifest makes suite scope and maintenance obligations inspectable, but the declaration is not evidence that a semantic case executed or passed.
+A traceable coverage manifest connects requirements to the observations intended to protect them. This section uses `refactor-design` as the running example: its manifest makes traceability and maintenance obligations inspectable, but it does not define suite scope and is not evidence that a semantic case executed or passed.
 
 | Layer | General meaning | In `refactor-design` | What it does not prove |
 | --- | --- | --- | --- |

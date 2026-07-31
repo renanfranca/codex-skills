@@ -4,6 +4,7 @@ import { evaluationGlossary } from '../../scripts/evaluation-glossary.mjs';
 import GlossaryDescription from './GlossaryDescription.vue';
 
 const props = defineProps({
+  context: { type: String, default: 'report' },
   field: { type: String, default: '' },
   current: { type: String, default: 'Not recorded' },
   detail: { type: String, default: '' },
@@ -18,8 +19,17 @@ const panelStyle = ref({});
 const panelId = `evaluation-help-${Math.random().toString(36).slice(2)}`;
 let mediaQuery;
 
-const definition = computed(() => evaluationGlossary.fields[props.field] ?? evaluationGlossary.observationFields[props.field] ?? null);
+const definition = computed(() =>
+  props.context === 'evaluation'
+    ? (evaluationGlossary.evaluationPage.fields[props.field] ?? null)
+    : (evaluationGlossary.fields[props.field] ?? evaluationGlossary.observationFields[props.field] ?? null),
+);
 const taxonomy = computed(() => {
+  if (props.context === 'evaluation' && props.field === 'suiteState') return evaluationGlossary.evaluationPage.suiteStates;
+  if (props.context === 'evaluation' && props.field === 'coverageLevel') return evaluationGlossary.evaluationPage.coverageLevels;
+  if (props.context === 'evaluation' && props.field === 'currentEvidence') return evaluationGlossary.caseEvidenceStatuses;
+  if (props.context === 'evaluation' && props.field === 'kind') return evaluationGlossary.kinds;
+  if (props.context === 'evaluation') return null;
   if (props.field === 'failureCategory') return evaluationGlossary.failureCategories;
   if (props.field === 'result') return evaluationGlossary.results;
   if (props.field === 'kind') return evaluationGlossary.kinds;
@@ -172,7 +182,7 @@ onBeforeUnmount(() => {
     >
       <header>
         <div>
-          <span>{{ guide ? 'Evaluation vocabulary' : 'Execution fact' }}</span>
+          <span>{{ guide ? 'Evaluation vocabulary' : context === 'evaluation' ? 'Evaluation term' : 'Execution fact' }}</span>
           <strong>{{ guide ? 'Learn how to read this report' : definition?.label }}</strong>
         </div>
         <button type="button" aria-label="Close evaluation help" @click="close()">Close</button>

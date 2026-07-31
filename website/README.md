@@ -27,7 +27,7 @@ Open `http://localhost:5173/codex-skills/`.
 
 ## Evaluation vocabulary and evidence status
 
-The website keeps one `evaluationGlossary` in `scripts/evaluation-glossary.mjs`. Generated reports use it for complete label contextual help, human operation names, evidence status, and the broad “Learn how to read this report” guide. The guide defines the evaluation runner as `run_skill_evals.py` and keeps three questions separate:
+The website keeps one `evaluationGlossary` in `scripts/evaluation-glossary.mjs`. Generated reports use it for complete label contextual help, human operation names, evidence status, and the broad “Learn how to read this report” guide. Evaluation pages use the same component with evaluation context for current evidence, latest recorded result, suite state, kind, coverage level, and mapping label. The guide defines the evaluation runner as `run_skill_evals.py` and keeps three questions separate:
 
 - Evidence status describes the strength and currency of evidence.
 - Operation type describes how the evidence was produced.
@@ -37,13 +37,21 @@ The generator validates closed glossary taxonomies against `eval-report.schema.j
 
 The skill catalog derives evidence status from the current skill source, the archived report fingerprints, and the case IDs in the current `evals/suite.json`. Labels are not maintained by hand.
 
-Each skill page also publishes an evaluation catalog. Active evaluations come from the ordered IDs in `evals/suite.json` and their current `evals/cases/<case-id>/` directories. The generator reads `case.json`, a public prompt when the case uses an executor, public fixture paths, and optional `evals/coverage.json` mappings. It computes current skill and case fingerprints with the runner's canonical tree algorithm; it does not modify those sources or infer editorial descriptions.
+Each skill page also publishes an evaluation catalog. Active evaluations come only from the ordered IDs in `evals/suite.json` and their current `evals/cases/<case-id>/` directories. The optional `evals/coverage.json` is a many to many traceability matrix from skill contracts and rubric families to those cases. Repeated `case_id` values describe distinct mappings; they do not select, group, repeat, prioritize, or score execution. A mapping's `dimension` is projected as **Mapping label**, a local technical identifier with no runner behavior.
+
+When a coverage manifest exists, the skill page projects an always visible `traceability` summary with executable case, skill contract, rubric family, and mapping counts. Each evaluation retains its existing `coverage` contract mappings and adds `rubricCoverage` for rubric family mappings. Case pages render **Skill contracts mapped to this case** and, when applicable, **Rubric families sampled by this case** as filtered views of the skill level manifest. Skills without `coverage.json` omit these sections completely.
+
+The generator reads `case.json`, a public prompt when the case uses an executor, public fixture paths, and the optional traceability mappings. It computes current skill and case fingerprints with the runner's canonical tree algorithm; it does not modify those sources or infer execution from traceability.
 
 An **evaluation** is the persistent case contract, an **observation** is one case result inside an archived invocation, and an **operation** is the complete runner invocation that can contain several observations. Public `/evaluations/` and report URLs remain stable, but the site labels that archive **Operations**. Skill pages link new operation navigation to `#operation-history` and retain `#evaluation-history` as an empty compatibility target.
 
-Active case routes use `/skills/<skill-id>/evaluations/<case-id>`. They show current evidence, suite membership, optional coverage mappings and limitations, a linked current-definition flow, public prompt and fixture paths, mechanical, oracle, and judge details, the latest related operation flow, and one history row per related operation. Semantic flows include the executor and applicable semantic verification; deterministic flows omit the executor and judge. The flow is static semantic HTML and CSS with visible focus, text labels, responsive stacking, and reduced motion behavior.
+Active case routes use `/skills/<skill-id>/evaluations/<case-id>`. An always visible introduction defines an evaluation as the persistent case definition, an observation as one recorded case result, and an operation as the complete runner invocation. Concise guidance beneath each section explains how to interpret the current definition and archived operation facts without opening contextual help.
 
-Archived observation IDs absent from the current suite become separate historical evaluations at the same route shape. Historical pages retain only durable operation facts. They do not reconstruct or present a current prompt, fixture, flow, case fingerprint, coverage claim, or verification contract as a former definition.
+The pages show current evidence, suite membership, optional traceability mappings and limitations, a linked current definition flow, public prompt and fixture paths, mechanical, oracle, and judge details, the latest related operation flow, and one history row per related operation. Contract, family, and mapping names are human readable while their exact slugs remain in code formatting for audit. Evidence identifiers are presented as mechanical checks, hidden oracle, semantic judge, changed paths, and executor response, with their source slugs and definitions.
+
+**Kind** is visible with definitions for `behavioral`, `non_behavioral`, `trigger`, and `deterministic`, and the same taxonomy is available through contextual help. Semantic flows include the executor and applicable semantic verification. Deterministic flows omit the executor, judge, and expected executor exit code because executor configuration is forbidden for that kind. The flow is static semantic HTML and CSS with visible focus, text labels, responsive stacking, and reduced motion behavior.
+
+Archived observation IDs absent from the current suite become separate historical evaluations at the same route shape. Historical pages explain locally that operation history remains because archived operations contain observations for the case, while the current suite no longer provides a definition. They retain only durable operation facts and do not reconstruct or present a current prompt, fixture, flow, case fingerprint, coverage claim, or verification contract as a former definition.
 
 Case evidence requires both the current skill source fingerprint and current case fingerprint. Its closed states, in priority order, are:
 

@@ -257,6 +257,9 @@ test('evaluation pages separate current evidence, case results, and complete ope
   await hiddenState.click();
 
   await expect(page).toHaveURL(/\/skills\/refactor-design\/evaluations\/hidden-invocation-state$/);
+  await page.evaluate(() => {
+    document.documentElement.style.scrollBehavior = 'auto';
+  });
   await expect(page.getByText('Historical runs', { exact: true }).first()).toBeVisible();
   await expect(
     page.locator('.operation-summary > div').filter({ hasText: 'Case result' }).getByText('PASS', { exact: true }),
@@ -285,6 +288,61 @@ test('evaluation pages separate current evidence, case results, and complete ope
     await page.getByRole('button', { name: 'mobile navigation' }).click();
   }
   await expect(operationsNav).toHaveAttribute('href', /\/evaluations\/$/);
+});
+
+test('evaluation guidance is readable before help and contextual terms are keyboard accessible', async ({ page }, testInfo) => {
+  await page.goto('skills/refactor-design');
+  await expect(page.getByText('Execution and traceability', { exact: true })).toBeVisible();
+  await expect(page.getByText(/suite\.json.*12 executable cases/)).toBeVisible();
+  await expect(page.getByText(/11 skill contracts and 21 mappings/)).toBeVisible();
+  await expect(page.getByText(/5 rubric families and 8 mappings/)).toBeVisible();
+  await expect(page.getByText(/does not select, group, repeat, or score executable cases/)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  await page.goto('skills/refactor-design/evaluations/hidden-invocation-state');
+
+  await expect(page.getByText('How to read this page', { exact: true })).toBeVisible();
+  await expect(page.getByText(/An evaluation is the persistent case definition/)).toBeVisible();
+  await expect(page.getByText(/filtered view of the skill's optional coverage\.json traceability manifest/)).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Skill contracts mapped to this case' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Rubric families sampled by this case' })).toBeVisible();
+  await expect(page.getByText('Hidden invocation state', { exact: true }).first()).toBeVisible();
+  await expect(page.locator('.coverage-dimension strong').filter({ hasText: 'Focused state refactor' })).toBeVisible();
+  await expect(page.getByText(/Mechanical checks.*mechanical.*deterministic/).first()).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  for (const name of ['Current evidence', 'Latest recorded result', 'Suite state', 'Kind', 'Coverage level', 'Mapping label']) {
+    await expect(page.getByRole('button', { name, exact: true }).first()).toBeVisible();
+  }
+
+  const evidenceTrigger = page.getByRole('button', { name: 'Current evidence', exact: true });
+  await evidenceTrigger.focus();
+  await page.keyboard.press('Enter');
+  const evidenceHelp = page.getByRole('dialog', { name: 'Current evidence help' });
+  await expect(evidenceHelp).toBeVisible();
+  await expect(evidenceHelp.getByText('Evaluation term', { exact: true })).toBeVisible();
+  await expect(evidenceHelp.getByText('Possible values', { exact: true })).toBeVisible();
+  if (testInfo.project.name === 'mobile') {
+    await expect(evidenceHelp).toHaveClass(/evaluation-help-sheet/);
+  } else {
+    await expect(evidenceHelp).toHaveClass(/evaluation-help-popover/);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(evidenceHelp).toBeHidden();
+  await expect(evidenceTrigger).toBeFocused();
+
+  const coverageTrigger = page.getByRole('button', { name: 'Coverage level', exact: true }).first();
+  await coverageTrigger.focus();
+  await page.keyboard.press('Enter');
+  const coverageHelp = page.getByRole('dialog', { name: 'Coverage level help' });
+  await expect(coverageHelp).toBeVisible();
+  await expect(coverageHelp.locator('.evaluation-taxonomy code').filter({ hasText: /^complete$/ })).toBeVisible();
+  await expect(coverageHelp.locator('.evaluation-taxonomy code').filter({ hasText: /^partial$/ })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(coverageHelp).toBeHidden();
+  await expect(coverageTrigger).toBeFocused();
 });
 
 test('evidence remains readable in light and dark themes', async ({ page }) => {

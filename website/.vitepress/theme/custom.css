@@ -1326,6 +1326,22 @@ body {
   background: var(--evidence-surface, var(--vp-c-bg-soft));
 }
 
+.evaluation-reading-guide {
+  margin: 28px 0;
+  padding: 24px 28px;
+  border-left: 5px solid var(--vp-c-brand-1);
+  background: var(--vp-c-bg-soft);
+}
+
+.evaluation-reading-guide > strong {
+  font-size: 1.05rem;
+}
+
+.evaluation-reading-guide > p {
+  margin: 8px 0 0;
+  color: var(--vp-c-text-2);
+}
+
 .evaluation-status-panel > div {
   display: flex;
   flex-direction: column;
@@ -1452,11 +1468,30 @@ body {
   gap: 12px;
 }
 
-.coverage-list article > span {
+.coverage-level,
+.coverage-dimension {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.coverage-level > strong,
+.coverage-dimension > strong {
   color: var(--vp-c-brand-1);
   font-family: var(--vp-font-family-mono);
   font-size: 0.68rem;
   text-transform: uppercase;
+}
+
+.coverage-dimension {
+  margin-top: 16px;
+}
+
+.coverage-dimension > strong {
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 
 .operation-summary {

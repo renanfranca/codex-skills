@@ -9,8 +9,8 @@ function readJson(path) {
   }
 }
 
-function sentenceCase(value) {
-  const words = String(value).split('-').filter(Boolean);
+export function humanizeIdentifier(value) {
+  const words = String(value).split(/[-_]+/).filter(Boolean);
   if (!words.length) return String(value);
   return `${words[0][0].toUpperCase()}${words[0].slice(1)}${words.length > 1 ? ` ${words.slice(1).join(' ')}` : ''}`;
 }
@@ -56,19 +56,41 @@ function readCoverage(skillRoot) {
   return coverage;
 }
 
-function coverageForCase(coverage, caseId) {
-  if (!coverage) return [];
-  return coverage.contracts.flatMap(contract => {
-    const mappings = (contract.mappings ?? []).filter(mapping => mapping.case_id === caseId);
+function mappingsForCase(entries, caseId) {
+  return entries.flatMap(entry => {
+    const mappings = (entry.mappings ?? []).filter(mapping => mapping.case_id === caseId);
     return mappings.map(mapping => ({
-      id: contract.id ?? 'Not recorded',
-      statement: contract.statement ?? 'Not recorded',
-      guarantee: contract.guarantee ?? 'Not recorded',
-      limitation: contract.limitation ?? null,
+      id: entry.id ?? 'Not recorded',
+      statement: entry.statement ?? null,
+      source: entry.source ?? null,
+      sections: entry.sections ?? [],
+      guarantee: entry.guarantee ?? 'Not recorded',
+      limitation: entry.limitation ?? null,
       dimension: mapping.dimension ?? 'Not recorded',
       evidence: mapping.evidence ?? [],
     }));
   });
+}
+
+function coverageForCase(coverage, caseId) {
+  return coverage ? mappingsForCase(coverage.contracts, caseId) : [];
+}
+
+function rubricCoverageForCase(coverage, caseId) {
+  return coverage ? mappingsForCase(coverage.rubric_families ?? [], caseId) : [];
+}
+
+function summarizeTraceability(coverage, executableCaseCount) {
+  if (!coverage) return null;
+  const rubricFamilies = coverage.rubric_families ?? [];
+  return {
+    declared: true,
+    executableCaseCount,
+    skillContractCount: coverage.contracts.length,
+    skillContractMappingCount: coverage.contracts.reduce((count, contract) => count + (contract.mappings ?? []).length, 0),
+    rubricFamilyCount: rubricFamilies.length,
+    rubricFamilyMappingCount: rubricFamilies.reduce((count, family) => count + (family.mappings ?? []).length, 0),
+  };
 }
 
 function reportCaseFingerprint(report, caseId) {
@@ -157,7 +179,7 @@ function activeEvaluation({ skill, skillRoot, caseId, reports, sourceFingerprint
   return {
     skillId: skill.slug,
     caseId,
-    title: sentenceCase(caseId),
+    title: humanizeIdentifier(caseId),
     route: `/skills/${skill.slug}/evaluations/${caseId}`,
     active: true,
     state: 'active',
@@ -181,6 +203,8 @@ function activeEvaluation({ skill, skillRoot, caseId, reports, sourceFingerprint
       noActionAcceptable: manifest.judge?.no_action_acceptable ?? 'Not recorded',
     },
     coverage: coverageForCase(coverage, caseId),
+    rubricCoverage: rubricCoverageForCase(coverage, caseId),
+    traceabilityDeclared: coverage !== null,
     evidence: deriveCaseEvidence(operations, caseEvidenceStatuses),
     latestRecordedResult: operations[0]?.resultSummary ?? 'Not recorded',
     latestOperation: operations[0] ?? null,
@@ -211,7 +235,7 @@ function historicalEvaluation(skill, caseId, reports) {
   return {
     skillId: skill.slug,
     caseId,
-    title: sentenceCase(caseId),
+    title: humanizeIdentifier(caseId),
     route: `/skills/${skill.slug}/evaluations/${caseId}`,
     active: false,
     state: 'historical',
@@ -236,6 +260,7 @@ export function buildEvaluationCatalog({
     caseId => caseId !== 'Not recorded' && !activeIds.has(caseId),
   );
   return {
+    traceability: summarizeTraceability(coverage, caseIds.length),
     evaluations: caseIds.map(caseId =>
       activeEvaluation({
         skill,

@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { evaluationGlossary, knownObservationRoles, operationDisplay } from './evaluation-glossary.mjs';
-import { buildEvaluationCatalog } from './evaluation-catalog.mjs';
+import { buildEvaluationCatalog, humanizeIdentifier } from './evaluation-catalog.mjs';
 import { formatEstimateStatus, formatMoney } from './telemetry-format.mjs';
 
 const websiteRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -1006,23 +1006,54 @@ function renderEvaluationCard(evaluation, { historical = false } = {}) {
 </a>`;
 }
 
-function renderCoverage(evaluation) {
-  if (!evaluation.coverage.length) {
-    return '<p class="empty-state">No coverage map is declared for this skill or this case has no mapped contract.</p>';
-  }
+function renderEvidenceMechanisms(mechanisms) {
+  if (!mechanisms.length) return '<p>None declared.</p>';
+  return `<ul class="coverage-evidence-list">${mechanisms
+    .map(mechanism => {
+      const definition = evaluationGlossary.evaluationPage.evidenceMechanisms[mechanism];
+      const label = definition?.label ?? humanizeIdentifier(mechanism);
+      const description = definition?.description ?? 'A technical evidence identifier declared by the traceability manifest.';
+      return `<li><strong>${escapeHtml(label)}</strong> <code>${escapeHtml(mechanism)}</code>: ${escapeHtml(description)}</li>`;
+    })
+    .join('')}</ul>`;
+}
+
+function renderCoverage(entries, { rubric = false } = {}) {
+  if (!entries.length) return '<p class="empty-state">No mappings for this case.</p>';
   return `<div class="coverage-list">
-${evaluation.coverage
+${entries
   .map(
-    contract => `<article>
-  <span>${escapeHtml(contract.guarantee)}</span>
-  <h3>${escapeHtml(contract.id)}</h3>
-  <p>${escapeHtml(contract.statement)}</p>
-  <p><strong>Dimension:</strong> ${escapeHtml(contract.dimension)}</p>
-  ${contract.limitation ? `<p><strong>Limitation:</strong> ${escapeHtml(contract.limitation)}</p>` : ''}
+    entry => `<article>
+  <div class="coverage-level"><EvaluationHelp context="evaluation" field="coverageLevel" current="${escapeHtml(entry.guarantee)}"></EvaluationHelp><strong>${escapeHtml(entry.guarantee)}</strong></div>
+  <h3>${escapeHtml(humanizeIdentifier(entry.id))} <code>${escapeHtml(entry.id)}</code></h3>
+  ${rubric ? `<p><strong>Source:</strong> <code>${escapeHtml(entry.source ?? 'Not recorded')}</code></p><p><strong>Sampled sections:</strong> ${entry.sections.length ? entry.sections.map(section => escapeHtml(section)).join(' · ') : 'None declared'}</p>` : `<p>${escapeHtml(entry.statement)}</p>`}
+  <div class="coverage-dimension"><EvaluationHelp context="evaluation" field="mappingLabel" current="${escapeHtml(entry.dimension)}"></EvaluationHelp><strong>${escapeHtml(humanizeIdentifier(entry.dimension))} <code>${escapeHtml(entry.dimension)}</code></strong></div>
+  <p><strong>Declared verification mechanisms</strong></p>
+  ${renderEvidenceMechanisms(entry.evidence)}
+  ${entry.limitation ? `<p><strong>Limitation:</strong> ${escapeHtml(entry.limitation)}</p>` : ''}
 </article>`,
   )
   .join('\n')}
 </div>`;
+}
+
+function renderTraceabilityForCase(evaluation) {
+  if (!evaluation.traceabilityDeclared) return '';
+  return `## Skill contracts mapped to this case
+
+This is a filtered view of the skill's optional <code>coverage.json</code> traceability manifest. A mapping records intended protection, not an execution result.
+
+${renderCoverage(evaluation.coverage)}
+
+${
+  evaluation.rubricCoverage.length
+    ? `## Rubric families sampled by this case
+
+This is the rubric family view filtered from the same skill level manifest. It does not add or rerun a case.
+
+${renderCoverage(evaluation.rubricCoverage, { rubric: true })}`
+    : ''
+}`;
 }
 
 function renderOperationRows(evaluation) {
@@ -1066,6 +1097,25 @@ function renderLatestOperationFlow(evaluation) {
 </div>`;
 }
 
+function renderEvaluationReadingGuide() {
+  return `<aside class="evaluation-reading-guide">
+  <strong>How to read this page</strong>
+  <p>An evaluation is the persistent case definition. An observation is one case result recorded inside an operation, and an operation is the complete runner invocation.</p>
+</aside>`;
+}
+
+function renderKindGuide() {
+  return `<aside class="evaluation-kind-guide">
+  <strong>Kind chooses the evaluation path</strong>
+  <ul>${Object.entries(evaluationGlossary.kinds)
+    .map(
+      ([value, definition]) =>
+        `<li><strong>${escapeHtml(definition.label)}</strong> <code>${escapeHtml(value)}</code>: ${escapeHtml(definition.description)}</li>`,
+    )
+    .join('')}</ul>
+</aside>`;
+}
+
 function renderActiveEvaluation(evaluation) {
   const fixtureList = evaluation.fixturePaths.length
     ? evaluation.fixturePaths.map(path => `<li><code>${escapeHtml(path)}</code></li>`).join('\n')
@@ -1079,10 +1129,15 @@ function renderActiveEvaluation(evaluation) {
   const commands = evaluation.mechanical.commands.length
     ? evaluation.mechanical.commands.map(renderCommand).join('\n')
     : '<li>None recorded</li>';
+  const publicPromptExplanation =
+    evaluation.kind === 'deterministic'
+      ? 'This deterministic case does not use an executor prompt; its public fixture files are the declared inputs.'
+      : 'This is the public task supplied to the executor for this case.';
   const oracleSection = evaluation.oracle.applicable
     ? `## Oracle verification
 
 <div id="oracle-verification" class="mechanism-section" tabindex="-1">
+<p>Oracle verification applies repository-owned commands outside the executor workspace to inspect behavior the public task cannot establish alone.</p>
 <p>The runner applies these declared oracle commands outside the executor workspace.</p>
 <ul class="command-list">${evaluation.oracle.commands.map(renderCommand).join('\n')}</ul>
 </div>`
@@ -1091,6 +1146,7 @@ function renderActiveEvaluation(evaluation) {
     ? `## Judge verification
 
 <div id="judge-verification" class="mechanism-section" tabindex="-1">
+<p>Judge verification applies the declared semantic criteria after earlier checks allow it to run.</p>
 <p><strong>No action acceptable:</strong> ${escapeHtml(evaluation.judge.noActionAcceptable)}</p>
 <ul>${evaluation.judge.criteria.map(criterion => `<li>${escapeHtml(criterion)}</li>`).join('\n')}</ul>
 </div>`
@@ -1108,27 +1164,33 @@ outline: [2, 3]
 
 <p class="lede">An active <strong>${escapeHtml(evaluation.kind)}</strong> evaluation declared by the current suite.</p>
 
+${renderEvaluationReadingGuide()}
+
 <div class="evaluation-status-panel evidence-state-${evaluation.evidence.variant}">
-  <div><span>Current evidence</span><strong>${escapeHtml(evaluation.evidence.label)}</strong><p>${escapeHtml(evaluation.evidence.description)}</p></div>
-  <div><span>Latest recorded result</span><strong>${escapeHtml(evaluation.latestRecordedResult)}</strong></div>
+  <div><EvaluationHelp context="evaluation" field="currentEvidence" current="${escapeHtml(evaluation.evidence.label)}"></EvaluationHelp><strong>${escapeHtml(evaluation.evidence.label)}</strong><p>${escapeHtml(evaluation.evidence.description)}</p></div>
+  <div><EvaluationHelp context="evaluation" field="latestRecordedResult" current="${escapeHtml(evaluation.latestRecordedResult)}"></EvaluationHelp><strong>${escapeHtml(evaluation.latestRecordedResult)}</strong></div>
 </div>
 
 <div class="fact-grid evaluation-identity">
   <div><span class="label">Skill</span><strong>${escapeHtml(evaluation.skillId)}</strong></div>
   <div><span class="label">Case ID</span><strong>${escapeHtml(evaluation.caseId)}</strong></div>
-  <div><span class="label">Suite state</span><strong>Active</strong></div>
-  <div><span class="label">Kind</span><strong>${escapeHtml(evaluation.kind)}</strong></div>
+  <div><EvaluationHelp context="evaluation" field="suiteState" current="Active"></EvaluationHelp><strong>Active</strong></div>
+  <div><EvaluationHelp context="evaluation" field="kind" current="${escapeHtml(evaluation.kind)}"></EvaluationHelp><strong>${escapeHtml(evaluation.kind)}</strong></div>
 </div>
 
-## Covered skill contracts
+${renderKindGuide()}
 
-${renderCoverage(evaluation)}
+${renderTraceabilityForCase(evaluation)}
 
 ## Current definition flow
+
+The flow connects the current public inputs to each declared verification mechanism and its possible result.
 
 ${renderEvaluationFlow(evaluation)}
 
 ## Public prompt
+
+${publicPromptExplanation}
 
 <div id="public-input" class="mechanism-section mechanism-anchor" tabindex="-1"></div>
 
@@ -1143,8 +1205,10 @@ ${evaluation.kind === 'deterministic' ? '' : '## Executor\n\n<div id="executor" 
 
 ## Mechanical checks
 
+Mechanical checks are deterministic requirements recorded by the case definition.
+
 <div id="mechanical-checks" class="mechanism-section" tabindex="-1">
-<p><strong>Expected executor exit code:</strong> ${escapeHtml(evaluation.mechanical.expectedExitCode)}</p>
+${evaluation.kind === 'deterministic' ? '' : `<p><strong>Expected executor exit code:</strong> ${escapeHtml(evaluation.mechanical.expectedExitCode)}</p>`}
 <h3>Required paths</h3><ul>${requiredPaths}</ul>
 <h3>Protected changed paths</h3><ul>${protectedPaths}</ul>
 <h3>Commands</h3><ul class="command-list">${commands}</ul>
@@ -1156,6 +1220,8 @@ ${judgeSection}
 
 ## Result branches
 
+These branches explain how declared mechanisms combine into an observation result when an operation runs this case.
+
 <div id="definition-result" class="result-branches" tabindex="-1">
   <p><strong>Pass:</strong> every applicable earlier mechanism satisfies its contract.</p>
   <p><strong>Fail or error:</strong> a failed earlier mechanism stops later semantic verification when the runner contract requires it.</p>
@@ -1164,9 +1230,13 @@ ${judgeSection}
 
 ## Latest operation flow
 
+The latest operation is the newest archived runner invocation related to this case. Its recorded result can differ from current evidence.
+
 ${renderLatestOperationFlow(evaluation)}
 
 ## Operation history
+
+Operation history lists complete runner invocations that contain observations for this case, newest first.
 
 ${renderOperationRows(evaluation)}
 `;
@@ -1184,17 +1254,34 @@ description: ${yamlString(`Historical evaluation observations for ${evaluation.s
 
 <p class="lede">This case is present in archived observations but not in the current suite.</p>
 
+${renderEvaluationReadingGuide()}
+
 <div class="evaluation-status-panel evidence-state-historical">
-  <div><span>Suite state</span><strong>Historical</strong></div>
-  <div><span>Latest recorded result</span><strong>${escapeHtml(evaluation.latestRecordedResult)}</strong></div>
+  <div><EvaluationHelp context="evaluation" field="suiteState" current="Historical"></EvaluationHelp><strong>Historical</strong></div>
+  <div><EvaluationHelp context="evaluation" field="latestRecordedResult" current="${escapeHtml(evaluation.latestRecordedResult)}"></EvaluationHelp><strong>${escapeHtml(evaluation.latestRecordedResult)}</strong></div>
 </div>
 
-<div class="empty-state">A current definition is not available. This page does not reconstruct a historical prompt, fixture, flow, or verification contract.</div>
+<div class="empty-state">A current definition is not available. This page does not reconstruct a historical prompt, fixture, flow, or verification contract. Operation history remains available because archived operations contain observations for this case. The current suite no longer provides a definition to display.</div>
 
 ## Operation history
 
+This history lists complete archived runner invocations, not a reconstructed case definition.
+
 ${renderOperationRows(evaluation)}
 `;
+}
+
+function plural(count, singular, pluralForm = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : pluralForm}`;
+}
+
+function renderTraceabilitySummary(traceability) {
+  if (!traceability) return '';
+  return `<aside class="evaluation-reading-guide traceability-summary">
+  <strong>Execution and traceability</strong>
+  <p><code>suite.json</code> declares ${plural(traceability.executableCaseCount, 'executable case')}. The optional <code>coverage.json</code> records ${plural(traceability.skillContractCount, 'skill contract')} and ${plural(traceability.skillContractMappingCount, 'mapping')}, plus ${plural(traceability.rubricFamilyCount, 'rubric family', 'rubric families')} and ${plural(traceability.rubricFamilyMappingCount, 'mapping')}.</p>
+  <p>Traceability does not select, group, repeat, or score executable cases.</p>
+</aside>`;
 }
 
 function renderSkill(skill) {
@@ -1244,7 +1331,11 @@ description: ${yamlString(skill.description)}
   ${renderEvidenceSummary(skill)}
 </div>
 
+${renderTraceabilitySummary(skill.traceability)}
+
 ## Active evaluations
+
+<p>Each card links a current case definition to its current evidence and recorded operation history.</p>
 
 <div class="evaluation-card-grid">
 ${activeEvaluations}
