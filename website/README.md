@@ -1,6 +1,6 @@
 # Codex Skills
 
-The documentation site for the repository's reusable Codex workflows and archived evaluation evidence. VitePress renders the site at the GitHub Pages base path `/codex-skills/`; generated pages remain projections of canonical `SKILL.md` and `evaluation-reports/**/report.json` files.
+The documentation site for the repository's reusable Codex workflows, declared evaluation cases, and archived operation evidence. VitePress renders the site at the GitHub Pages base path `/codex-skills/`; generated pages remain projections of canonical skill evaluation sources and `evaluation-reports/**/report.json` files.
 
 ## Prerequisites
 
@@ -36,6 +36,24 @@ The website keeps one `evaluationGlossary` in `scripts/evaluation-glossary.mjs`.
 The generator validates closed glossary taxonomies against `eval-report.schema.json` and `eval-result.schema.json`. It also rejects archived observation roles outside the runner's known role set. Model and reasoning effort remain open strings because their schemas do not define exhaustive lists.
 
 The skill catalog derives evidence status from the current skill source, the archived report fingerprints, and the case IDs in the current `evals/suite.json`. Labels are not maintained by hand.
+
+Each skill page also publishes an evaluation catalog. Active evaluations come from the ordered IDs in `evals/suite.json` and their current `evals/cases/<case-id>/` directories. The generator reads `case.json`, a public prompt when the case uses an executor, public fixture paths, and optional `evals/coverage.json` mappings. It computes current skill and case fingerprints with the runner's canonical tree algorithm; it does not modify those sources or infer editorial descriptions.
+
+An **evaluation** is the persistent case contract, an **observation** is one case result inside an archived invocation, and an **operation** is the complete runner invocation that can contain several observations. Public `/evaluations/` and report URLs remain stable, but the site labels that archive **Operations**. Skill pages link new operation navigation to `#operation-history` and retain `#evaluation-history` as an empty compatibility target.
+
+Active case routes use `/skills/<skill-id>/evaluations/<case-id>`. They show current evidence, suite membership, optional coverage mappings and limitations, a linked current-definition flow, public prompt and fixture paths, mechanical, oracle, and judge details, the latest related operation flow, and one history row per related operation. Semantic flows include the executor and applicable semantic verification; deterministic flows omit the executor and judge. The flow is static semantic HTML and CSS with visible focus, text labels, responsive stacking, and reduced motion behavior.
+
+Archived observation IDs absent from the current suite become separate historical evaluations at the same route shape. Historical pages retain only durable operation facts. They do not reconstruct or present a current prompt, fixture, flow, case fingerprint, coverage claim, or verification contract as a former definition.
+
+Case evidence requires both the current skill source fingerprint and current case fingerprint. Its closed states, in priority order, are:
+
+1. **Validated promotion** means a promotion eligible `PASS` matches both fingerprints and includes passing `candidate` observations for the case. A passing `regression` observation does not establish this state.
+2. **Current pass** means both fingerprints match at least one passing nonbaseline observation without a qualifying promotion.
+3. **No current pass** means compatible observations exist without a passing nonbaseline observation.
+4. **Historical runs** means related observations exist, but none matches both current fingerprints.
+5. **Not evaluated yet** means no archived observation exists for the case.
+
+Related observations are grouped under their one operation in report order. The latest operation is selected by recorded `started_at`, then operation ID. When one operation records different statuses for a case, the site displays counts for every status instead of selecting one observation. Case results remain separate from the complete operation result, so a passing case inside a failed operation is not presented as an operation pass.
 
 For operations that compare a baseline with a candidate, only the candidate fingerprint can establish current evidence. For direct runs, the evaluated fingerprint is used. A matching baseline never establishes evidence for the current source, and reports without a comparable fingerprint remain historical.
 
@@ -86,7 +104,8 @@ The container uses `--init`, host IPC, the invoking user, and an isolated tempor
 ## Content and publication
 
 - `content-config.json` records website-only catalog decisions such as compatibility skills excluded from the active catalog.
-- `scripts/generate-content.mjs` creates the home page, skill pages, evaluation history, and report evidence pages.
+- `scripts/evaluation-catalog.mjs` loads current case definitions, reverses optional coverage mappings, groups archived observations by operation, and derives case evidence.
+- `scripts/generate-content.mjs` creates the home page, skill pages, active and historical evaluation pages, the operation archive, and report evidence pages.
 - `scripts/telemetry-format.mjs` keeps API reference values and statuses consistent between generated reports and interactive promotion panels.
 - `.vitepress/` contains the GitHub Pages base path, navigation, and visual theme.
 - `.github/workflows/deploy-website.yml` validates, tests, builds, and deploys the static artifact after changes reach `main`. Its build job uses the same pinned visual-test container as the local runner.

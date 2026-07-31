@@ -33,7 +33,7 @@ export default defineConfig({
     },
     nav: [
       { text: 'Skills', link: '/skills/' },
-      { text: 'Evaluations', link: '/evaluations/' },
+      { text: 'Operations', link: '/evaluations/' },
       {
         text: 'Method',
         link: 'https://github.com/renanfranca/codex-skills/blob/main/EVALUATIONS.md',

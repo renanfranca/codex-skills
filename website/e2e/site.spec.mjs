@@ -235,7 +235,7 @@ test('the evidence panel supports keyboard opening, escape, and outside dismissa
   await expect(trigger).toBeFocused();
 });
 
-test('card, evidence, and history navigation remain independent', async ({ page }) => {
+test('card, evidence, and operation navigation remain independent', async ({ page }) => {
   await page.goto('skills/');
 
   const card = page.locator('article.skill-card').filter({ hasText: 'refactor-design' });
@@ -245,8 +245,46 @@ test('card, evidence, and history navigation remain independent', async ({ page 
 
   await page.goBack();
   await page.locator('article.skill-card').filter({ hasText: 'refactor-design' }).locator('a.skill-history-link').click();
-  await expect(page).toHaveURL(/\/skills\/refactor-design#evaluation-history$/);
-  await expect(page.getByRole('heading', { level: 2, name: 'Evaluation history' })).toBeVisible();
+  await expect(page).toHaveURL(/\/skills\/refactor-design#operation-history$/);
+  await expect(page.getByRole('heading', { level: 2, name: 'Operations' })).toBeVisible();
+});
+
+test('evaluation pages separate current evidence, case results, and complete operations', async ({ page }) => {
+  await page.goto('skills/refactor-design');
+
+  const hiddenState = page.locator('.evaluation-card').filter({ hasText: 'Hidden invocation state' });
+  await expect(hiddenState.getByText('Historical runs', { exact: true })).toBeVisible();
+  await hiddenState.click();
+
+  await expect(page).toHaveURL(/\/skills\/refactor-design\/evaluations\/hidden-invocation-state$/);
+  await expect(page.getByText('Historical runs', { exact: true }).first()).toBeVisible();
+  await expect(
+    page.locator('.operation-summary > div').filter({ hasText: 'Case result' }).getByText('PASS', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.locator('.operation-summary > div').filter({ hasText: 'Complete operation result' }).getByText('FAIL', { exact: true }),
+  ).toBeVisible();
+  const flow = page.locator('.definition-flow');
+  const firstStage = flow.getByRole('link').first();
+  await firstStage.focus();
+  await expect(firstStage).toBeFocused();
+  expect(await firstStage.evaluate(element => getComputedStyle(element).outlineStyle)).not.toBe('none');
+  await expect(flow).toHaveScreenshot('evaluation-flow.png');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  await page.goto('skills/develop-skill-with-evals/evaluations/global-target-skill-isolation');
+  await expect(page.getByText('Not evaluated yet', { exact: true }).first()).toBeVisible();
+
+  await page.goto('skills/develop-skill-with-evals/evaluations/load-skill-creator-first');
+  await expect(page.getByText('Historical', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/current definition is not available/i)).toBeVisible();
+  await expect(page.locator('.definition-flow')).toHaveCount(0);
+
+  const operationsNav = page.getByRole('link', { name: 'Operations', exact: true });
+  if (!(await operationsNav.isVisible())) {
+    await page.getByRole('button', { name: 'mobile navigation' }).click();
+  }
+  await expect(operationsNav).toHaveAttribute('href', /\/evaluations\/$/);
 });
 
 test('evidence remains readable in light and dark themes', async ({ page }) => {

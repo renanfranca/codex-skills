@@ -100,6 +100,38 @@ export const evaluationGlossary = Object.freeze({
       priority: 6,
     }),
   }),
+  caseEvidenceStatuses: Object.freeze({
+    'validated-promotion': Object.freeze({
+      key: 'validated-promotion',
+      ...entry('Validated promotion', 'Current skill and case fingerprints match a passing promotion with passing candidate observations.'),
+      variant: 'promotion',
+      priority: 1,
+    }),
+    'current-pass': Object.freeze({
+      key: 'current-pass',
+      ...entry('Current pass', 'Current skill and case fingerprints match at least one passing nonbaseline observation.'),
+      variant: 'current-pass',
+      priority: 2,
+    }),
+    'no-current-pass': Object.freeze({
+      key: 'no-current-pass',
+      ...entry('No current pass', 'Compatible observations exist, but none records a passing nonbaseline result.'),
+      variant: 'no-current-pass',
+      priority: 3,
+    }),
+    'historical-runs': Object.freeze({
+      key: 'historical-runs',
+      ...entry('Historical runs', 'Related observations exist, but none matches both the current skill and case fingerprints.'),
+      variant: 'historical',
+      priority: 4,
+    }),
+    'not-evaluated-yet': Object.freeze({
+      key: 'not-evaluated-yet',
+      ...entry('Not evaluated yet', 'No archived observation exists for this evaluation case.'),
+      variant: 'not-evaluated',
+      priority: 5,
+    }),
+  }),
   operations: Object.freeze({
     run: entry('Exploratory evaluation', 'Evaluates selected cases without establishing promotion qualification.'),
     'verify-change': entry('RED/GREEN check', 'Compares baseline RED with candidate GREEN behavior.'),

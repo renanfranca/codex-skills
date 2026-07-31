@@ -1241,6 +1241,245 @@ body {
   color: var(--vp-c-text-2);
 }
 
+.compatibility-anchor,
+.mechanism-anchor {
+  display: block;
+  scroll-margin-top: 96px;
+}
+
+.evaluation-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.evaluation-card {
+  display: flex;
+  min-width: 0;
+  min-height: 260px;
+  flex-direction: column;
+  padding: 24px;
+  border: 1px solid var(--vp-c-divider);
+  border-top: 4px solid var(--vp-c-brand-1);
+  background: var(--vp-c-bg-elv);
+  color: var(--vp-c-text-1) !important;
+  text-decoration: none !important;
+  transition:
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+
+.evaluation-card:hover {
+  border-color: var(--vp-c-brand-1);
+  transform: translateY(-2px);
+}
+
+.historical-evaluation-card {
+  border-top-color: var(--evidence-historical-accent);
+  background: color-mix(in srgb, var(--evidence-historical-surface) 60%, var(--vp-c-bg-elv));
+}
+
+.evaluation-card h3 {
+  margin: 26px 0 18px;
+  font-size: 1.55rem;
+}
+
+.evaluation-card dl {
+  display: grid;
+  margin: auto 0 20px;
+  gap: 10px;
+}
+
+.evaluation-card dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding-top: 10px;
+  border-top: 1px solid var(--vp-c-divider);
+}
+
+.evaluation-card dt,
+.evaluation-kind,
+.evaluation-card small,
+.evaluation-status-panel span,
+.operation-summary span {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.evaluation-card dd {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 750;
+  text-align: right;
+}
+
+.evaluation-status-panel {
+  display: grid;
+  padding: 28px;
+  grid-template-columns: minmax(0, 1.4fr) minmax(180px, 0.6fr);
+  gap: 24px;
+  border: 1px solid var(--vp-c-divider);
+  border-left: 5px solid var(--evidence-accent, var(--vp-c-brand-1));
+  background: var(--evidence-surface, var(--vp-c-bg-soft));
+}
+
+.evaluation-status-panel > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.evaluation-status-panel strong {
+  font-size: 1.35rem;
+}
+
+.evaluation-status-panel p {
+  margin: 0;
+  color: var(--vp-c-text-2);
+}
+
+.evidence-state-current-pass {
+  --evidence-accent: var(--evidence-complete-accent);
+  --evidence-surface: var(--evidence-complete-surface);
+}
+
+.evidence-state-not-evaluated {
+  --evidence-accent: var(--evidence-no-evaluation-accent);
+  --evidence-surface: var(--evidence-no-evaluation-surface);
+}
+
+.evaluation-flow {
+  display: grid;
+  margin: 28px 0 !important;
+  padding: 0 !important;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 8px;
+  list-style: none;
+}
+
+.evaluation-flow .flow-stage {
+  position: relative;
+  min-width: 0;
+}
+
+.evaluation-flow .flow-stage:not(:last-child)::after {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  right: -8px;
+  width: 8px;
+  height: 1px;
+  background: var(--vp-c-divider);
+  content: '';
+}
+
+.evaluation-flow a {
+  display: flex;
+  min-height: 134px;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 18px;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg-elv);
+  color: var(--vp-c-text-1) !important;
+  text-decoration: none !important;
+}
+
+.evaluation-flow a:hover {
+  border-color: var(--vp-c-brand-1);
+}
+
+.evaluation-flow a:focus,
+.evaluation-flow a:focus-visible,
+.evaluation-card:focus-visible {
+  border-color: var(--vp-c-brand-1);
+  outline: 3px solid var(--vp-c-brand-1);
+  outline-offset: 3px;
+}
+
+.evaluation-flow a > span,
+.evaluation-flow a > small {
+  color: var(--vp-c-text-2);
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.66rem;
+  line-height: 1.55;
+}
+
+.evaluation-flow a > strong {
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.operation-flow a {
+  min-height: 154px;
+}
+
+.mechanism-section,
+.result-branches,
+.operation-summary,
+.coverage-list article {
+  overflow-wrap: anywhere;
+  padding: 24px;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg-elv);
+  scroll-margin-top: 96px;
+}
+
+.mechanism-anchor {
+  height: 0;
+  padding: 0;
+  border: 0;
+}
+
+.command-list li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.command-list span {
+  flex: 0 0 auto;
+  color: var(--vp-c-text-2);
+  font-size: 0.76rem;
+}
+
+.coverage-list {
+  display: grid;
+  gap: 12px;
+}
+
+.coverage-list article > span {
+  color: var(--vp-c-brand-1);
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+
+.operation-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  padding: 1px;
+  background: var(--vp-c-divider);
+}
+
+.operation-summary > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  background: var(--vp-c-bg-elv);
+}
+
+.operation-summary strong {
+  font-size: 1.1rem;
+}
+
 .source-link {
   margin-top: 48px;
   padding-top: 24px;
@@ -1318,6 +1557,9 @@ body {
   }
 
   .skill-grid,
+  .evaluation-card-grid,
+  .evaluation-status-panel,
+  .operation-summary,
   .fact-grid,
   .fragment-versions,
   .evidence-legend ol,
@@ -1389,6 +1631,23 @@ body {
   .history-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .evaluation-flow {
+    grid-template-columns: 1fr;
+  }
+
+  .evaluation-flow .flow-stage:not(:last-child)::after {
+    top: auto;
+    right: 50%;
+    bottom: -8px;
+    width: 1px;
+    height: 8px;
+  }
+
+  .evaluation-flow a,
+  .operation-flow a {
+    min-height: 116px;
   }
 }
 

@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { evaluationGlossary, knownObservationRoles, operationDisplay } from './evaluation-glossary.mjs';
+import { buildEvaluationCatalog } from './evaluation-catalog.mjs';
 import { formatEstimateStatus, formatMoney } from './telemetry-format.mjs';
 
 const websiteRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -245,6 +246,7 @@ function normalizeObservation(observation) {
     status: observation.status ?? 'Not recorded',
     kind: observation.kind ?? 'Not recorded',
     role: observation.role ?? 'Not recorded',
+    repetition: observation.repetition ?? null,
     judgeVerdict: observation.judge?.verdict ?? 'Not recorded',
     judgeState,
     judgeDisplay,
@@ -500,6 +502,7 @@ function normalizeReport(entry, archiveRoot) {
     observations,
     fingerprints: report.fingerprints ?? null,
     archivePath: entry.path,
+    href: siteRoute(`/evaluations/${entry.skill}/${entry.operation_id}`),
   };
 }
 
@@ -669,7 +672,7 @@ function evidenceComponentData(skill) {
       promotion: skill.evidence.promotionReport !== null,
       promotionSummary: skill.evidence.promotionSummary,
       historicalReportCount: skill.evidence.historicalReportCount,
-      historyHref: siteRoute(`/skills/${skill.slug}#evaluation-history`),
+      historyHref: siteRoute(`/skills/${skill.slug}#operation-history`),
     }),
   );
 }
@@ -908,7 +911,7 @@ description: ${yamlString(`${report.skill} evaluation evidence with status ${rep
 outline: [2, 3]
 ---
 
-<a class="eyebrow" href="${siteRoute('/evaluations/')}">Evaluation evidence</a>
+<a class="eyebrow" href="${siteRoute('/evaluations/')}">Operations</a>
 
 # ${escapeHtml(report.skill)}
 
@@ -957,6 +960,243 @@ ${limitations}
 `;
 }
 
+function renderCommand(command) {
+  const argv = command.argv.length ? command.argv.join(' ') : 'Not recorded';
+  return `<li><code>${escapeHtml(argv)}</code><span>Expected exit: ${escapeHtml(command.exitCode)}</span></li>`;
+}
+
+function renderEvaluationFlow(evaluation) {
+  const stages = [];
+  if (evaluation.kind === 'deterministic') {
+    stages.push(['public-input', 'Deterministic inputs']);
+  } else {
+    stages.push(['public-input', 'Prompt and fixture']);
+    stages.push(['executor', 'Executor']);
+  }
+  stages.push(['mechanical-checks', 'Mechanical checks']);
+  if (evaluation.oracle.applicable) stages.push(['oracle-verification', 'Oracle']);
+  if (evaluation.judge.applicable) stages.push(['judge-verification', 'Judge']);
+  stages.push(['definition-result', 'Result branches']);
+  return `<ol class="evaluation-flow definition-flow" aria-label="Current evaluation definition">
+${stages
+  .map(
+    ([id, label], index) => `<li class="flow-stage">
+  <a href="#${id}"><span>${String(index + 1).padStart(2, '0')}</span><strong>${escapeHtml(label)}</strong></a>
+</li>`,
+  )
+  .join('\n')}
+</ol>`;
+}
+
+function renderEvaluationCard(evaluation, { historical = false } = {}) {
+  const kindLabel = evaluationGlossary.kinds[evaluation.kind]?.label ?? evaluation.kind;
+  const mechanisms = historical
+    ? 'Archived observations only'
+    : [kindLabel, evaluation.oracle.applicable ? 'Oracle' : null, evaluation.judge.applicable ? 'Judge' : null].filter(Boolean).join(' · ');
+  const evidence = historical ? 'Historical evaluation' : evaluation.evidence.label;
+  return `<a class="evaluation-card ${historical ? 'historical-evaluation-card' : ''}" href="${siteRoute(evaluation.route)}">
+  <span class="evaluation-kind">${escapeHtml(historical ? 'Historical' : kindLabel)}</span>
+  <h3>${escapeHtml(evaluation.title)}</h3>
+  <dl>
+    <div><dt>Current evidence</dt><dd>${escapeHtml(evidence)}</dd></div>
+    <div><dt>Latest recorded result</dt><dd>${escapeHtml(evaluation.latestRecordedResult)}</dd></div>
+    <div><dt>Related operations</dt><dd>${evaluation.operations.length}</dd></div>
+  </dl>
+  <small>${escapeHtml(mechanisms)}</small>
+</a>`;
+}
+
+function renderCoverage(evaluation) {
+  if (!evaluation.coverage.length) {
+    return '<p class="empty-state">No coverage map is declared for this skill or this case has no mapped contract.</p>';
+  }
+  return `<div class="coverage-list">
+${evaluation.coverage
+  .map(
+    contract => `<article>
+  <span>${escapeHtml(contract.guarantee)}</span>
+  <h3>${escapeHtml(contract.id)}</h3>
+  <p>${escapeHtml(contract.statement)}</p>
+  <p><strong>Dimension:</strong> ${escapeHtml(contract.dimension)}</p>
+  ${contract.limitation ? `<p><strong>Limitation:</strong> ${escapeHtml(contract.limitation)}</p>` : ''}
+</article>`,
+  )
+  .join('\n')}
+</div>`;
+}
+
+function renderOperationRows(evaluation) {
+  if (!evaluation.operations.length) return '<div class="empty-state">No related operations have been archived.</div>';
+  return `<div class="history-list">
+${evaluation.operations
+  .map(
+    operation => `<a class="history-row" href="${operation.href}">
+  <span><strong>${escapeHtml(operation.operationDisplay)}</strong><small>${escapeHtml(formatStarted(operation.startedAt))} · ${operation.observations.length} case observations</small></span>
+  <span class="status status-${statusClass(operation.status)}">${escapeHtml(operation.status)}</span>
+</a>`,
+  )
+  .join('\n')}
+</div>`;
+}
+
+function renderLatestOperationFlow(evaluation) {
+  const operation = evaluation.latestOperation;
+  if (!operation) return '<div class="empty-state">No related operation has been recorded.</div>';
+  const mechanicalPassed = operation.observations.filter(observation => observation.mechanicalPassed === true).length;
+  const mechanicalFailed = operation.observations.filter(observation => observation.mechanicalPassed === false).length;
+  const judgeCounts = Object.entries(
+    operation.observations.reduce((counts, observation) => {
+      counts[observation.judgeState] = (counts[observation.judgeState] ?? 0) + 1;
+      return counts;
+    }, {}),
+  )
+    .map(([state, count]) => `${state}: ${count}`)
+    .join(' · ');
+  return `<ol class="evaluation-flow operation-flow" aria-label="Latest related operation">
+  <li class="flow-stage"><a href="#latest-observations"><span>01</span><strong>Case observations</strong><small>${operation.observations.length} recorded</small></a></li>
+  <li class="flow-stage"><a href="#latest-verification"><span>02</span><strong>Recorded verification</strong><small>Mechanical pass: ${mechanicalPassed} · fail: ${mechanicalFailed}<br>Judge ${escapeHtml(judgeCounts || 'Not recorded')}</small></a></li>
+  <li class="flow-stage"><a href="#latest-result"><span>03</span><strong>Observation results</strong><small>${escapeHtml(operation.resultSummary)}</small></a></li>
+</ol>
+
+<div id="latest-observations" class="operation-summary" tabindex="-1">
+  <div><span>Case observations</span><strong>${operation.observations.length}</strong></div>
+  <div id="latest-result"><span>Case result</span><strong>${escapeHtml(evaluation.latestRecordedResult)}</strong></div>
+  <div><span>Complete operation result</span><strong>${escapeHtml(operation.status)}</strong></div>
+  <div id="latest-verification"><span>Observation results</span><strong>${escapeHtml(operation.resultSummary)}</strong></div>
+</div>`;
+}
+
+function renderActiveEvaluation(evaluation) {
+  const fixtureList = evaluation.fixturePaths.length
+    ? evaluation.fixturePaths.map(path => `<li><code>${escapeHtml(path)}</code></li>`).join('\n')
+    : '<li>None</li>';
+  const requiredPaths = evaluation.mechanical.requiredPaths.length
+    ? evaluation.mechanical.requiredPaths.map(path => `<li><code>${escapeHtml(path)}</code></li>`).join('\n')
+    : '<li>None</li>';
+  const protectedPaths = evaluation.mechanical.protectedChangedPaths.length
+    ? evaluation.mechanical.protectedChangedPaths.map(path => `<li><code>${escapeHtml(path)}</code></li>`).join('\n')
+    : '<li>None</li>';
+  const commands = evaluation.mechanical.commands.length
+    ? evaluation.mechanical.commands.map(renderCommand).join('\n')
+    : '<li>None recorded</li>';
+  const oracleSection = evaluation.oracle.applicable
+    ? `## Oracle verification
+
+<div id="oracle-verification" class="mechanism-section" tabindex="-1">
+<p>The runner applies these declared oracle commands outside the executor workspace.</p>
+<ul class="command-list">${evaluation.oracle.commands.map(renderCommand).join('\n')}</ul>
+</div>`
+    : '';
+  const judgeSection = evaluation.judge.applicable
+    ? `## Judge verification
+
+<div id="judge-verification" class="mechanism-section" tabindex="-1">
+<p><strong>No action acceptable:</strong> ${escapeHtml(evaluation.judge.noActionAcceptable)}</p>
+<ul>${evaluation.judge.criteria.map(criterion => `<li>${escapeHtml(criterion)}</li>`).join('\n')}</ul>
+</div>`
+    : '';
+
+  return `---
+title: ${yamlString(evaluation.title)}
+description: ${yamlString(`Current ${evaluation.kind} evaluation definition for ${evaluation.skillId}.`)}
+outline: [2, 3]
+---
+
+<a class="eyebrow" href="${siteRoute(`/skills/${evaluation.skillId}`)}">${escapeHtml(evaluation.skillId)}</a>
+
+# ${escapeHtml(evaluation.title)}
+
+<p class="lede">An active <strong>${escapeHtml(evaluation.kind)}</strong> evaluation declared by the current suite.</p>
+
+<div class="evaluation-status-panel evidence-state-${evaluation.evidence.variant}">
+  <div><span>Current evidence</span><strong>${escapeHtml(evaluation.evidence.label)}</strong><p>${escapeHtml(evaluation.evidence.description)}</p></div>
+  <div><span>Latest recorded result</span><strong>${escapeHtml(evaluation.latestRecordedResult)}</strong></div>
+</div>
+
+<div class="fact-grid evaluation-identity">
+  <div><span class="label">Skill</span><strong>${escapeHtml(evaluation.skillId)}</strong></div>
+  <div><span class="label">Case ID</span><strong>${escapeHtml(evaluation.caseId)}</strong></div>
+  <div><span class="label">Suite state</span><strong>Active</strong></div>
+  <div><span class="label">Kind</span><strong>${escapeHtml(evaluation.kind)}</strong></div>
+</div>
+
+## Covered skill contracts
+
+${renderCoverage(evaluation)}
+
+## Current definition flow
+
+${renderEvaluationFlow(evaluation)}
+
+## Public prompt
+
+<div id="public-input" class="mechanism-section mechanism-anchor" tabindex="-1"></div>
+
+${codeBlock(evaluation.prompt ?? 'Not used for this deterministic case.', 'text')}
+
+<div class="mechanism-section">
+<h3>Public fixture files</h3>
+<ul>${fixtureList}</ul>
+</div>
+
+${evaluation.kind === 'deterministic' ? '' : '## Executor\n\n<div id="executor" class="mechanism-section" tabindex="-1"><p>The executor performs the public prompt in an isolated model invocation.</p></div>\n'}
+
+## Mechanical checks
+
+<div id="mechanical-checks" class="mechanism-section" tabindex="-1">
+<p><strong>Expected executor exit code:</strong> ${escapeHtml(evaluation.mechanical.expectedExitCode)}</p>
+<h3>Required paths</h3><ul>${requiredPaths}</ul>
+<h3>Protected changed paths</h3><ul>${protectedPaths}</ul>
+<h3>Commands</h3><ul class="command-list">${commands}</ul>
+</div>
+
+${oracleSection}
+
+${judgeSection}
+
+## Result branches
+
+<div id="definition-result" class="result-branches" tabindex="-1">
+  <p><strong>Pass:</strong> every applicable earlier mechanism satisfies its contract.</p>
+  <p><strong>Fail or error:</strong> a failed earlier mechanism stops later semantic verification when the runner contract requires it.</p>
+  <p><strong>Skipped:</strong> an enabled judge can be skipped after a mechanical or oracle failure.</p>
+</div>
+
+## Latest operation flow
+
+${renderLatestOperationFlow(evaluation)}
+
+## Operation history
+
+${renderOperationRows(evaluation)}
+`;
+}
+
+function renderHistoricalEvaluation(evaluation) {
+  return `---
+title: ${yamlString(evaluation.title)}
+description: ${yamlString(`Historical evaluation observations for ${evaluation.skillId}.`)}
+---
+
+<a class="eyebrow" href="${siteRoute(`/skills/${evaluation.skillId}`)}">${escapeHtml(evaluation.skillId)}</a>
+
+# ${escapeHtml(evaluation.title)}
+
+<p class="lede">This case is present in archived observations but not in the current suite.</p>
+
+<div class="evaluation-status-panel evidence-state-historical">
+  <div><span>Suite state</span><strong>Historical</strong></div>
+  <div><span>Latest recorded result</span><strong>${escapeHtml(evaluation.latestRecordedResult)}</strong></div>
+</div>
+
+<div class="empty-state">A current definition is not available. This page does not reconstruct a historical prompt, fixture, flow, or verification contract.</div>
+
+## Operation history
+
+${renderOperationRows(evaluation)}
+`;
+}
+
 function renderSkill(skill) {
   const reports = skill.reports.length
     ? skill.reports
@@ -969,6 +1209,19 @@ function renderSkill(skill) {
         )
         .join('\n')
     : '<div class="empty-state">No archived evaluation reports are available for this skill yet.</div>';
+
+  const activeEvaluations = skill.evaluations.length
+    ? skill.evaluations.map(evaluation => renderEvaluationCard(evaluation)).join('\n')
+    : '<div class="empty-state">No active evaluations are declared for this skill.</div>';
+  const historicalEvaluations = skill.historicalEvaluations.length
+    ? `## Historical evaluations
+
+<p>These case IDs appear only in archived observations. Their former definitions are not reconstructed.</p>
+
+<div class="evaluation-card-grid">
+${skill.historicalEvaluations.map(evaluation => renderEvaluationCard(evaluation, { historical: true })).join('\n')}
+</div>`
+    : '';
 
   return `---
 title: ${yamlString(skill.name)}
@@ -991,7 +1244,17 @@ description: ${yamlString(skill.description)}
   ${renderEvidenceSummary(skill)}
 </div>
 
-## Evaluation history
+## Active evaluations
+
+<div class="evaluation-card-grid">
+${activeEvaluations}
+</div>
+
+${historicalEvaluations}
+
+<span id="evaluation-history" class="compatibility-anchor" aria-hidden="true"></span>
+
+<h2 id="operation-history" tabindex="-1">Operations</h2>
 
 <p>Operation type describes how evidence was produced. It does not determine the result or evidence strength by itself.</p>
 
@@ -1017,7 +1280,7 @@ function renderSkillIndex(skills) {
     <span class="skill-evidence-label"><span class="evidence-state-indicator" aria-hidden="true"></span>${escapeHtml(skill.evidence.label)}</span>
     <div class="skill-card-actions">
       ${renderEvidenceSummary(skill, { compact: true })}
-      <a class="skill-history-link" href="${siteRoute(`/skills/${skill.slug}#evaluation-history`)}">${skill.reports.length} reports →</a>
+      <a class="skill-history-link" href="${siteRoute(`/skills/${skill.slug}#operation-history`)}">${skill.reports.length} operations →</a>
     </div>
   </footer>
 </article>`,
@@ -1053,13 +1316,13 @@ function renderEvaluationIndex(reports) {
     )
     .join('\n');
   return `---
-title: Evaluation evidence
+title: Operations
 description: Recorded evaluation operations, including passing and failing results.
 ---
 
-<span class="eyebrow">Evaluation archive</span>
+<span class="eyebrow">Operation archive</span>
 
-# Evidence is useful<br>when it remains inspectable.
+# Operations remain useful<br>when evidence stays inspectable.
 
 <p class="lede">This history includes successful, failed, and incomplete operations. Each entry links claims to mechanical checks, judge evidence, and code changes retained in the canonical report.</p>
 
@@ -1099,7 +1362,7 @@ layout: page
     <p>Evidence of how effectively skills guide Codex behavior.</p>
     <div class="hero-actions">
       <a class="primary-action" href="${siteRoute('/skills/')}">Explore the skills <span>→</span></a>
-      <a class="secondary-action" href="${siteRoute('/evaluations/')}">Inspect evaluation evidence</a>
+      <a class="secondary-action" href="${siteRoute('/evaluations/')}">Inspect operations</a>
     </div>
   </div>
   <div class="evidence-ledger" aria-label="Archive summary">
@@ -1162,9 +1425,20 @@ export function generateContent({ repositoryRoot, archiveRoot, outputRoot }) {
   const reports = manifest.reports.map(entry => normalizeReport(entry, archiveRoot)).sort((left, right) => right.id.localeCompare(left.id));
   const skills = findSkills(repositoryRoot).map(skill => {
     const skillReports = reports.filter(report => report.skill === skill.slug);
-    const evidence = deriveEvidence(join(repositoryRoot, skill.slug), skillReports);
+    const skillRoot = join(repositoryRoot, skill.slug);
+    const evidence = deriveEvidence(skillRoot, skillReports);
+    const catalog = buildEvaluationCatalog({
+      skill,
+      skillRoot,
+      caseIds: evidence.suiteCases ?? [],
+      reports: skillReports,
+      sourceFingerprint: evidence.currentFingerprint,
+      caseEvidenceStatuses: evaluationGlossary.caseEvidenceStatuses,
+      treeFingerprint,
+    });
     return {
       ...skill,
+      ...catalog,
       evidence,
       evidenceLabel: evidence.label,
       evidenceExplanation: evidence.description,
@@ -1186,6 +1460,12 @@ export function generateContent({ repositoryRoot, archiveRoot, outputRoot }) {
   writeOutput(join(outputRoot, 'skills', 'index.md'), renderSkillIndex(skills));
   for (const skill of skills) {
     writeOutput(join(outputRoot, 'skills', `${skill.slug}.md`), renderSkill(skill));
+    for (const evaluation of skill.evaluations) {
+      writeOutput(join(outputRoot, 'skills', skill.slug, 'evaluations', `${evaluation.caseId}.md`), renderActiveEvaluation(evaluation));
+    }
+    for (const evaluation of skill.historicalEvaluations) {
+      writeOutput(join(outputRoot, 'skills', skill.slug, 'evaluations', `${evaluation.caseId}.md`), renderHistoricalEvaluation(evaluation));
+    }
   }
   writeOutput(join(outputRoot, 'evaluations', 'index.md'), renderEvaluationIndex(reports));
   for (const report of reports) {

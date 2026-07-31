@@ -4,7 +4,7 @@ Reusable [Codex](https://openai.com/codex/) workflows for skill development, exe
 
 This repository keeps each workflow self contained, inspectable, and ready to install where Codex can discover it.
 
-Browse the skills and their archived evaluation evidence at [renanfranca.github.io/codex-skills](https://renanfranca.github.io/codex-skills/).
+Browse the skills, their declared evaluation cases, and archived operation evidence at [renanfranca.github.io/codex-skills](https://renanfranca.github.io/codex-skills/).
 
 ## What is a Codex skill?
 

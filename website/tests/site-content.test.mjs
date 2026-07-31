@@ -8,6 +8,152 @@ import test from 'node:test';
 
 const websiteDirectory = join(dirname(fileURLToPath(import.meta.url)), '..');
 
+test('publishes every active evaluation including cases without archived observations', () => {
+  const workspace = mkdtempSync(join(tmpdir(), 'codex-skills-evaluation-catalog-'));
+  const repository = join(workspace, 'repository');
+  const archive = join(repository, 'evaluation-reports');
+  const skill = join(repository, 'example-skill');
+  const output = join(workspace, 'generated');
+
+  mkdirSync(join(skill, 'evals', 'cases', 'semantic-case', 'fixture'), { recursive: true });
+  mkdirSync(join(skill, 'evals', 'cases', 'deterministic-case'), { recursive: true });
+  mkdirSync(archive, { recursive: true });
+  writeFileSync(join(skill, 'SKILL.md'), '---\nname: example-skill\ndescription: Publish declared evaluations.\n---\n');
+  writeFileSync(
+    join(skill, 'evals', 'suite.json'),
+    `${JSON.stringify({ version: 1, cases: ['semantic-case', 'deterministic-case'] }, null, 2)}\n`,
+  );
+  writeFileSync(
+    join(skill, 'evals', 'cases', 'semantic-case', 'case.json'),
+    `${JSON.stringify(
+      {
+        id: 'semantic-case',
+        kind: 'behavioral',
+        prompt_file: 'prompt.md',
+        mechanical: {
+          expected_exit_code: 0,
+          required_paths: ['result.txt'],
+          forbidden_changed_paths: ['private/**'],
+          commands: [{ argv: ['python3', '-m', 'unittest'], exit_code: 0 }],
+        },
+        oracle: { commands: [{ argv: ['python3', '{oracle_dir}/check.py'], exit_code: 0 }] },
+        judge: { enabled: true, criteria: ['The result is useful.'], no_action_acceptable: false },
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  writeFileSync(join(skill, 'evals', 'cases', 'semantic-case', 'prompt.md'), 'Create a useful result.\n');
+  writeFileSync(join(skill, 'evals', 'cases', 'semantic-case', 'fixture', 'input.txt'), 'public input\n');
+  writeFileSync(
+    join(skill, 'evals', 'cases', 'deterministic-case', 'case.json'),
+    `${JSON.stringify(
+      {
+        id: 'deterministic-case',
+        kind: 'deterministic',
+        mechanical: { commands: [{ argv: ['python3', 'check.py'], exit_code: 0 }] },
+        judge: { enabled: false, criteria: [] },
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  writeFileSync(join(archive, 'manifest.json'), '{"version":1,"report_count":0,"reports":[]}\n');
+
+  execFileSync(
+    process.execPath,
+    [join(websiteDirectory, 'scripts', 'generate-content.mjs'), '--repository-root', repository, '--archive', archive, '--output', output],
+    { stdio: 'pipe' },
+  );
+
+  const skillModel = JSON.parse(readFileSync(join(output, 'data.json'), 'utf8')).skills[0];
+
+  assert.deepEqual(
+    skillModel.evaluations.map(evaluation => [evaluation.caseId, evaluation.kind, evaluation.evidence.label]),
+    [
+      ['semantic-case', 'behavioral', 'Not evaluated yet'],
+      ['deterministic-case', 'deterministic', 'Not evaluated yet'],
+    ],
+  );
+  assert.equal(skillModel.evaluations[0].prompt, 'Create a useful result.\n');
+  assert.deepEqual(skillModel.evaluations[0].fixturePaths, ['fixture/input.txt']);
+  assert.equal(skillModel.evaluations[0].mechanical.expectedExitCode, 0);
+  assert.deepEqual(skillModel.evaluations[0].mechanical.requiredPaths, ['result.txt']);
+  assert.deepEqual(skillModel.evaluations[0].mechanical.protectedChangedPaths, ['private/**']);
+  assert.equal(skillModel.evaluations[0].oracle.applicable, true);
+  assert.equal(skillModel.evaluations[0].judge.applicable, true);
+  assert.equal(skillModel.evaluations[1].prompt, null);
+  assert.equal(skillModel.evaluations[1].judge.applicable, false);
+  assert.deepEqual(skillModel.historicalEvaluations, []);
+});
+
+test('renders an active evaluation card and a linked current-definition page', () => {
+  const workspace = mkdtempSync(join(tmpdir(), 'codex-skills-evaluation-page-'));
+  const repository = join(workspace, 'repository');
+  const archive = join(repository, 'evaluation-reports');
+  const caseRoot = join(repository, 'example-skill', 'evals', 'cases', 'safe-case');
+  const output = join(workspace, 'generated');
+
+  mkdirSync(join(caseRoot, 'fixture'), { recursive: true });
+  mkdirSync(archive, { recursive: true });
+  writeFileSync(
+    join(repository, 'example-skill', 'SKILL.md'),
+    '---\nname: example-skill\ndescription: Explain declared evaluations.\n---\n',
+  );
+  writeFileSync(
+    join(repository, 'example-skill', 'evals', 'suite.json'),
+    `${JSON.stringify({ version: 1, cases: ['safe-case'] }, null, 2)}\n`,
+  );
+  writeFileSync(
+    join(caseRoot, 'case.json'),
+    `${JSON.stringify(
+      {
+        id: 'safe-case',
+        kind: 'behavioral',
+        prompt_file: 'prompt.md',
+        mechanical: {
+          expected_exit_code: 0,
+          required_paths: ['result.txt'],
+          commands: [{ argv: ['python3', 'check.py'], exit_code: 0 }],
+        },
+        judge: { enabled: true, criteria: ['Reject <script>alert(1)</script>.'], no_action_acceptable: false },
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  writeFileSync(join(caseRoot, 'prompt.md'), 'Treat <img src=x onerror=alert(1)> as text.\n');
+  writeFileSync(join(caseRoot, 'fixture', 'input.txt'), 'input\n');
+  writeFileSync(join(archive, 'manifest.json'), '{"version":1,"report_count":0,"reports":[]}\n');
+
+  execFileSync(
+    process.execPath,
+    [join(websiteDirectory, 'scripts', 'generate-content.mjs'), '--repository-root', repository, '--archive', archive, '--output', output],
+    { stdio: 'pipe' },
+  );
+
+  const skillPage = readFileSync(join(output, 'skills', 'example-skill.md'), 'utf8');
+  const evaluationPage = readFileSync(join(output, 'skills', 'example-skill', 'evaluations', 'safe-case.md'), 'utf8');
+
+  assert.match(skillPage, /## Active evaluations/);
+  assert.match(skillPage, /href="\/codex-skills\/skills\/example-skill\/evaluations\/safe-case"/);
+  assert.match(skillPage, /Safe case[\s\S]*Not evaluated yet[\s\S]*Behavioral/);
+  assert.match(skillPage, /id="operation-history"/);
+  assert.match(skillPage, /id="evaluation-history"/);
+  assert.match(evaluationPage, /# Safe case/);
+  assert.match(evaluationPage, /Current evidence[\s\S]*Not evaluated yet/);
+  assert.match(evaluationPage, /## Current definition flow/);
+  assert.match(evaluationPage, /class="evaluation-flow/);
+  assert.match(evaluationPage, /href="#public-input"/);
+  assert.match(evaluationPage, /href="#mechanical-checks"/);
+  assert.match(evaluationPage, /href="#judge-verification"/);
+  assert.match(evaluationPage, /## Public prompt/);
+  assert.match(evaluationPage, /Treat <img src=x onerror=alert\(1\)> as text\./);
+  assert.doesNotMatch(evaluationPage, /<script>alert\(1\)<\/script>/);
+  assert.match(evaluationPage, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.match(evaluationPage, /No coverage map is declared for this skill/);
+});
+
 test('generates a factual skill history from an archived evaluation', () => {
   const workspace = mkdtempSync(join(tmpdir(), 'codex-skills-content-'));
   const repository = join(workspace, 'repository');
@@ -558,10 +704,26 @@ function createEvidenceWorkspace(prefix = 'codex-skills-derived-evidence-') {
   const skill = join(repository, 'example-skill');
   const output = join(workspace, 'generated');
 
-  mkdirSync(join(skill, 'evals'), { recursive: true });
+  mkdirSync(join(skill, 'evals', 'cases', 'first-case'), { recursive: true });
+  mkdirSync(join(skill, 'evals', 'cases', 'second-case'), { recursive: true });
   mkdirSync(archive, { recursive: true });
   writeFileSync(join(skill, 'SKILL.md'), '---\nname: example-skill\ndescription: Explain derived evidence truthfully.\n---\n');
   writeFileSync(join(skill, 'evals', 'suite.json'), `${JSON.stringify({ version: 1, cases: ['first-case', 'second-case'] }, null, 2)}\n`);
+  for (const caseId of ['first-case', 'second-case']) {
+    writeFileSync(
+      join(skill, 'evals', 'cases', caseId, 'case.json'),
+      `${JSON.stringify(
+        {
+          id: caseId,
+          kind: 'deterministic',
+          mechanical: { commands: [{ argv: ['python3', 'check.py'], exit_code: 0 }] },
+          judge: { enabled: false, criteria: [] },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+  }
   return { workspace, repository, archive, skill, output };
 }
 
@@ -621,6 +783,147 @@ function generateEvidenceModel(context) {
   );
   return JSON.parse(readFileSync(join(context.output, 'data.json'), 'utf8'));
 }
+
+test('derives case evidence from compatible observations while grouping each operation once', () => {
+  const context = createEvidenceWorkspace('codex-skills-case-evidence-');
+  const sourceFingerprint = runnerFingerprint(context.skill);
+  const caseFingerprint = runnerFingerprint(join(context.skill, 'evals', 'cases', 'first-case'));
+  writeEvidenceArchive({
+    archive: context.archive,
+    reports: [
+      {
+        operation: {
+          id: '20260730T120000.000000Z-promotion',
+          type: 'validate-change',
+          status: 'PASS',
+          promotion_eligible: true,
+        },
+        started_at: '2026-07-30T12:00:00Z',
+        fingerprints: {
+          sources: { baseline: 'baseline-fingerprint', candidate: sourceFingerprint },
+          cases: { 'first-case': caseFingerprint },
+        },
+        observations: [
+          { case_id: 'first-case', kind: 'deterministic', role: 'baseline', repetition: 1, status: 'FAIL' },
+          { case_id: 'first-case', kind: 'deterministic', role: 'candidate', repetition: 1, status: 'PASS' },
+          { case_id: 'first-case', kind: 'deterministic', role: 'candidate', repetition: 2, status: 'PASS' },
+        ],
+      },
+      {
+        operation: {
+          id: '20260730T130000.000000Z-latest',
+          type: 'run',
+          status: 'FAIL',
+          promotion_eligible: false,
+        },
+        started_at: '2026-07-30T13:00:00Z',
+        fingerprints: {
+          sources: { evaluated: sourceFingerprint },
+          cases: { 'first-case': caseFingerprint },
+        },
+        observations: [
+          { case_id: 'first-case', kind: 'deterministic', role: 'observation', repetition: 1, status: 'PASS' },
+          { case_id: 'first-case', kind: 'deterministic', role: 'observation', repetition: 2, status: 'FAIL' },
+        ],
+      },
+    ],
+  });
+
+  const evaluation = generateEvidenceModel(context).skills[0].evaluations[0];
+
+  assert.equal(evaluation.evidence.label, 'Validated promotion');
+  assert.equal(evaluation.latestRecordedResult, 'PASS: 1 · FAIL: 1');
+  assert.equal(evaluation.latestOperation.id, '20260730T130000.000000Z-latest');
+  assert.equal(evaluation.latestOperation.status, 'FAIL');
+  assert.equal(evaluation.operations.length, 2);
+  assert.deepEqual(
+    evaluation.operations[1].observations.map(observation => [observation.role, observation.repetition, observation.status]),
+    [
+      ['baseline', 1, 'FAIL'],
+      ['candidate', 1, 'PASS'],
+      ['candidate', 2, 'PASS'],
+    ],
+  );
+  const evaluationPage = readFileSync(join(context.output, 'skills', 'example-skill', 'evaluations', 'first-case.md'), 'utf8');
+  assert.match(evaluationPage, /## Latest operation flow/);
+  assert.match(evaluationPage, /class="evaluation-flow operation-flow"/);
+  assert.match(evaluationPage, /Case result[\s\S]*PASS: 1 · FAIL: 1/);
+  assert.match(evaluationPage, /Complete operation result[\s\S]*FAIL/);
+  assert.match(evaluationPage, /Observation results[\s\S]*PASS: 1 · FAIL: 1/);
+});
+
+test('separates archived-only case IDs as historical evaluations without inventing a current definition', () => {
+  const context = createEvidenceWorkspace('codex-skills-historical-evaluation-');
+  writeEvidenceArchive({
+    archive: context.archive,
+    reports: [
+      {
+        operation: { id: '20260730T140000.000000Z-historical', type: 'run', status: 'PASS' },
+        started_at: '2026-07-30T14:00:00Z',
+        observations: [{ case_id: 'retired-case', kind: 'behavioral', role: 'observation', status: 'PASS' }],
+      },
+    ],
+  });
+
+  const skill = generateEvidenceModel(context).skills[0];
+
+  assert.equal(skill.evaluations[0].state, 'active');
+  assert.equal(skill.historicalEvaluations.length, 1);
+  assert.deepEqual(skill.historicalEvaluations[0], {
+    skillId: 'example-skill',
+    caseId: 'retired-case',
+    title: 'Retired case',
+    route: '/skills/example-skill/evaluations/retired-case',
+    active: false,
+    state: 'historical',
+    latestRecordedResult: 'PASS',
+    latestOperation: skill.historicalEvaluations[0].latestOperation,
+    operations: skill.historicalEvaluations[0].operations,
+  });
+  assert.equal(Object.hasOwn(skill.historicalEvaluations[0], 'prompt'), false);
+  assert.equal(Object.hasOwn(skill.historicalEvaluations[0], 'caseFingerprint'), false);
+  assert.equal(Object.hasOwn(skill.historicalEvaluations[0], 'mechanical'), false);
+});
+
+test('publishes stable case evidence keys with candidate, regression, baseline, and fingerprint precedence', () => {
+  const scenarios = [
+    { role: 'candidate', caseMatches: true, expected: ['validated-promotion', 'Validated promotion'] },
+    { role: 'regression', caseMatches: true, expected: ['current-pass', 'Current pass'] },
+    { role: 'baseline', caseMatches: true, expected: ['no-current-pass', 'No current pass'] },
+    { role: 'candidate', caseMatches: false, expected: ['historical-runs', 'Historical runs'] },
+  ];
+  const actual = scenarios.map(({ role, caseMatches }) => {
+    const context = createEvidenceWorkspace(`codex-skills-case-state-${role}-`);
+    const sourceFingerprint = runnerFingerprint(context.skill);
+    const currentCaseFingerprint = runnerFingerprint(join(context.skill, 'evals', 'cases', 'first-case'));
+    writeEvidenceArchive({
+      archive: context.archive,
+      reports: [
+        {
+          operation: {
+            id: `20260730T150000.000000Z-${role}`,
+            type: 'validate-change',
+            status: 'PASS',
+            promotion_eligible: true,
+          },
+          started_at: '2026-07-30T15:00:00Z',
+          fingerprints: {
+            sources: { baseline: 'baseline-fingerprint', candidate: sourceFingerprint },
+            cases: { 'first-case': caseMatches ? currentCaseFingerprint : 'historical-case-fingerprint' },
+          },
+          observations: [{ case_id: 'first-case', kind: 'deterministic', role, repetition: 1, status: 'PASS' }],
+        },
+      ],
+    });
+    const evidence = generateEvidenceModel(context).skills[0].evaluations[0].evidence;
+    return [evidence.key, evidence.label];
+  });
+
+  assert.deepEqual(
+    actual,
+    scenarios.map(scenario => scenario.expected),
+  );
+});
 
 test('preserves every recorded token usage field and normalized event exactly', () => {
   const context = createEvidenceWorkspace('codex-skills-token-usage-');
