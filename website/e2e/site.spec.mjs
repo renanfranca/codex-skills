@@ -302,6 +302,22 @@ test('evaluation pages separate current evidence, case results, and complete ope
   await expect(operationsNav).toHaveAttribute('href', /\/evaluations\/$/);
 });
 
+test.describe('narrow evaluation layout', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('active evaluation pages keep long commands visible inside the viewport', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'This regression is covered by the deterministic desktop project.');
+
+    await page.goto('skills/restructure-documentation/evaluations/documentation-system-restructure#judge-verification');
+
+    await expect(page.locator('.mechanism-section#judge-verification')).toBeVisible();
+    const commandRow = page.locator('.command-list li').filter({ hasText: 'check_markdown_links.py' });
+    await expect(commandRow.locator('code')).toBeVisible();
+    await expect(commandRow.getByText('Expected exit: 0', { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+});
+
 test('active evaluation guidance omits retired traceability while historical cases remain accessible', async ({ page }, testInfo) => {
   await page.goto('skills/refactor-design');
   await expect(page.locator('.evaluation-card-grid').first().locator('.evaluation-card')).toHaveCount(11);

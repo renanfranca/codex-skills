@@ -1456,6 +1456,11 @@ body {
   gap: 18px;
 }
 
+.command-list code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .command-list span {
   flex: 0 0 auto;
   color: var(--vp-c-text-2);
