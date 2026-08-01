@@ -171,9 +171,21 @@ test('a validated promotion explains qualification and recorded effort', async (
   await expect(page).toHaveURL(/\/evaluations\/restructure-documentation\/20260727T233326\.147750Z-48228593ef91$/);
   await expect(page.getByRole('heading', { level: 2, name: 'Token usage' })).toBeVisible();
   await expect(page.getByRole('heading', { level: 2, name: 'API reference estimate' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Observations' })).toBeVisible();
   const usageEvents = page.getByText(/Normalized usage events \(\d+\)/).first();
   await expect(usageEvents).toBeVisible();
   expect(await usageEvents.evaluate(summary => summary.parentElement.open)).toBe(false);
+  const estimateDetails = page.getByText('View API reference estimate details', { exact: true });
+  await expect(estimateDetails).toBeVisible();
+  expect(await estimateDetails.evaluate(summary => summary.parentElement.open)).toBe(false);
+  await expect(page.getByText(/not an observed charge or invoice/i)).toBeHidden();
+  if (testInfo.project.name === 'mobile') {
+    await estimateDetails.tap();
+  } else {
+    await estimateDetails.focus();
+    await estimateDetails.press('Enter');
+  }
+  expect(await estimateDetails.evaluate(summary => summary.parentElement.open)).toBe(true);
   await expect(page.getByText(/not an observed charge or invoice/i)).toBeVisible();
 });
 

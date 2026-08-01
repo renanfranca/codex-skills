@@ -873,6 +873,9 @@ function renderApiReferenceEstimate(report) {
 
   return `## API reference estimate
 
+<details class="evidence-details api-reference-estimate">
+<summary>View API reference estimate details</summary>
+
 <p>This is an API reference estimate, not an observed charge or invoice.</p>
 
 <div class="fact-grid estimate-facts">
@@ -895,7 +898,9 @@ ${assessmentFacts}
 
 ### Estimate limitations
 
-${limitations}`;
+${limitations}
+
+</details>`;
 }
 
 function renderReport(report) {

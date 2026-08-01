@@ -1403,12 +1403,16 @@ test('renders complete token usage and API reference estimate details on a repor
   assert.doesNotMatch(reportPage, /<details class="evidence-details usage-events" open>/);
   assert.match(reportPage, /\| 1 \| turn\.completed \| turn \| 1,001 \| 502 \| 203 \| 104 \| 1,204 \| Complete \| Complete \|/);
   assert.match(reportPage, /## API reference estimate/);
+  assert.match(reportPage, /<details class="evidence-details api-reference-estimate">/);
+  assert.match(reportPage, /<summary>View API reference estimate details<\/summary>/);
+  assert.doesNotMatch(reportPage, /<details class="evidence-details api-reference-estimate" open>/);
   assert.match(reportPage, /USD 0\.123456/);
   assert.match(reportPage, /not an observed charge/i);
   assert.match(reportPage, /Input component[\s\S]*USD 0\.0012475/);
   assert.match(reportPage, /Input price[\s\S]*USD 2\.5 per million tokens/);
   assert.match(reportPage, /Long context threshold[\s\S]*272,000 input tokens per request/);
   assert.match(reportPage, /Estimate limitation\./);
+  assert.match(reportPage, /<\/details>\n\n## Observations/);
 });
 
 test('labels a long context base-rate amount as reference while withholding an exact estimate', () => {
@@ -1557,6 +1561,7 @@ test('does not infer missing token or estimate fields for a legacy report', () =
   assert.match(reportPage, /Normalized usage events \(Not recorded\)/);
   assert.match(reportPage, /API reference estimate[\s\S]*Not recorded/);
   assert.match(reportPage, /The website does not calculate one\./);
+  assert.doesNotMatch(reportPage, /api-reference-estimate/);
   assert.doesNotMatch(reportPage, /Input tokens<\/span><strong>40/);
   assert.doesNotMatch(reportPage, /Output tokens<\/span><strong>2/);
 });
