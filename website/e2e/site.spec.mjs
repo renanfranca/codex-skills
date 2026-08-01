@@ -117,8 +117,8 @@ test('the evidence legend explains all six statuses without relying on color', a
   const legend = page.locator('.evidence-legend');
   for (const label of [
     'Validated promotion',
-    'Complete current coverage',
-    'Partial current coverage',
+    'Complete current suite evidence',
+    'Partial current suite evidence',
     'No current pass',
     'Historical runs',
     'No evaluation yet',
@@ -190,12 +190,12 @@ test('a reader can inspect current evidence in the viewport appropriate panel', 
 
   const panel = page.getByRole('dialog', { name: 'refactor-design evidence status' });
   await expect(panel).toBeVisible();
-  await expect(panel.getByText('Partial current coverage', { exact: true })).toBeVisible();
-  await expect(panel.getByText('3 of 12 declared cases have a current pass.')).toBeVisible();
+  await expect(panel.getByText('Historical runs', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Suite evidence', { exact: true })).toBeVisible();
+  await expect(panel.getByText('0 of 11 declared cases have a current pass.')).toBeVisible();
   await expect(panel.getByText('No matching promotion')).toBeVisible();
-  await expect(panel.getByText('PASS', { exact: true })).toBeVisible();
-  await expect(panel.getByText('4', { exact: true })).toBeVisible();
-  await expect(panel.getByRole('link', { name: /run · 2026/ }).first()).toBeVisible();
+  await expect(panel.getByText('No archived report matches the current source fingerprint.')).toBeVisible();
+  await expect(panel.getByRole('link', { name: 'View evaluation history →' })).toBeVisible();
   if (testInfo.project.name === 'mobile') {
     await expect(panel).toHaveClass(/evidence-status-sheet/);
     await expect(page.getByTestId('evidence-backdrop')).toBeVisible();
@@ -290,30 +290,31 @@ test('evaluation pages separate current evidence, case results, and complete ope
   await expect(operationsNav).toHaveAttribute('href', /\/evaluations\/$/);
 });
 
-test('evaluation guidance is readable before help and contextual terms are keyboard accessible', async ({ page }, testInfo) => {
+test('active evaluation guidance omits retired traceability while historical cases remain accessible', async ({ page }, testInfo) => {
   await page.goto('skills/refactor-design');
-  await expect(page.getByText('Execution and traceability', { exact: true })).toBeVisible();
-  await expect(page.getByText(/suite\.json.*12 executable cases/)).toBeVisible();
-  await expect(page.getByText(/11 skill contracts and 21 mappings/)).toBeVisible();
-  await expect(page.getByText(/5 rubric families and 8 mappings/)).toBeVisible();
-  await expect(page.getByText(/does not select, group, repeat, or score executable cases/)).toBeVisible();
+  await expect(page.locator('.evaluation-card-grid').first().locator('.evaluation-card')).toHaveCount(11);
+  await expect(page.getByRole('heading', { level: 2, name: 'Historical evaluations' })).toBeVisible();
+  const retiredCase = page.locator('.historical-evaluation-card').filter({ hasText: 'Coverage contract' });
+  await expect(retiredCase).toBeVisible();
+  await expect(page.getByText('Execution and traceability', { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/skill contracts and .*mappings/i)).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await page.goto('skills/refactor-design/evaluations/hidden-invocation-state');
 
   await expect(page.getByText('How to read this page', { exact: true })).toBeVisible();
   await expect(page.getByText(/An evaluation is the persistent case definition/)).toBeVisible();
-  await expect(page.getByText(/filtered view of the skill's optional coverage\.json traceability manifest/)).toBeVisible();
-  await expect(page.getByRole('heading', { level: 2, name: 'Skill contracts mapped to this case' })).toBeVisible();
-  await expect(page.getByRole('heading', { level: 2, name: 'Rubric families sampled by this case' })).toBeVisible();
+  await expect(page.getByText(/traceability|coverage level|mapping label/i)).toHaveCount(0);
+  await expect(page.getByRole('heading', { level: 2, name: 'Skill contracts mapped to this case' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { level: 2, name: 'Rubric families sampled by this case' })).toHaveCount(0);
   await expect(page.getByText('Hidden invocation state', { exact: true }).first()).toBeVisible();
-  await expect(page.locator('.coverage-dimension strong').filter({ hasText: 'Focused state refactor' })).toBeVisible();
-  await expect(page.getByText(/Mechanical checks.*mechanical.*deterministic/).first()).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
-  for (const name of ['Current evidence', 'Latest recorded result', 'Suite state', 'Kind', 'Coverage level', 'Mapping label']) {
+  for (const name of ['Current evidence', 'Latest recorded result', 'Suite state', 'Kind']) {
     await expect(page.getByRole('button', { name, exact: true }).first()).toBeVisible();
   }
+  await expect(page.getByRole('button', { name: 'Coverage level', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Mapping label', exact: true })).toHaveCount(0);
 
   const evidenceTrigger = page.getByRole('button', { name: 'Current evidence', exact: true });
   await evidenceTrigger.focus();
@@ -332,17 +333,11 @@ test('evaluation guidance is readable before help and contextual terms are keybo
   await expect(evidenceHelp).toBeHidden();
   await expect(evidenceTrigger).toBeFocused();
 
-  const coverageTrigger = page.getByRole('button', { name: 'Coverage level', exact: true }).first();
-  await coverageTrigger.focus();
-  await page.keyboard.press('Enter');
-  const coverageHelp = page.getByRole('dialog', { name: 'Coverage level help' });
-  await expect(coverageHelp).toBeVisible();
-  await expect(coverageHelp.locator('.evaluation-taxonomy code').filter({ hasText: /^complete$/ })).toBeVisible();
-  await expect(coverageHelp.locator('.evaluation-taxonomy code').filter({ hasText: /^partial$/ })).toBeVisible();
+  await page.goto('skills/refactor-design/evaluations/coverage-contract');
+  await expect(page.getByText('Historical', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/current definition is not available/i)).toBeVisible();
+  await expect(page.locator('.definition-flow')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.keyboard.press('Escape');
-  await expect(coverageHelp).toBeHidden();
-  await expect(coverageTrigger).toBeFocused();
 });
 
 test('evidence remains readable in light and dark themes', async ({ page }) => {
@@ -350,7 +345,7 @@ test('evidence remains readable in light and dark themes', async ({ page }) => {
 
   const card = page.locator('article.skill-card').filter({ hasText: 'refactor-design' });
   const lightBorder = await card.evaluate(element => getComputedStyle(element).borderTopColor);
-  await expect(card.getByText('Partial current coverage', { exact: true })).toBeVisible();
+  await expect(card.getByText('Historical runs', { exact: true })).toBeVisible();
 
   const themeSwitch = page.getByRole('switch', { name: 'Switch to dark theme' });
   if (!(await themeSwitch.isVisible())) {
@@ -360,7 +355,7 @@ test('evidence remains readable in light and dark themes', async ({ page }) => {
 
   const darkBorder = await card.evaluate(element => getComputedStyle(element).borderTopColor);
   expect(darkBorder).not.toBe(lightBorder);
-  await expect(card.getByText('Partial current coverage', { exact: true })).toBeVisible();
+  await expect(card.getByText('Historical runs', { exact: true })).toBeVisible();
 });
 
 test('retained report code is readable and expandable in both themes', async ({ page }) => {

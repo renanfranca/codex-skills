@@ -51,31 +51,10 @@ export const evaluationGlossary = Object.freeze({
         'The evaluation path declared by the case. Behavioral, nonbehavioral, and trigger cases use an executor; deterministic cases run direct checks with zero model sessions.',
         'Active evaluation pages',
       ),
-      coverageLevel: entry(
-        'Coverage level',
-        'The declared extent to which this mapping is intended to protect the named skill contract. It is not an execution result.',
-        'Evaluation pages with coverage mappings',
-      ),
-      mappingLabel: entry(
-        'Mapping label',
-        'A local technical identifier that distinguishes one traceability mapping from another. It does not select, group, repeat, score, or otherwise affect case execution.',
-        'Evaluation pages with coverage mappings',
-      ),
     }),
     suiteStates: Object.freeze({
       active: entry('Active', 'The case is declared by the current evaluation suite.'),
       historical: entry('Historical', 'The case appears in archived observations but is absent from the current suite.'),
-    }),
-    coverageLevels: Object.freeze({
-      complete: entry('Complete', 'The mapping declares intended protection for the whole named skill contract.'),
-      partial: entry('Partial', 'The mapping declares narrower protection and does not cover the whole named skill contract.'),
-    }),
-    evidenceMechanisms: Object.freeze({
-      mechanical: entry('Mechanical checks', 'Deterministic checks configured in the case manifest.'),
-      oracle: entry('Hidden oracle', 'A case specific deterministic checker kept outside the executor workspace.'),
-      judge: entry('Semantic judge', 'An independent model assessment of criteria that require semantic interpretation.'),
-      changed_paths: entry('Changed paths', 'The recorded files changed by the executor.'),
-      executor_response: entry('Executor response', 'The structured response returned by the executor after performing the public task.'),
     }),
   }),
   concepts: Object.freeze({
@@ -118,7 +97,7 @@ export const evaluationGlossary = Object.freeze({
     }),
     complete: Object.freeze({
       ...entry(
-        'Complete current coverage',
+        'Complete current suite evidence',
         'Every declared case has one current nonbaseline pass; RED, repetition, stability, and promotion are not established.',
         'Current skill evidence',
       ),
@@ -127,8 +106,8 @@ export const evaluationGlossary = Object.freeze({
     }),
     partial: Object.freeze({
       ...entry(
-        'Partial current coverage',
-        'Current evidence includes a pass, but it does not cover every declared suite case.',
+        'Partial current suite evidence',
+        'Current evidence includes a pass, but not every declared suite case has one.',
         'Current skill evidence',
       ),
       variant: 'partial',

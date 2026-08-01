@@ -25,10 +25,10 @@ const panelId = `evidence-status-${Math.random().toString(36).slice(2)}`;
 let mediaQuery;
 
 const currentReportGroups = computed(() => Object.entries(evidence.value.currentReportGroups));
-const coverage = computed(() =>
+const suiteEvidence = computed(() =>
   evidence.value.suiteCaseCount === null
-    ? 'No suite declared; complete coverage cannot be established.'
-    : `${evidence.value.coveredCaseCount} of ${evidence.value.suiteCaseCount} declared cases have a current pass.`,
+    ? 'No suite declared; complete suite evidence cannot be established.'
+    : `${evidence.value.passingCaseCount} of ${evidence.value.suiteCaseCount} declared cases have a current pass.`,
 );
 const numberFormatter = new Intl.NumberFormat('en');
 
@@ -161,8 +161,8 @@ onBeforeUnmount(() => {
 
       <dl class="evidence-status-facts">
         <div>
-          <dt>Suite coverage</dt>
-          <dd>{{ coverage }}</dd>
+          <dt>Suite evidence</dt>
+          <dd>{{ suiteEvidence }}</dd>
         </div>
         <div>
           <dt>Validated promotion</dt>

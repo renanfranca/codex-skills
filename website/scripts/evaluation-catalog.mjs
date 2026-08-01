@@ -46,53 +46,6 @@ function normalizeCommand(command) {
   };
 }
 
-function readCoverage(skillRoot) {
-  const path = join(skillRoot, 'evals', 'coverage.json');
-  if (!existsSync(path)) return null;
-  const coverage = readJson(path);
-  if (coverage.version !== 1 || !Array.isArray(coverage.contracts)) {
-    throw new Error(`Evaluation coverage is invalid for ${skillRoot}`);
-  }
-  return coverage;
-}
-
-function mappingsForCase(entries, caseId) {
-  return entries.flatMap(entry => {
-    const mappings = (entry.mappings ?? []).filter(mapping => mapping.case_id === caseId);
-    return mappings.map(mapping => ({
-      id: entry.id ?? 'Not recorded',
-      statement: entry.statement ?? null,
-      source: entry.source ?? null,
-      sections: entry.sections ?? [],
-      guarantee: entry.guarantee ?? 'Not recorded',
-      limitation: entry.limitation ?? null,
-      dimension: mapping.dimension ?? 'Not recorded',
-      evidence: mapping.evidence ?? [],
-    }));
-  });
-}
-
-function coverageForCase(coverage, caseId) {
-  return coverage ? mappingsForCase(coverage.contracts, caseId) : [];
-}
-
-function rubricCoverageForCase(coverage, caseId) {
-  return coverage ? mappingsForCase(coverage.rubric_families ?? [], caseId) : [];
-}
-
-function summarizeTraceability(coverage, executableCaseCount) {
-  if (!coverage) return null;
-  const rubricFamilies = coverage.rubric_families ?? [];
-  return {
-    declared: true,
-    executableCaseCount,
-    skillContractCount: coverage.contracts.length,
-    skillContractMappingCount: coverage.contracts.reduce((count, contract) => count + (contract.mappings ?? []).length, 0),
-    rubricFamilyCount: rubricFamilies.length,
-    rubricFamilyMappingCount: rubricFamilies.reduce((count, family) => count + (family.mappings ?? []).length, 0),
-  };
-}
-
 function reportCaseFingerprint(report, caseId) {
   return report.fingerprints?.cases?.[caseId] ?? null;
 }
@@ -159,7 +112,7 @@ function deriveCaseEvidence(operations, definitions) {
   return definitions['no-current-pass'];
 }
 
-function activeEvaluation({ skill, skillRoot, caseId, reports, sourceFingerprint, caseEvidenceStatuses, treeFingerprint, coverage }) {
+function activeEvaluation({ skill, skillRoot, caseId, reports, sourceFingerprint, caseEvidenceStatuses, treeFingerprint }) {
   const caseRoot = join(skillRoot, 'evals', 'cases', caseId);
   const manifestPath = join(caseRoot, 'case.json');
   if (!existsSync(manifestPath)) throw new Error(`Evaluation case ${caseId} is missing ${manifestPath}`);
@@ -202,9 +155,6 @@ function activeEvaluation({ skill, skillRoot, caseId, reports, sourceFingerprint
       criteria: manifest.judge?.criteria ?? [],
       noActionAcceptable: manifest.judge?.no_action_acceptable ?? 'Not recorded',
     },
-    coverage: coverageForCase(coverage, caseId),
-    rubricCoverage: rubricCoverageForCase(coverage, caseId),
-    traceabilityDeclared: coverage !== null,
     evidence: deriveCaseEvidence(operations, caseEvidenceStatuses),
     latestRecordedResult: operations[0]?.resultSummary ?? 'Not recorded',
     latestOperation: operations[0] ?? null,
@@ -254,13 +204,11 @@ export function buildEvaluationCatalog({
   caseEvidenceStatuses,
   treeFingerprint,
 }) {
-  const coverage = readCoverage(skillRoot);
   const activeIds = new Set(caseIds);
   const archivedIds = [...new Set(reports.flatMap(report => report.observations.map(observation => observation.caseId)))].filter(
     caseId => caseId !== 'Not recorded' && !activeIds.has(caseId),
   );
   return {
-    traceability: summarizeTraceability(coverage, caseIds.length),
     evaluations: caseIds.map(caseId =>
       activeEvaluation({
         skill,
@@ -270,7 +218,6 @@ export function buildEvaluationCatalog({
         sourceFingerprint,
         caseEvidenceStatuses,
         treeFingerprint,
-        coverage,
       }),
     ),
     historicalEvaluations: archivedIds.sort().map(caseId => historicalEvaluation(skill, caseId, reports)),

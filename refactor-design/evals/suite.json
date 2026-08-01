@@ -1,7 +1,6 @@
 {
   "version": 1,
   "cases": [
-    "coverage-contract",
     "cohesive-no-action",
     "hidden-invocation-state",
     "implicit-trigger-smoke",

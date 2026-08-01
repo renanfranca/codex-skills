@@ -26,7 +26,6 @@ const definition = computed(() =>
 );
 const taxonomy = computed(() => {
   if (props.context === 'evaluation' && props.field === 'suiteState') return evaluationGlossary.evaluationPage.suiteStates;
-  if (props.context === 'evaluation' && props.field === 'coverageLevel') return evaluationGlossary.evaluationPage.coverageLevels;
   if (props.context === 'evaluation' && props.field === 'currentEvidence') return evaluationGlossary.caseEvidenceStatuses;
   if (props.context === 'evaluation' && props.field === 'kind') return evaluationGlossary.kinds;
   if (props.context === 'evaluation') return null;

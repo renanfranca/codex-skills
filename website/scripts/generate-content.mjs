@@ -549,7 +549,7 @@ function deriveEvidence(skillRoot, reports) {
   const currentReports = reports.filter(report => evaluatedSourceFingerprint(report) === currentFingerprint);
   const currentReportIds = new Set(currentReports.map(report => report.id));
   const historicalReports = reports.filter(report => !currentReportIds.has(report.id));
-  const coveredCases = [
+  const passingCases = [
     ...new Set(
       currentReports.flatMap(report =>
         report.observations
@@ -560,12 +560,13 @@ function deriveEvidence(skillRoot, reports) {
   ].sort();
   const promotionReport = currentReports.find(report => report.status === 'PASS' && report.promotionEligible === true) ?? null;
   const currentReportGroups = groupCurrentReports(currentReports);
-  const hasCurrentPass = coveredCases.length > 0 || currentReports.some(report => report.status === 'PASS');
-  const hasCompleteCoverage = suiteCases !== null && suiteCases.length > 0 && suiteCases.every(caseId => coveredCases.includes(caseId));
+  const hasCurrentPass = passingCases.length > 0 || currentReports.some(report => report.status === 'PASS');
+  const hasCompleteSuiteEvidence =
+    suiteCases !== null && suiteCases.length > 0 && suiteCases.every(caseId => passingCases.includes(caseId));
   let state;
   if (promotionReport) {
     state = evidenceStates.promotion;
-  } else if (hasCompleteCoverage) {
+  } else if (hasCompleteSuiteEvidence) {
     state = evidenceStates.complete;
   } else if (hasCurrentPass) {
     state = evidenceStates.partial;
@@ -587,8 +588,8 @@ function deriveEvidence(skillRoot, reports) {
     currentResults: Object.fromEntries(
       Object.entries(currentReportGroups).map(([status, groupedReports]) => [status, groupedReports.length]),
     ),
-    coveredCases,
-    coveredCaseCount: coveredCases.length,
+    passingCases,
+    passingCaseCount: passingCases.length,
     suiteCases,
     suiteCaseCount: suiteCases?.length ?? null,
     historicalReportCount: historicalReports.length,
@@ -667,7 +668,7 @@ function evidenceComponentData(skill) {
       qualificationGates: skill.evidence.qualificationGates ?? [],
       currentResults: skill.evidence.currentResults,
       currentReportGroups: skill.evidence.currentReportGroups,
-      coveredCaseCount: skill.evidence.coveredCaseCount,
+      passingCaseCount: skill.evidence.passingCaseCount,
       suiteCaseCount: skill.evidence.suiteCaseCount,
       promotion: skill.evidence.promotionReport !== null,
       promotionSummary: skill.evidence.promotionSummary,
@@ -1006,56 +1007,6 @@ function renderEvaluationCard(evaluation, { historical = false } = {}) {
 </a>`;
 }
 
-function renderEvidenceMechanisms(mechanisms) {
-  if (!mechanisms.length) return '<p>None declared.</p>';
-  return `<ul class="coverage-evidence-list">${mechanisms
-    .map(mechanism => {
-      const definition = evaluationGlossary.evaluationPage.evidenceMechanisms[mechanism];
-      const label = definition?.label ?? humanizeIdentifier(mechanism);
-      const description = definition?.description ?? 'A technical evidence identifier declared by the traceability manifest.';
-      return `<li><strong>${escapeHtml(label)}</strong> <code>${escapeHtml(mechanism)}</code>: ${escapeHtml(description)}</li>`;
-    })
-    .join('')}</ul>`;
-}
-
-function renderCoverage(entries, { rubric = false } = {}) {
-  if (!entries.length) return '<p class="empty-state">No mappings for this case.</p>';
-  return `<div class="coverage-list">
-${entries
-  .map(
-    entry => `<article>
-  <div class="coverage-level"><EvaluationHelp context="evaluation" field="coverageLevel" current="${escapeHtml(entry.guarantee)}"></EvaluationHelp><strong>${escapeHtml(entry.guarantee)}</strong></div>
-  <h3>${escapeHtml(humanizeIdentifier(entry.id))} <code>${escapeHtml(entry.id)}</code></h3>
-  ${rubric ? `<p><strong>Source:</strong> <code>${escapeHtml(entry.source ?? 'Not recorded')}</code></p><p><strong>Sampled sections:</strong> ${entry.sections.length ? entry.sections.map(section => escapeHtml(section)).join(' · ') : 'None declared'}</p>` : `<p>${escapeHtml(entry.statement)}</p>`}
-  <div class="coverage-dimension"><EvaluationHelp context="evaluation" field="mappingLabel" current="${escapeHtml(entry.dimension)}"></EvaluationHelp><strong>${escapeHtml(humanizeIdentifier(entry.dimension))} <code>${escapeHtml(entry.dimension)}</code></strong></div>
-  <p><strong>Declared verification mechanisms</strong></p>
-  ${renderEvidenceMechanisms(entry.evidence)}
-  ${entry.limitation ? `<p><strong>Limitation:</strong> ${escapeHtml(entry.limitation)}</p>` : ''}
-</article>`,
-  )
-  .join('\n')}
-</div>`;
-}
-
-function renderTraceabilityForCase(evaluation) {
-  if (!evaluation.traceabilityDeclared) return '';
-  return `## Skill contracts mapped to this case
-
-This is a filtered view of the skill's optional <code>coverage.json</code> traceability manifest. A mapping records intended protection, not an execution result.
-
-${renderCoverage(evaluation.coverage)}
-
-${
-  evaluation.rubricCoverage.length
-    ? `## Rubric families sampled by this case
-
-This is the rubric family view filtered from the same skill level manifest. It does not add or rerun a case.
-
-${renderCoverage(evaluation.rubricCoverage, { rubric: true })}`
-    : ''
-}`;
-}
-
 function renderOperationRows(evaluation) {
   if (!evaluation.operations.length) return '<div class="empty-state">No related operations have been archived.</div>';
   return `<div class="history-list">
@@ -1180,8 +1131,6 @@ ${renderEvaluationReadingGuide()}
 
 ${renderKindGuide()}
 
-${renderTraceabilityForCase(evaluation)}
-
 ## Current definition flow
 
 The flow connects the current public inputs to each declared verification mechanism and its possible result.
@@ -1271,19 +1220,6 @@ ${renderOperationRows(evaluation)}
 `;
 }
 
-function plural(count, singular, pluralForm = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : pluralForm}`;
-}
-
-function renderTraceabilitySummary(traceability) {
-  if (!traceability) return '';
-  return `<aside class="evaluation-reading-guide traceability-summary">
-  <strong>Execution and traceability</strong>
-  <p><code>suite.json</code> declares ${plural(traceability.executableCaseCount, 'executable case')}. The optional <code>coverage.json</code> records ${plural(traceability.skillContractCount, 'skill contract')} and ${plural(traceability.skillContractMappingCount, 'mapping')}, plus ${plural(traceability.rubricFamilyCount, 'rubric family', 'rubric families')} and ${plural(traceability.rubricFamilyMappingCount, 'mapping')}.</p>
-  <p>Traceability does not select, group, repeat, or score executable cases.</p>
-</aside>`;
-}
-
 function renderSkill(skill) {
   const reports = skill.reports.length
     ? skill.reports
@@ -1330,8 +1266,6 @@ description: ${yamlString(skill.description)}
   </div>
   ${renderEvidenceSummary(skill)}
 </div>
-
-${renderTraceabilitySummary(skill.traceability)}
 
 ## Active evaluations
 

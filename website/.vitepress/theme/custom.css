@@ -1435,8 +1435,7 @@ body {
 
 .mechanism-section,
 .result-branches,
-.operation-summary,
-.coverage-list article {
+.operation-summary {
   overflow-wrap: anywhere;
   padding: 24px;
   border: 1px solid var(--vp-c-divider);
@@ -1461,37 +1460,6 @@ body {
   flex: 0 0 auto;
   color: var(--vp-c-text-2);
   font-size: 0.76rem;
-}
-
-.coverage-list {
-  display: grid;
-  gap: 12px;
-}
-
-.coverage-level,
-.coverage-dimension {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  border-bottom: 1px solid var(--vp-c-divider);
-}
-
-.coverage-level > strong,
-.coverage-dimension > strong {
-  color: var(--vp-c-brand-1);
-  font-family: var(--vp-font-family-mono);
-  font-size: 0.68rem;
-  text-transform: uppercase;
-}
-
-.coverage-dimension {
-  margin-top: 16px;
-}
-
-.coverage-dimension > strong {
-  overflow-wrap: anywhere;
-  text-align: right;
 }
 
 .operation-summary {

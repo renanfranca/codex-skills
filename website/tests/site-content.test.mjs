@@ -185,7 +185,7 @@ test('renders an active evaluation card and a linked current-definition page', (
   assert.match(evaluationPage, /Operation history lists complete runner invocations that contain observations for this case/);
 });
 
-test('explains complete and partial coverage mappings as declarations with their verification mechanisms', () => {
+test('ignores a coverage manifest when publishing executable suite evidence', () => {
   const workspace = mkdtempSync(join(tmpdir(), 'codex-skills-evaluation-coverage-'));
   const repository = join(workspace, 'repository');
   const archive = join(repository, 'evaluation-reports');
@@ -263,46 +263,12 @@ test('explains complete and partial coverage mappings as declarations with their
   const skillPage = readFileSync(join(output, 'skills', 'example-skill.md'), 'utf8');
   const evaluationPage = readFileSync(join(output, 'skills', 'example-skill', 'evaluations', 'mapped-case.md'), 'utf8');
 
-  assert.deepEqual(
-    model.skills[0].evaluations[0].coverage.map(contract => [contract.guarantee, contract.dimension, contract.evidence]),
-    [
-      ['complete', 'public-result', ['mechanical', 'oracle']],
-      ['partial', 'context-sample', ['judge', 'executor_response']],
-    ],
-  );
-  assert.deepEqual(model.skills[0].traceability, {
-    declared: true,
-    executableCaseCount: 1,
-    skillContractCount: 2,
-    skillContractMappingCount: 2,
-    rubricFamilyCount: 1,
-    rubricFamilyMappingCount: 1,
-  });
-  assert.deepEqual(
-    model.skills[0].evaluations[0].rubricCoverage.map(family => [family.id, family.dimension, family.evidence]),
-    [['safe-boundaries', 'boundary-sample', ['mechanical', 'changed_paths']]],
-  );
-  assert.match(skillPage, /<code>suite\.json<\/code> declares 1 executable case/);
-  assert.match(skillPage, /2 skill contracts and 2 mappings/);
-  assert.match(skillPage, /1 rubric family and 1 mapping/);
-  assert.match(skillPage, /Traceability does not select, group, repeat, or score executable cases/);
-  assert.match(evaluationPage, /field="coverageLevel" current="complete"/);
-  assert.match(evaluationPage, /field="coverageLevel" current="partial"/);
-  assert.match(evaluationPage, /## Skill contracts mapped to this case/);
-  assert.match(evaluationPage, /filtered view of the skill's optional <code>coverage\.json<\/code> traceability manifest/);
-  assert.match(evaluationPage, /Complete contract <code>complete-contract<\/code>/);
-  assert.match(evaluationPage, /Partial contract <code>partial-contract<\/code>/);
-  assert.match(evaluationPage, /## Rubric families sampled by this case/);
-  assert.match(evaluationPage, /Safe boundaries <code>safe-boundaries<\/code>/);
-  assert.match(evaluationPage, /field="mappingLabel"[\s\S]*Public result[\s\S]*<code>public-result<\/code>/);
-  assert.match(evaluationPage, /field="mappingLabel"[\s\S]*Boundary sample[\s\S]*<code>boundary-sample<\/code>/);
-  assert.doesNotMatch(evaluationPage, />Dimension</);
-  assert.match(evaluationPage, /Mechanical checks[\s\S]*<code>mechanical<\/code>[\s\S]*deterministic/);
-  assert.match(evaluationPage, /Hidden oracle[\s\S]*<code>oracle<\/code>[\s\S]*case specific/);
-  assert.match(evaluationPage, /Semantic judge[\s\S]*<code>judge<\/code>[\s\S]*semantic/);
-  assert.match(evaluationPage, /Executor response[\s\S]*<code>executor_response<\/code>[\s\S]*structured response/);
-  assert.match(evaluationPage, /Changed paths[\s\S]*<code>changed_paths<\/code>[\s\S]*files changed/);
-  assert.match(evaluationPage, /Limitation:[\s\S]*The fixture samples one supported context\./);
+  assert.equal(Object.hasOwn(model.skills[0], 'traceability'), false);
+  assert.equal(Object.hasOwn(model.skills[0].evaluations[0], 'coverage'), false);
+  assert.equal(Object.hasOwn(model.skills[0].evaluations[0], 'rubricCoverage'), false);
+  assert.equal(Object.hasOwn(model.skills[0].evaluations[0], 'traceabilityDeclared'), false);
+  assert.doesNotMatch(skillPage, /traceability|skill contracts|rubric famil|mapping/i);
+  assert.doesNotMatch(evaluationPage, /traceability|coverage level|skill contracts|rubric famil|mapping label/i);
   assert.match(
     evaluationPage,
     /This deterministic case does not use an executor prompt; its public fixture files are the declared inputs\./,
@@ -669,11 +635,10 @@ test('publishes the complete evaluation vocabulary as independent concepts', () 
   assert.equal(model.evaluationGlossary.evaluationPage.concepts.evaluation.label, 'Evaluation');
   assert.equal(model.evaluationGlossary.evaluationPage.concepts.observation.label, 'Observation');
   assert.equal(model.evaluationGlossary.evaluationPage.concepts.operation.label, 'Operation');
-  assert.deepEqual(Object.keys(model.evaluationGlossary.evaluationPage.coverageLevels), ['complete', 'partial']);
-  assert.match(model.evaluationGlossary.evaluationPage.fields.coverageLevel.description, /not an execution result/i);
-  assert.equal(model.evaluationGlossary.evaluationPage.fields.mappingLabel.label, 'Mapping label');
-  assert.match(model.evaluationGlossary.evaluationPage.fields.mappingLabel.description, /local technical identifier/i);
-  assert.match(model.evaluationGlossary.evaluationPage.fields.mappingLabel.description, /does not select, group, repeat, score/i);
+  assert.equal(Object.hasOwn(model.evaluationGlossary.evaluationPage, 'coverageLevels'), false);
+  assert.equal(Object.hasOwn(model.evaluationGlossary.evaluationPage, 'evidenceMechanisms'), false);
+  assert.equal(Object.hasOwn(model.evaluationGlossary.evaluationPage.fields, 'coverageLevel'), false);
+  assert.equal(Object.hasOwn(model.evaluationGlossary.evaluationPage.fields, 'mappingLabel'), false);
   assert.deepEqual(Object.keys(model.evaluationGlossary.operations), [
     'run',
     'verify-change',
@@ -1832,10 +1797,12 @@ test('never treats a matching baseline as evidence for the current source', () =
 
   assert.equal(evidence.key, 'historical');
   assert.deepEqual(evidence.currentResults, {});
-  assert.deepEqual(evidence.coveredCases, []);
+  assert.deepEqual(evidence.passingCases, []);
+  assert.equal(Object.hasOwn(evidence, 'coveredCases'), false);
+  assert.equal(Object.hasOwn(evidence, 'coveredCaseCount'), false);
 });
 
-test('combines current passing cases across operations into complete suite coverage', () => {
+test('combines current passing cases across operations into complete current suite evidence', () => {
   const context = createEvidenceWorkspace();
   const currentFingerprint = runnerFingerprint(context.skill);
   writeEvidenceArchive({
@@ -1860,15 +1827,15 @@ test('combines current passing cases across operations into complete suite cover
   const evidence = generateEvidenceModel(context).skills[0].evidence;
 
   assert.equal(evidence.key, 'complete');
-  assert.equal(evidence.label, 'Complete current coverage');
+  assert.equal(evidence.label, 'Complete current suite evidence');
   assert.equal(evidence.promotionSummary, null);
-  assert.deepEqual(evidence.coveredCases, ['first-case', 'second-case']);
-  assert.equal(evidence.coveredCaseCount, 2);
+  assert.deepEqual(evidence.passingCases, ['first-case', 'second-case']);
+  assert.equal(evidence.passingCaseCount, 2);
   assert.equal(evidence.suiteCaseCount, 2);
   assert.deepEqual(evidence.currentResults, { FAIL: 1, PASS: 1 });
 });
 
-test('limits a current pass without complete declared coverage to partial coverage', () => {
+test('limits a current pass without complete suite evidence to partial current suite evidence', () => {
   const context = createEvidenceWorkspace();
   const currentFingerprint = runnerFingerprint(context.skill);
   writeEvidenceArchive({
@@ -1885,11 +1852,12 @@ test('limits a current pass without complete declared coverage to partial covera
   const evidence = generateEvidenceModel(context).skills[0].evidence;
 
   assert.equal(evidence.key, 'partial');
-  assert.equal(evidence.coveredCaseCount, 1);
+  assert.equal(evidence.label, 'Partial current suite evidence');
+  assert.equal(evidence.passingCaseCount, 1);
   assert.equal(evidence.suiteCaseCount, 2);
 });
 
-test('limits a current pass without a declared suite to partial coverage', () => {
+test('limits a current pass without a declared suite to partial current suite evidence', () => {
   const context = createEvidenceWorkspace();
   rmSync(join(context.skill, 'evals', 'suite.json'));
   const currentFingerprint = runnerFingerprint(context.skill);
@@ -2009,27 +1977,25 @@ test('matches the runner fingerprint contract and expected real catalog states',
   assert.equal(bySlug['execplan-tdd'].evidence.key, 'promotion');
   assert.equal(bySlug['implement-execplan'].evidence.key, 'promotion');
   assert.equal(bySlug['restructure-documentation'].evidence.key, 'promotion');
-  assert.equal(bySlug['refactor-design'].evidence.key, 'partial');
-  assert.equal(bySlug['refactor-design'].evidence.coveredCaseCount, 3);
-  assert.equal(bySlug['refactor-design'].evidence.suiteCaseCount, 12);
-  assert.deepEqual(bySlug['refactor-design'].traceability, {
-    declared: true,
-    executableCaseCount: 12,
-    skillContractCount: 11,
-    skillContractMappingCount: 21,
-    rubricFamilyCount: 5,
-    rubricFamilyMappingCount: 8,
-  });
+  assert.equal(bySlug['refactor-design'].evidence.key, 'historical');
+  assert.equal(bySlug['refactor-design'].evidence.passingCaseCount, 0);
+  assert.equal(bySlug['refactor-design'].evidence.suiteCaseCount, 11);
+  assert.equal(bySlug['refactor-design'].evaluations.length, 11);
   assert.equal(
-    bySlug['refactor-design'].evaluations.find(evaluation => evaluation.caseId === 'hidden-invocation-state').rubricCoverage.length,
-    1,
+    bySlug['refactor-design'].evaluations.some(evaluation => evaluation.caseId === 'coverage-contract'),
+    false,
   );
+  assert.equal(
+    bySlug['refactor-design'].historicalEvaluations.some(evaluation => evaluation.caseId === 'coverage-contract'),
+    true,
+  );
+  assert.equal(Object.hasOwn(bySlug['refactor-design'], 'traceability'), false);
   const refactorSkillPage = readFileSync(join(output, 'skills', 'refactor-design.md'), 'utf8');
-  assert.match(refactorSkillPage, /<code>suite\.json<\/code> declares 12 executable cases/);
-  assert.match(refactorSkillPage, /11 skill contracts and 21 mappings/);
-  assert.match(refactorSkillPage, /5 rubric families and 8 mappings/);
+  assert.match(refactorSkillPage, /Historical runs/);
+  assert.match(refactorSkillPage, /## Historical evaluations[\s\S]*Coverage contract/);
+  assert.doesNotMatch(refactorSkillPage, /traceability|coverage level|mapping label/i);
   assert.equal(bySlug['develop-skill-with-evals'].evidence.key, 'historical');
-  assert.equal(bySlug['develop-skill-with-evals'].traceability, null);
+  assert.equal(Object.hasOwn(bySlug['develop-skill-with-evals'], 'traceability'), false);
 });
 
 test('matches the runner fingerprint contract for a linked skill file', () => {
