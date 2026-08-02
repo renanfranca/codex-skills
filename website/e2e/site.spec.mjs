@@ -290,14 +290,20 @@ test('evaluation pages separate current evidence, case results, and complete ope
   expect(await firstListItem.evaluate(element => getComputedStyle(element).listStyleType)).toBe('none');
   expect(await firstListItem.evaluate(element => getComputedStyle(element, '::marker').content)).toBe('""');
   const firstStage = flow.getByRole('link').first();
-  await firstStage.focus();
-  await page.keyboard.press('Shift+Tab');
-  await page.keyboard.press('Tab');
-  await expect(firstStage).toBeFocused();
-  expect(await firstStage.evaluate(element => getComputedStyle(element).outlineStyle)).not.toBe('none');
-  await firstStage.blur();
+  await flow.scrollIntoViewIfNeeded();
+  const flowBox = await flow.boundingBox();
+  expect(flowBox).not.toBeNull();
+  const viewport = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
+  const pointerPosition = [
+    { x: 1, y: 1 },
+    { x: viewport.width - 2, y: 1 },
+    { x: 1, y: viewport.height - 2 },
+    { x: viewport.width - 2, y: viewport.height - 2 },
+  ].find(({ x, y }) => x < flowBox.x || x > flowBox.x + flowBox.width || y < flowBox.y || y > flowBox.y + flowBox.height);
+  expect(pointerPosition).toBeDefined();
+  await page.mouse.move(pointerPosition.x, pointerPosition.y);
+  await expect(flow.locator('a:hover')).toHaveCount(0);
   await expect(flow).toHaveScreenshot('evaluation-flow.png');
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   const themeSwitch = page.getByRole('switch', { name: 'Switch to dark theme' });
   const mobileNavigation = page.getByRole('button', { name: 'mobile navigation' });
@@ -310,6 +316,12 @@ test('evaluation pages separate current evidence, case results, and complete ope
   await expect(page.locator('html')).toHaveClass(/dark/);
   if (openedMobileNavigation) await mobileNavigation.click();
   await expect(flow).toHaveScreenshot('evaluation-flow-dark.png');
+
+  await firstStage.focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await expect(firstStage).toBeFocused();
+  expect(await firstStage.evaluate(element => getComputedStyle(element).outlineStyle)).not.toBe('none');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await page.goto('skills/execplan-tdd/evaluations/documentation-only-boundary');
