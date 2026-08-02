@@ -283,9 +283,13 @@ test('evaluation pages separate current evidence, case results, and complete ope
   await expect(flow.getByRole('link')).toHaveCount(6);
   await expect(flow.locator('.definition-step-result')).toHaveCount(1);
   await expect(flow.getByText('Independent checks outside the executor workspace', { exact: true })).toBeVisible();
-  for (const status of ['PASS', 'FAIL', 'ERROR', 'SKIPPED']) {
+  for (const status of ['PASS', 'FAIL', 'ERROR', 'INCONCLUSIVE']) {
     await expect(flow.getByText(status, { exact: true })).toBeVisible();
   }
+  await expect(flow.getByText('SKIPPED', { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/SKIPPED.*possible judge state.*not a final observation result/)).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Runner checks' })).toBeVisible();
+  await expect(page.getByText('Oracle process', { exact: true })).toBeVisible();
   const firstListItem = flow.locator('.definition-step').first();
   expect(await firstListItem.evaluate(element => getComputedStyle(element).listStyleType)).toBe('none');
   expect(await firstListItem.evaluate(element => getComputedStyle(element, '::marker').content)).toBe('""');
@@ -349,12 +353,24 @@ test('evaluation pages separate current evidence, case results, and complete ope
   expect(await firstStage.evaluate(element => getComputedStyle(element).outlineStyle)).not.toBe('none');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
-  await page.goto('skills/execplan-tdd/evaluations/documentation-only-boundary');
+  await page.goto('skills/execplan-tdd/evaluations/incomplete-profile-gate');
   const judgeDisabledFlow = page.locator('.definition-flow');
   await expect(judgeDisabledFlow.getByRole('link')).toHaveCount(5);
   await expect(judgeDisabledFlow.getByText('Judge', { exact: true })).toHaveCount(0);
   await expect(judgeDisabledFlow.getByText('Independent checks outside the executor workspace', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Judge verification' })).toBeVisible();
+  await expect(page.getByText('Not used in this case.', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  await page.goto('skills/refactor-design/evaluations/red-suite-gate');
+  const redSuiteCommand = page.locator('.command-list li').filter({ hasText: 'python3 -m unittest -q' });
+  await expect(redSuiteCommand.getByText('Workspace check', { exact: true })).toBeVisible();
+  await expect(redSuiteCommand.getByText('Expected exit: 1', { exact: true })).toBeVisible();
+  await expect(redSuiteCommand.getByText('Exit code 1 is the success condition for this command.', { exact: true })).toBeVisible();
+
+  await page.goto('skills/refactor-design/evaluations/trigger-selection');
+  await expect(page.getByRole('heading', { level: 2, name: 'Prompt' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Prompt and starting repository' })).toHaveCount(0);
 
   await page.goto('skills/develop-skill-with-evals/evaluations/global-target-skill-isolation');
   await expect(page.getByText('Not evaluated yet', { exact: true }).first()).toBeVisible();

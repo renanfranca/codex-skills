@@ -17,11 +17,12 @@ test('publishes every active evaluation including cases without archived observa
 
   mkdirSync(join(skill, 'evals', 'cases', 'semantic-case', 'fixture'), { recursive: true });
   mkdirSync(join(skill, 'evals', 'cases', 'deterministic-case'), { recursive: true });
+  mkdirSync(join(skill, 'evals', 'cases', 'executor-case'), { recursive: true });
   mkdirSync(archive, { recursive: true });
   writeFileSync(join(skill, 'SKILL.md'), '---\nname: example-skill\ndescription: Publish declared evaluations.\n---\n');
   writeFileSync(
     join(skill, 'evals', 'suite.json'),
-    `${JSON.stringify({ version: 1, cases: ['semantic-case', 'deterministic-case'] }, null, 2)}\n`,
+    `${JSON.stringify({ version: 1, cases: ['semantic-case', 'deterministic-case', 'executor-case'] }, null, 2)}\n`,
   );
   writeFileSync(
     join(skill, 'evals', 'cases', 'semantic-case', 'case.json'),
@@ -37,7 +38,7 @@ test('publishes every active evaluation including cases without archived observa
           commands: [{ argv: ['python3', '-m', 'unittest'], exit_code: 0 }],
         },
         oracle: { commands: [{ argv: ['python3', '{oracle_dir}/check.py'], exit_code: 0 }] },
-        judge: { enabled: true, criteria: ['The result is useful.'], no_action_acceptable: false },
+        judge: { enabled: true, criteria: ['The result is useful.'], no_action_acceptable: true },
       },
       null,
       2,
@@ -58,6 +59,21 @@ test('publishes every active evaluation including cases without archived observa
       2,
     )}\n`,
   );
+  writeFileSync(
+    join(skill, 'evals', 'cases', 'executor-case', 'case.json'),
+    `${JSON.stringify(
+      {
+        id: 'executor-case',
+        kind: 'trigger',
+        prompt_file: 'prompt.md',
+        mechanical: { expected_exit_code: 0 },
+        judge: { enabled: false, criteria: [] },
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  writeFileSync(join(skill, 'evals', 'cases', 'executor-case', 'prompt.md'), 'Choose the matching skill.\n');
   writeFileSync(join(archive, 'manifest.json'), '{"version":1,"report_count":0,"reports":[]}\n');
 
   execFileSync(
@@ -69,12 +85,14 @@ test('publishes every active evaluation including cases without archived observa
   const skillModel = JSON.parse(readFileSync(join(output, 'data.json'), 'utf8')).skills[0];
   const semanticPage = readFileSync(join(output, 'skills', 'example-skill', 'evaluations', 'semantic-case.md'), 'utf8');
   const deterministicPage = readFileSync(join(output, 'skills', 'example-skill', 'evaluations', 'deterministic-case.md'), 'utf8');
+  const executorPage = readFileSync(join(output, 'skills', 'example-skill', 'evaluations', 'executor-case.md'), 'utf8');
 
   assert.deepEqual(
     skillModel.evaluations.map(evaluation => [evaluation.caseId, evaluation.kind, evaluation.evidence.label]),
     [
       ['semantic-case', 'behavioral', 'Not evaluated yet'],
       ['deterministic-case', 'deterministic', 'Not evaluated yet'],
+      ['executor-case', 'trigger', 'Not evaluated yet'],
     ],
   );
   assert.equal(skillModel.evaluations[0].prompt, 'Create a useful result.\n');
@@ -86,18 +104,39 @@ test('publishes every active evaluation including cases without archived observa
   assert.equal(skillModel.evaluations[0].judge.applicable, true);
   assert.equal(skillModel.evaluations[1].prompt, null);
   assert.equal(skillModel.evaluations[1].judge.applicable, false);
+  assert.equal(skillModel.evaluations[2].prompt, 'Choose the matching skill.\n');
+  assert.deepEqual(skillModel.evaluations[2].fixturePaths, []);
   assert.deepEqual(skillModel.historicalEvaluations, []);
   assert.match(semanticPage, /class="definition-flow definition-stepper" style="--flow-stages: 6"/);
   assert.match(deterministicPage, /class="definition-flow definition-stepper" style="--flow-stages: 3"/);
+  assert.match(executorPage, /class="definition-flow definition-stepper" style="--flow-stages: 4"/);
   assert.doesNotMatch(deterministicPage, /href="#judge-verification"/);
   assert.doesNotMatch(deterministicPage, />Judge</);
+  assert.match(deterministicPage, /This deterministic case does not use an executor prompt or a starting repository\./);
+  assert.match(deterministicPage, /## Oracle verification[\s\S]*Not used in this case/);
+  assert.match(deterministicPage, /## Judge verification[\s\S]*Not used in this case/);
+  assert.match(
+    semanticPage,
+    /repository-controlled code kept outside the workspace visible to the executor[\s\S]*another process against the workspace left by the executor/,
+  );
+  assert.match(semanticPage, /Oracle process[\s\S]*python3 \{oracle_dir\}\/check\.py/);
+  assert.match(semanticPage, /The judge may accept a response without workspace changes when the declared criteria are satisfied\./);
+  assert.match(executorPage, /## Prompt\n/);
+  assert.doesNotMatch(executorPage, /Prompt and starting repository|Starting repository files/);
+  assert.match(deterministicPage, /Case decision[\s\S]*PASS[\s\S]*FAIL/);
+  assert.doesNotMatch(deterministicPage, /<span>ERROR<\/span>|<span>INCONCLUSIVE<\/span>|<span>SKIPPED<\/span>/);
+  assert.match(executorPage, /Case decision[\s\S]*PASS[\s\S]*FAIL[\s\S]*ERROR/);
+  assert.doesNotMatch(executorPage, /<span>INCONCLUSIVE<\/span>|<span>SKIPPED<\/span>/);
+  assert.match(semanticPage, /Case decision[\s\S]*PASS[\s\S]*FAIL[\s\S]*ERROR[\s\S]*INCONCLUSIVE/);
+  assert.doesNotMatch(semanticPage, /<span>SKIPPED<\/span>/);
+  assert.match(semanticPage, /SKIPPED<\/code> is a possible judge state after an earlier failure, not a final observation result\./);
   assert.match(semanticPage, /<EvaluationHelp context="evaluation" field="kind" current="behavioral"/);
   assert.match(semanticPage, /<strong>Behavioral<\/strong> <code>behavioral<\/code>[\s\S]*user visible or public contract behavior/);
   assert.match(semanticPage, /<strong>Nonbehavioral<\/strong> <code>non_behavioral<\/code>[\s\S]*does not require semantic task execution/);
   assert.match(semanticPage, /<strong>Trigger<\/strong> <code>trigger<\/code>[\s\S]*selected and invoked appropriately/);
   assert.match(semanticPage, /<strong>Deterministic<\/strong> <code>deterministic<\/code>[\s\S]*zero model sessions/);
-  assert.match(semanticPage, /Expected executor exit code/);
-  assert.doesNotMatch(deterministicPage, /Expected executor exit code/);
+  assert.match(semanticPage, /Executor process[\s\S]*Expected exit: 0/);
+  assert.doesNotMatch(deterministicPage, /Executor process/);
 });
 
 test('renders an active evaluation card and a linked current-definition page', () => {
@@ -127,7 +166,7 @@ test('renders an active evaluation card and a linked current-definition page', (
         mechanical: {
           expected_exit_code: 0,
           required_paths: ['result.txt'],
-          commands: [{ argv: ['python3', 'check.py'], exit_code: 0 }],
+          commands: [{ argv: ['python3', 'check.py'], exit_code: 1 }],
         },
         oracle: { commands: [{ argv: ['python3', '{oracle_dir}/check.py'], exit_code: 0 }] },
         judge: { enabled: true, criteria: ['Reject <script>alert(1)</script>.'], no_action_acceptable: false },
@@ -177,24 +216,41 @@ test('renders an active evaluation card and a linked current-definition page', (
   assert.equal((evaluationPage.match(/class="definition-step(?: definition-step-result)?"/g) ?? []).length, 6);
   assert.equal((evaluationPage.match(/class="definition-step-node" aria-hidden="true"/g) ?? []).length, 6);
   assert.match(evaluationPage, /href="#public-input"/);
-  assert.match(evaluationPage, /Prompt and fixture[\s\S]*Public task and declared fixture files/);
+  assert.match(evaluationPage, /Prompt and starting repository[\s\S]*Prompt and initial workspace copied for the executor/);
   assert.match(evaluationPage, /Executor[\s\S]*Isolated model invocation/);
   assert.match(evaluationPage, /href="#mechanical-checks"/);
-  assert.match(evaluationPage, /Mechanical checks[\s\S]*Deterministic requirements/);
+  assert.match(evaluationPage, /Runner checks[\s\S]*Automatic and case-declared checks/);
   assert.match(evaluationPage, /href="#oracle-verification"/);
   assert.match(evaluationPage, /Oracle[\s\S]*Independent checks outside the executor workspace/);
   assert.match(evaluationPage, /href="#judge-verification"/);
   assert.match(evaluationPage, /Judge[\s\S]*Semantic evaluation in a separate model invocation/);
   assert.match(evaluationPage, /class="definition-step definition-step-result"/);
-  assert.match(evaluationPage, /Result branches[\s\S]*PASS[\s\S]*FAIL[\s\S]*ERROR[\s\S]*SKIPPED/);
-  assert.match(evaluationPage, /## Public prompt/);
-  assert.match(evaluationPage, /This is the public task supplied to the executor for this case\./);
+  assert.match(evaluationPage, /Case decision[\s\S]*PASS[\s\S]*FAIL[\s\S]*ERROR[\s\S]*INCONCLUSIVE/);
+  assert.doesNotMatch(evaluationPage, /<span>SKIPPED<\/span>/);
+  assert.match(evaluationPage, /## Prompt and starting repository/);
+  assert.match(
+    evaluationPage,
+    /The fixture is the starting repository copied into the disposable executor workspace\. It is input to the evaluation, not an evaluation result\./,
+  );
   assert.match(evaluationPage, /Treat <img src=x onerror=alert\(1\)> as text\./);
   assert.doesNotMatch(evaluationPage, /<script>alert\(1\)<\/script>/);
   assert.match(evaluationPage, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
-  assert.match(evaluationPage, /Mechanical checks are deterministic requirements recorded by the case definition\./);
-  assert.match(evaluationPage, /Oracle verification applies repository-owned commands outside the executor workspace/);
+  assert.match(evaluationPage, /## Runner checks/);
+  assert.match(evaluationPage, /Automatic runner checks/);
+  assert.match(evaluationPage, /Executor process[\s\S]*Expected exit: 0/);
+  assert.match(evaluationPage, /Structured executor response/);
+  assert.match(evaluationPage, /Evaluated skill integrity/);
+  assert.match(evaluationPage, /Case-declared requirements/);
+  assert.match(evaluationPage, /Required paths[\s\S]*result\.txt/);
+  assert.match(evaluationPage, /Workspace checks[\s\S]*Workspace check[\s\S]*python3 check\.py[\s\S]*Expected exit: 1/);
+  assert.match(evaluationPage, /Exit code 1 is the success condition for this command\./);
+  assert.match(evaluationPage, /The oracle is repository-controlled code kept outside the workspace visible to the executor/);
   assert.match(evaluationPage, /Judge verification applies the declared semantic criteria after earlier checks allow it to run\./);
+  assert.match(
+    evaluationPage,
+    /A response without workspace changes is not sufficient by itself; the declared criteria still determine the verdict\./,
+  );
+  assert.doesNotMatch(evaluationPage, /No action acceptable:[\s\S]*(?:true|false)/);
   assert.match(evaluationPage, /The latest operation is the newest archived runner invocation related to this case/);
   assert.match(evaluationPage, /Operation history lists complete runner invocations that contain observations for this case/);
 });
@@ -283,10 +339,7 @@ test('ignores a coverage manifest when publishing executable suite evidence', ()
   assert.equal(Object.hasOwn(model.skills[0].evaluations[0], 'traceabilityDeclared'), false);
   assert.doesNotMatch(skillPage, /traceability|skill contracts|rubric famil|mapping/i);
   assert.doesNotMatch(evaluationPage, /traceability|coverage level|skill contracts|rubric famil|mapping label/i);
-  assert.match(
-    evaluationPage,
-    /This deterministic case does not use an executor prompt; its public fixture files are the declared inputs\./,
-  );
+  assert.match(evaluationPage, /This deterministic case does not use an executor prompt or a starting repository\./);
 });
 
 test('generates a factual skill history from an archived evaluation', () => {

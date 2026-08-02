@@ -966,9 +966,27 @@ ${limitations}
 `;
 }
 
-function renderCommand(command) {
+function renderCommand(command, role) {
   const argv = command.argv.length ? command.argv.join(' ') : 'Not recorded';
-  return `<li><code>${escapeHtml(argv)}</code><span>Expected exit: ${escapeHtml(command.exitCode)}</span></li>`;
+  const nonzeroSuccess =
+    command.exitCode !== 0 && command.exitCode !== 'Not recorded'
+      ? `<small>Exit code ${escapeHtml(command.exitCode)} is the success condition for this command.</small>`
+      : '';
+  return `<li><strong>${escapeHtml(role)}</strong><code>${escapeHtml(argv)}</code><span>Expected exit: ${escapeHtml(command.exitCode)}</span>${nonzeroSuccess}</li>`;
+}
+
+function evaluationDecisionOutcomes(evaluation) {
+  const outcomes = [
+    { status: 'PASS', description: 'every applicable check and semantic decision passes.' },
+    { status: 'FAIL', description: 'a runner check, oracle process, or enabled judge fails.' },
+  ];
+  if (evaluation.kind !== 'deterministic') {
+    outcomes.push({ status: 'ERROR', description: 'executor or judge infrastructure prevents a valid case decision.' });
+  }
+  if (evaluation.judge.applicable) {
+    outcomes.push({ status: 'INCONCLUSIVE', description: 'the judge runs but cannot determine a verdict.' });
+  }
+  return outcomes;
 }
 
 function renderEvaluationFlow(evaluation) {
@@ -976,10 +994,18 @@ function renderEvaluationFlow(evaluation) {
   if (evaluation.kind === 'deterministic') {
     stages.push({ id: 'public-input', title: 'Deterministic inputs', description: 'Declared files and deterministic inputs' });
   } else {
-    stages.push({ id: 'public-input', title: 'Prompt and fixture', description: 'Public task and declared fixture files' });
+    stages.push(
+      evaluation.fixturePaths.length
+        ? {
+            id: 'public-input',
+            title: 'Prompt and starting repository',
+            description: 'Prompt and initial workspace copied for the executor',
+          }
+        : { id: 'public-input', title: 'Prompt', description: 'Public task supplied to the executor' },
+    );
     stages.push({ id: 'executor', title: 'Executor', description: 'Isolated model invocation' });
   }
-  stages.push({ id: 'mechanical-checks', title: 'Mechanical checks', description: 'Deterministic requirements' });
+  stages.push({ id: 'mechanical-checks', title: 'Runner checks', description: 'Automatic and case-declared checks' });
   if (evaluation.oracle.applicable) {
     stages.push({
       id: 'oracle-verification',
@@ -994,7 +1020,12 @@ function renderEvaluationFlow(evaluation) {
       description: 'Semantic evaluation in a separate model invocation',
     });
   }
-  stages.push({ id: 'definition-result', title: 'Result branches', description: 'PASS · FAIL · ERROR · SKIPPED', result: true });
+  stages.push({
+    id: 'definition-result',
+    title: 'Case decision',
+    statuses: evaluationDecisionOutcomes(evaluation).map(outcome => outcome.status),
+    result: true,
+  });
   return `<ol class="definition-flow definition-stepper" style="--flow-stages: ${stages.length}" aria-label="Current evaluation definition">
 ${stages
   .map(
@@ -1003,7 +1034,7 @@ ${stages
     <span class="definition-step-node" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>
     <span class="definition-step-copy"><strong>${escapeHtml(stage.title)}</strong>${
       stage.result
-        ? '<small class="definition-result-statuses"><span>PASS</span><span>FAIL</span><span>ERROR</span><span>SKIPPED</span></small>'
+        ? `<small class="definition-result-statuses">${stage.statuses.map(status => `<span>${status}</span>`).join('')}</small>`
         : `<small>${escapeHtml(stage.description)}</small>`
     }</span>
   </a>
@@ -1079,6 +1110,14 @@ function renderEvaluationReadingGuide() {
 </aside>`;
 }
 
+function explainNoActionAcceptable(value) {
+  if (value === true) return 'The judge may accept a response without workspace changes when the declared criteria are satisfied.';
+  if (value === false) {
+    return 'A response without workspace changes is not sufficient by itself; the declared criteria still determine the verdict.';
+  }
+  return 'Whether the judge may accept a response without workspace changes was not recorded.';
+}
+
 function renderKindGuide() {
   return `<aside class="evaluation-kind-guide">
   <strong>Kind chooses the evaluation path</strong>
@@ -1102,30 +1141,48 @@ function renderActiveEvaluation(evaluation) {
     ? evaluation.mechanical.protectedChangedPaths.map(path => `<li><code>${escapeHtml(path)}</code></li>`).join('\n')
     : '<li>None</li>';
   const commands = evaluation.mechanical.commands.length
-    ? evaluation.mechanical.commands.map(renderCommand).join('\n')
+    ? evaluation.mechanical.commands.map(command => renderCommand(command, 'Workspace check')).join('\n')
     : '<li>None recorded</li>';
-  const publicPromptExplanation =
-    evaluation.kind === 'deterministic'
-      ? 'This deterministic case does not use an executor prompt; its public fixture files are the declared inputs.'
+  const inputHeading = evaluation.fixturePaths.length ? 'Prompt and starting repository' : 'Prompt';
+  const publicPromptExplanation = evaluation.fixturePaths.length
+    ? evaluation.kind === 'deterministic'
+      ? 'This deterministic case does not use an executor prompt. The fixture is the starting repository copied into the disposable workspace. It is input to the evaluation, not an evaluation result.'
+      : 'The fixture is the starting repository copied into the disposable executor workspace. It is input to the evaluation, not an evaluation result.'
+    : evaluation.kind === 'deterministic'
+      ? 'This deterministic case does not use an executor prompt or a starting repository.'
       : 'This is the public task supplied to the executor for this case.';
+  const fixtureSection = evaluation.fixturePaths.length
+    ? `<div class="mechanism-section">
+<h3>Starting repository files</h3>
+<ul>${fixtureList}</ul>
+</div>`
+    : '';
+  const decisionOutcomes = evaluationDecisionOutcomes(evaluation)
+    .map(outcome => `<p><strong>${escapeHtml(outcome.status)}:</strong> ${escapeHtml(outcome.description)}</p>`)
+    .join('\n');
   const oracleSection = evaluation.oracle.applicable
     ? `## Oracle verification
 
 <div id="oracle-verification" class="mechanism-section" tabindex="-1">
-<p>Oracle verification applies repository-owned commands outside the executor workspace to inspect behavior the public task cannot establish alone.</p>
-<p>The runner applies these declared oracle commands outside the executor workspace.</p>
-<ul class="command-list">${evaluation.oracle.commands.map(renderCommand).join('\n')}</ul>
+<p>The oracle is repository-controlled code kept outside the workspace visible to the executor.</p>
+<p>The runner launches each oracle command as another process against the workspace left by the executor.</p>
+<ul class="command-list">${evaluation.oracle.commands.map(command => renderCommand(command, 'Oracle process')).join('\n')}</ul>
 </div>`
-    : '';
+    : `## Oracle verification
+
+<div class="mechanism-section"><p><strong>Not used in this case.</strong></p></div>`;
   const judgeSection = evaluation.judge.applicable
     ? `## Judge verification
 
 <div id="judge-verification" class="mechanism-section" tabindex="-1">
 <p>Judge verification applies the declared semantic criteria after earlier checks allow it to run.</p>
-<p><strong>No action acceptable:</strong> ${escapeHtml(evaluation.judge.noActionAcceptable)}</p>
+<p>${escapeHtml(explainNoActionAcceptable(evaluation.judge.noActionAcceptable))}</p>
+<p><code>SKIPPED</code> is a possible judge state after an earlier failure, not a final observation result.</p>
 <ul>${evaluation.judge.criteria.map(criterion => `<li>${escapeHtml(criterion)}</li>`).join('\n')}</ul>
 </div>`
-    : '';
+    : `## Judge verification
+
+<div class="mechanism-section"><p><strong>Not used in this case.</strong></p></div>`;
 
   return `---
 title: ${yamlString(evaluation.title)}
@@ -1161,7 +1218,7 @@ Follow the current evaluation from its public input through each declared verifi
 
 ${renderEvaluationFlow(evaluation)}
 
-## Public prompt
+## ${inputHeading}
 
 ${publicPromptExplanation}
 
@@ -1169,36 +1226,41 @@ ${publicPromptExplanation}
 
 ${codeBlock(evaluation.prompt ?? 'Not used for this deterministic case.', 'text')}
 
-<div class="mechanism-section">
-<h3>Public fixture files</h3>
-<ul>${fixtureList}</ul>
-</div>
+${fixtureSection}
 
 ${evaluation.kind === 'deterministic' ? '' : '## Executor\n\n<div id="executor" class="mechanism-section" tabindex="-1"><p>The executor performs the public prompt in an isolated model invocation.</p></div>\n'}
 
-## Mechanical checks
+## Runner checks
 
-Mechanical checks are deterministic requirements recorded by the case definition.
+Runner checks combine automatic verification performed for this evaluation kind with requirements declared by the case.
 
 <div id="mechanical-checks" class="mechanism-section" tabindex="-1">
-${evaluation.kind === 'deterministic' ? '' : `<p><strong>Expected executor exit code:</strong> ${escapeHtml(evaluation.mechanical.expectedExitCode)}</p>`}
+<h3>Automatic runner checks</h3>
+<ul>
+${
+  evaluation.kind === 'deterministic'
+    ? ''
+    : `<li><strong>Executor process</strong><span>Expected exit: ${escapeHtml(evaluation.mechanical.expectedExitCode)}</span></li>
+<li><strong>Structured executor response</strong><span>Must be present and valid.</span></li>`
+}
+<li><strong>Evaluated skill integrity</strong><span>The evaluated skill must remain unchanged.</span></li>
+</ul>
+<h3>Case-declared requirements</h3>
 <h3>Required paths</h3><ul>${requiredPaths}</ul>
 <h3>Protected changed paths</h3><ul>${protectedPaths}</ul>
-<h3>Commands</h3><ul class="command-list">${commands}</ul>
+<h3>Workspace checks</h3><ul class="command-list">${commands}</ul>
 </div>
 
 ${oracleSection}
 
 ${judgeSection}
 
-## Result branches
+## Case decision
 
-These branches explain how declared mechanisms combine into an observation result when an operation runs this case.
+The runner records one final result for this case observation.
 
 <div id="definition-result" class="result-branches" tabindex="-1">
-  <p><strong>Pass:</strong> every applicable earlier mechanism satisfies its contract.</p>
-  <p><strong>Fail or error:</strong> a failed earlier mechanism stops later semantic verification when the runner contract requires it.</p>
-  <p><strong>Skipped:</strong> an enabled judge can be skipped after a mechanical or oracle failure.</p>
+${decisionOutcomes}
 </div>
 
 ## Latest operation flow
