@@ -974,20 +974,39 @@ function renderCommand(command) {
 function renderEvaluationFlow(evaluation) {
   const stages = [];
   if (evaluation.kind === 'deterministic') {
-    stages.push(['public-input', 'Deterministic inputs']);
+    stages.push({ id: 'public-input', title: 'Deterministic inputs', description: 'Declared files and deterministic inputs' });
   } else {
-    stages.push(['public-input', 'Prompt and fixture']);
-    stages.push(['executor', 'Executor']);
+    stages.push({ id: 'public-input', title: 'Prompt and fixture', description: 'Public task and declared fixture files' });
+    stages.push({ id: 'executor', title: 'Executor', description: 'Isolated model invocation' });
   }
-  stages.push(['mechanical-checks', 'Mechanical checks']);
-  if (evaluation.oracle.applicable) stages.push(['oracle-verification', 'Oracle']);
-  if (evaluation.judge.applicable) stages.push(['judge-verification', 'Judge']);
-  stages.push(['definition-result', 'Result branches']);
-  return `<ol class="evaluation-flow definition-flow" aria-label="Current evaluation definition">
+  stages.push({ id: 'mechanical-checks', title: 'Mechanical checks', description: 'Deterministic requirements' });
+  if (evaluation.oracle.applicable) {
+    stages.push({
+      id: 'oracle-verification',
+      title: 'Oracle',
+      description: 'Independent checks outside the executor workspace',
+    });
+  }
+  if (evaluation.judge.applicable) {
+    stages.push({
+      id: 'judge-verification',
+      title: 'Judge',
+      description: 'Semantic evaluation in a separate model invocation',
+    });
+  }
+  stages.push({ id: 'definition-result', title: 'Result branches', description: 'PASS · FAIL · ERROR · SKIPPED', result: true });
+  return `<ol class="definition-flow definition-stepper" style="--flow-stages: ${stages.length}" aria-label="Current evaluation definition">
 ${stages
   .map(
-    ([id, label], index) => `<li class="flow-stage">
-  <a href="#${id}"><span>${String(index + 1).padStart(2, '0')}</span><strong>${escapeHtml(label)}</strong></a>
+    (stage, index) => `<li class="definition-step${stage.result ? ' definition-step-result' : ''}">
+  <a href="#${stage.id}">
+    <span class="definition-step-node" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>
+    <span class="definition-step-copy"><strong>${escapeHtml(stage.title)}</strong>${
+      stage.result
+        ? '<small class="definition-result-statuses"><span>PASS</span><span>FAIL</span><span>ERROR</span><span>SKIPPED</span></small>'
+        : `<small>${escapeHtml(stage.description)}</small>`
+    }</span>
+  </a>
 </li>`,
   )
   .join('\n')}
@@ -1136,9 +1155,9 @@ ${renderEvaluationReadingGuide()}
 
 ${renderKindGuide()}
 
-## Current definition flow
+## How this evaluation runs
 
-The flow connects the current public inputs to each declared verification mechanism and its possible result.
+Follow the current evaluation from its public input through each declared verification mechanism to its possible result.
 
 ${renderEvaluationFlow(evaluation)}
 

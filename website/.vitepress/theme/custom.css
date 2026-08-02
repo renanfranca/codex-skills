@@ -1367,7 +1367,7 @@ body {
   --evidence-surface: var(--evidence-no-evaluation-surface);
 }
 
-.evaluation-flow {
+.operation-flow {
   display: grid;
   margin: 28px 0 !important;
   padding: 0 !important;
@@ -1376,12 +1376,12 @@ body {
   list-style: none;
 }
 
-.evaluation-flow .flow-stage {
+.operation-flow .flow-stage {
   position: relative;
   min-width: 0;
 }
 
-.evaluation-flow .flow-stage:not(:last-child)::after {
+.operation-flow .flow-stage:not(:last-child)::after {
   position: absolute;
   z-index: 1;
   top: 50%;
@@ -1392,7 +1392,7 @@ body {
   content: '';
 }
 
-.evaluation-flow a {
+.operation-flow a {
   display: flex;
   min-height: 134px;
   flex-direction: column;
@@ -1404,33 +1404,174 @@ body {
   text-decoration: none !important;
 }
 
-.evaluation-flow a:hover {
+.operation-flow a:hover {
   border-color: var(--vp-c-brand-1);
 }
 
-.evaluation-flow a:focus,
-.evaluation-flow a:focus-visible,
+.operation-flow a:focus,
+.operation-flow a:focus-visible,
 .evaluation-card:focus-visible {
   border-color: var(--vp-c-brand-1);
   outline: 3px solid var(--vp-c-brand-1);
   outline-offset: 3px;
 }
 
-.evaluation-flow a > span,
-.evaluation-flow a > small {
+.operation-flow a > span,
+.operation-flow a > small {
   color: var(--vp-c-text-2);
   font-family: var(--vp-font-family-mono);
   font-size: 0.66rem;
   line-height: 1.55;
 }
 
-.evaluation-flow a > strong {
+.operation-flow a > strong {
   font-size: 0.92rem;
   line-height: 1.35;
 }
 
 .operation-flow a {
   min-height: 154px;
+}
+
+.vp-doc ol.definition-stepper {
+  display: grid;
+  margin: 32px 0 40px !important;
+  padding: 0 !important;
+  grid-template-columns: repeat(var(--flow-stages), minmax(0, 1fr));
+  list-style: none !important;
+}
+
+.vp-doc ol.definition-stepper > li {
+  position: relative;
+  min-width: 0;
+  margin: 0;
+  list-style: none !important;
+}
+
+.vp-doc ol.definition-stepper > li::marker {
+  content: '';
+}
+
+.definition-step:not(:last-child)::after {
+  position: absolute;
+  z-index: 0;
+  top: 24px;
+  left: calc(50% + 25px);
+  width: calc(100% - 50px);
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--vp-c-brand-1), color-mix(in srgb, var(--vp-c-brand-3) 65%, var(--vp-c-brand-2)));
+  content: '';
+}
+
+.definition-step:not(:last-child)::before {
+  position: absolute;
+  z-index: 1;
+  top: 20px;
+  left: calc(100% - 6px);
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid var(--vp-c-brand-2);
+  border-right: 2px solid var(--vp-c-brand-2);
+  content: '';
+  transform: rotate(45deg);
+}
+
+.definition-step a {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  min-width: 0;
+  justify-items: center;
+  padding: 0 7px;
+  color: var(--vp-c-text-1) !important;
+  text-align: center;
+  text-decoration: none !important;
+}
+
+.definition-step a:focus,
+.definition-step a:focus-visible {
+  border-radius: 12px;
+  outline: 3px solid var(--vp-c-brand-1);
+  outline-offset: 5px;
+}
+
+.definition-step-node {
+  display: grid;
+  width: 50px;
+  height: 50px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 68%, var(--vp-c-divider));
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--vp-c-bg-elv) 88%, var(--vp-c-brand-soft));
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--vp-c-brand-soft) 65%, transparent),
+    0 5px 13px color-mix(in srgb, var(--vp-c-text-1) 12%, transparent);
+  color: var(--vp-c-brand-1);
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  transition:
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.definition-step a:hover .definition-step-node,
+.definition-step a:focus .definition-step-node,
+.definition-step a:focus-visible .definition-step-node {
+  box-shadow:
+    0 0 0 8px color-mix(in srgb, var(--vp-c-brand-soft) 90%, transparent),
+    0 7px 17px color-mix(in srgb, var(--vp-c-brand-1) 24%, transparent);
+  transform: translateY(-1px);
+}
+
+.definition-step-copy {
+  display: grid;
+  min-width: 0;
+  justify-items: center;
+  gap: 7px;
+  margin-top: 18px;
+}
+
+.definition-step-copy strong {
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+
+.definition-step-copy small {
+  color: var(--vp-c-text-2);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.definition-step-result .definition-step-node {
+  border-color: var(--vp-c-brand-1);
+  border-radius: 14px;
+  background: linear-gradient(145deg, var(--vp-c-brand-1), var(--vp-c-brand-2));
+  box-shadow:
+    0 0 0 7px color-mix(in srgb, var(--vp-c-brand-soft) 80%, transparent),
+    0 6px 15px color-mix(in srgb, var(--vp-c-brand-1) 25%, transparent);
+  color: #fff;
+}
+
+.definition-result-statuses {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.definition-result-statuses span {
+  padding: 2px 5px;
+  border: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 45%, var(--vp-c-divider));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--vp-c-brand-soft) 55%, var(--vp-c-bg-elv));
+  color: var(--vp-c-text-1);
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.55rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 .mechanism-section,
@@ -1641,11 +1782,11 @@ body {
     flex-direction: column;
   }
 
-  .evaluation-flow {
+  .operation-flow {
     grid-template-columns: 1fr;
   }
 
-  .evaluation-flow .flow-stage:not(:last-child)::after {
+  .operation-flow .flow-stage:not(:last-child)::after {
     top: auto;
     right: 50%;
     bottom: -8px;
@@ -1653,9 +1794,53 @@ body {
     height: 8px;
   }
 
-  .evaluation-flow a,
   .operation-flow a {
     min-height: 116px;
+  }
+
+  .vp-doc ol.definition-stepper {
+    grid-template-columns: 1fr;
+    margin-top: 28px !important;
+  }
+
+  .definition-step a {
+    grid-template-columns: 50px minmax(0, 1fr);
+    justify-items: start;
+    gap: 18px;
+    padding: 0 0 30px;
+    text-align: left;
+  }
+
+  .definition-step-copy {
+    justify-items: start;
+    margin-top: 3px;
+  }
+
+  .definition-step-copy strong {
+    font-size: 0.9rem;
+  }
+
+  .definition-step-copy small {
+    font-size: 0.72rem;
+  }
+
+  .definition-step:not(:last-child)::after {
+    top: 50px;
+    bottom: -25px;
+    left: 24px;
+    width: 3px;
+    height: auto;
+    background: linear-gradient(180deg, var(--vp-c-brand-1), color-mix(in srgb, var(--vp-c-brand-3) 65%, var(--vp-c-brand-2)));
+  }
+
+  .definition-step:not(:last-child)::before {
+    top: calc(100% - 13px);
+    left: 20px;
+    transform: rotate(135deg);
+  }
+
+  .definition-result-statuses {
+    justify-content: flex-start;
   }
 }
 

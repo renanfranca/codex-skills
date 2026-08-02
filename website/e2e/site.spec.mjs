@@ -280,11 +280,43 @@ test('evaluation pages separate current evidence, case results, and complete ope
     page.locator('.operation-summary > div').filter({ hasText: 'Complete operation result' }).getByText('FAIL', { exact: true }),
   ).toBeVisible();
   const flow = page.locator('.definition-flow');
+  await expect(flow.getByRole('link')).toHaveCount(6);
+  await expect(flow.locator('.definition-step-result')).toHaveCount(1);
+  await expect(flow.getByText('Independent checks outside the executor workspace', { exact: true })).toBeVisible();
+  for (const status of ['PASS', 'FAIL', 'ERROR', 'SKIPPED']) {
+    await expect(flow.getByText(status, { exact: true })).toBeVisible();
+  }
+  const firstListItem = flow.locator('.definition-step').first();
+  expect(await firstListItem.evaluate(element => getComputedStyle(element).listStyleType)).toBe('none');
+  expect(await firstListItem.evaluate(element => getComputedStyle(element, '::marker').content)).toBe('""');
   const firstStage = flow.getByRole('link').first();
   await firstStage.focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
   await expect(firstStage).toBeFocused();
   expect(await firstStage.evaluate(element => getComputedStyle(element).outlineStyle)).not.toBe('none');
+  await firstStage.blur();
   await expect(flow).toHaveScreenshot('evaluation-flow.png');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  const themeSwitch = page.getByRole('switch', { name: 'Switch to dark theme' });
+  const mobileNavigation = page.getByRole('button', { name: 'mobile navigation' });
+  let openedMobileNavigation = false;
+  if (!(await themeSwitch.isVisible())) {
+    await mobileNavigation.click();
+    openedMobileNavigation = true;
+  }
+  await themeSwitch.click();
+  await expect(page.locator('html')).toHaveClass(/dark/);
+  if (openedMobileNavigation) await mobileNavigation.click();
+  await expect(flow).toHaveScreenshot('evaluation-flow-dark.png');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  await page.goto('skills/execplan-tdd/evaluations/documentation-only-boundary');
+  const judgeDisabledFlow = page.locator('.definition-flow');
+  await expect(judgeDisabledFlow.getByRole('link')).toHaveCount(5);
+  await expect(judgeDisabledFlow.getByText('Judge', { exact: true })).toHaveCount(0);
+  await expect(judgeDisabledFlow.getByText('Independent checks outside the executor workspace', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await page.goto('skills/develop-skill-with-evals/evaluations/global-target-skill-isolation');

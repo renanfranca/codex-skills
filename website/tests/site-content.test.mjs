@@ -87,6 +87,10 @@ test('publishes every active evaluation including cases without archived observa
   assert.equal(skillModel.evaluations[1].prompt, null);
   assert.equal(skillModel.evaluations[1].judge.applicable, false);
   assert.deepEqual(skillModel.historicalEvaluations, []);
+  assert.match(semanticPage, /class="definition-flow definition-stepper" style="--flow-stages: 6"/);
+  assert.match(deterministicPage, /class="definition-flow definition-stepper" style="--flow-stages: 3"/);
+  assert.doesNotMatch(deterministicPage, /href="#judge-verification"/);
+  assert.doesNotMatch(deterministicPage, />Judge</);
   assert.match(semanticPage, /<EvaluationHelp context="evaluation" field="kind" current="behavioral"/);
   assert.match(semanticPage, /<strong>Behavioral<\/strong> <code>behavioral<\/code>[\s\S]*user visible or public contract behavior/);
   assert.match(semanticPage, /<strong>Nonbehavioral<\/strong> <code>non_behavioral<\/code>[\s\S]*does not require semantic task execution/);
@@ -163,16 +167,26 @@ test('renders an active evaluation card and a linked current-definition page', (
   assert.doesNotMatch(evaluationPage, /Skill contracts mapped to this case/);
   assert.doesNotMatch(evaluationPage, /Rubric families sampled by this case/);
   assert.doesNotMatch(evaluationPage, /coverage map|traceability manifest/i);
-  assert.match(evaluationPage, /## Current definition flow/);
+  assert.match(evaluationPage, /## How this evaluation runs/);
   assert.match(
     evaluationPage,
-    /The flow connects the current public inputs to each declared verification mechanism and its possible result\./,
+    /Follow the current evaluation from its public input through each declared verification mechanism to its possible result\./,
   );
-  assert.match(evaluationPage, /class="evaluation-flow/);
+  assert.match(evaluationPage, /class="definition-flow definition-stepper" style="--flow-stages: 6"/);
+  assert.doesNotMatch(evaluationPage, /class="[^"]*evaluation-flow[^"]*definition-flow/);
+  assert.equal((evaluationPage.match(/class="definition-step(?: definition-step-result)?"/g) ?? []).length, 6);
+  assert.equal((evaluationPage.match(/class="definition-step-node" aria-hidden="true"/g) ?? []).length, 6);
   assert.match(evaluationPage, /href="#public-input"/);
+  assert.match(evaluationPage, /Prompt and fixture[\s\S]*Public task and declared fixture files/);
+  assert.match(evaluationPage, /Executor[\s\S]*Isolated model invocation/);
   assert.match(evaluationPage, /href="#mechanical-checks"/);
+  assert.match(evaluationPage, /Mechanical checks[\s\S]*Deterministic requirements/);
   assert.match(evaluationPage, /href="#oracle-verification"/);
+  assert.match(evaluationPage, /Oracle[\s\S]*Independent checks outside the executor workspace/);
   assert.match(evaluationPage, /href="#judge-verification"/);
+  assert.match(evaluationPage, /Judge[\s\S]*Semantic evaluation in a separate model invocation/);
+  assert.match(evaluationPage, /class="definition-step definition-step-result"/);
+  assert.match(evaluationPage, /Result branches[\s\S]*PASS[\s\S]*FAIL[\s\S]*ERROR[\s\S]*SKIPPED/);
   assert.match(evaluationPage, /## Public prompt/);
   assert.match(evaluationPage, /This is the public task supplied to the executor for this case\./);
   assert.match(evaluationPage, /Treat <img src=x onerror=alert\(1\)> as text\./);
