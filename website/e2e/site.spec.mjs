@@ -303,6 +303,31 @@ test('evaluation pages separate current evidence, case results, and complete ope
   expect(pointerPosition).toBeDefined();
   await page.mouse.move(pointerPosition.x, pointerPosition.y);
   await expect(flow.locator('a:hover')).toHaveCount(0);
+  const connectorAlignment = await firstListItem.evaluate(element => {
+    const itemBox = element.getBoundingClientRect();
+    const nodeBox = element.querySelector('.definition-step-node').getBoundingClientRect();
+    const nextNodeBox = element.nextElementSibling.querySelector('.definition-step-node').getBoundingClientRect();
+    const lineStyle = getComputedStyle(element, '::after');
+    const arrowStyle = getComputedStyle(element, '::before');
+    const pixels = value => Number.parseFloat(value) || 0;
+    const vertical = Math.abs(nextNodeBox.left - nodeBox.left) < Math.abs(nextNodeBox.top - nodeBox.top);
+    const axis = vertical ? 'left' : 'top';
+    const size = vertical ? 'width' : 'height';
+    const startBorder = vertical ? 'borderLeftWidth' : 'borderTopWidth';
+    const endBorder = vertical ? 'borderRightWidth' : 'borderBottomWidth';
+    const nodeCenter = vertical ? nodeBox.left - itemBox.left + nodeBox.width / 2 : nodeBox.top - itemBox.top + nodeBox.height / 2;
+    const pseudoCenter = style => {
+      const renderedSize =
+        pixels(style[size]) + (style.boxSizing === 'border-box' ? 0 : pixels(style[startBorder]) + pixels(style[endBorder]));
+      return pixels(style[axis]) + renderedSize / 2;
+    };
+    return {
+      lineOffset: Math.abs(pseudoCenter(lineStyle) - nodeCenter),
+      arrowOffset: Math.abs(pseudoCenter(arrowStyle) - nodeCenter),
+    };
+  });
+  expect(connectorAlignment.lineOffset).toBeLessThanOrEqual(0.01);
+  expect(connectorAlignment.arrowOffset).toBeLessThanOrEqual(0.01);
   await expect(flow).toHaveScreenshot('evaluation-flow.png');
 
   const themeSwitch = page.getByRole('switch', { name: 'Switch to dark theme' });

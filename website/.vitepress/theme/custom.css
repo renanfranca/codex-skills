@@ -1458,7 +1458,7 @@ body {
   top: 24px;
   left: calc(50% + 25px);
   width: calc(100% - 50px);
-  height: 3px;
+  height: 2px;
   border-radius: 999px;
   background: linear-gradient(90deg, var(--vp-c-brand-1), color-mix(in srgb, var(--vp-c-brand-3) 65%, var(--vp-c-brand-2)));
   content: '';
@@ -1467,8 +1467,8 @@ body {
 .definition-step:not(:last-child)::before {
   position: absolute;
   z-index: 1;
-  top: 20px;
-  left: calc(100% - 6px);
+  top: 21px;
+  left: calc(100% - 4px);
   width: 8px;
   height: 8px;
   border-top: 2px solid var(--vp-c-brand-2);
@@ -1828,14 +1828,14 @@ body {
     top: 50px;
     bottom: -25px;
     left: 24px;
-    width: 3px;
+    width: 2px;
     height: auto;
     background: linear-gradient(180deg, var(--vp-c-brand-1), color-mix(in srgb, var(--vp-c-brand-3) 65%, var(--vp-c-brand-2)));
   }
 
   .definition-step:not(:last-child)::before {
     top: calc(100% - 13px);
-    left: 20px;
+    left: 21px;
     transform: rotate(135deg);
   }
 
