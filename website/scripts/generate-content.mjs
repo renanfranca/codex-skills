@@ -4,6 +4,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { evaluationGlossary, knownObservationRoles, operationDisplay } from './evaluation-glossary.mjs';
 import { buildEvaluationCatalog, humanizeIdentifier } from './evaluation-catalog.mjs';
+import { resolveSiteBase } from './site-base.mjs';
 import { formatEstimateStatus, formatMoney } from './telemetry-format.mjs';
 
 const websiteRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -13,7 +14,7 @@ const evidenceStates = Object.freeze(
     Object.entries(evaluationGlossary.evidenceStatuses).map(([key, definition]) => [key, Object.freeze({ key, ...definition })]),
   ),
 );
-const siteBase = contentConfig.base.replace(/\/$/, '');
+const siteBase = resolveSiteBase(contentConfig.base).replace(/\/$/, '');
 
 function siteRoute(path = '/') {
   return `${siteBase}${path}`;

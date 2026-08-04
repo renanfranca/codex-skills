@@ -676,6 +676,31 @@ test('generates a project landing page that leads readers to evidence', () => {
   assert.match(homePage, /href="\/codex-skills\/evaluations\/"/);
 });
 
+test('generates root-relative catalog links for Netlify', () => {
+  const output = mkdtempSync(join(tmpdir(), 'codex-skills-netlify-home-'));
+  const repository = join(websiteDirectory, '..');
+
+  execFileSync(
+    process.execPath,
+    [
+      join(websiteDirectory, 'scripts', 'generate-content.mjs'),
+      '--repository-root',
+      repository,
+      '--archive',
+      join(repository, 'evaluation-reports'),
+      '--output',
+      output,
+    ],
+    { stdio: 'pipe', env: { ...process.env, NETLIFY: 'true' } },
+  );
+
+  const homePage = readFileSync(join(output, 'index.md'), 'utf8');
+
+  assert.match(homePage, /href="\/skills\/"/);
+  assert.match(homePage, /href="\/evaluations\/"/);
+  assert.doesNotMatch(homePage, /href="\/codex-skills\/skills\/"/);
+});
+
 test('publishes the complete evaluation vocabulary as independent concepts', () => {
   const output = mkdtempSync(join(tmpdir(), 'codex-skills-glossary-'));
   const repository = join(websiteDirectory, '..');
