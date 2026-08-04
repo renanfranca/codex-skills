@@ -1,0 +1,7 @@
+[build]
+  command = "npm ci --prefix website && npm run build --prefix website -- --base /"
+  publish = "website/.vitepress/dist"
+
+[build.environment]
+  NODE_VERSION = "24"
+  HUSKY = "0"
