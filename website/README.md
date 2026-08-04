@@ -1,6 +1,6 @@
 # Codex Skills
 
-The documentation site for the repository's reusable Codex workflows, declared evaluation cases, and archived operation evidence. VitePress renders the site at the GitHub Pages base path `/codex-skills/`; generated pages remain projections of canonical skill evaluation sources and `evaluation-reports/**/report.json` files.
+The documentation site for the repository's reusable Codex workflows, declared evaluation cases, and archived operation evidence. VitePress renders GitHub Pages at `/codex-skills/` and Netlify builds at `/`; generated pages remain projections of canonical skill evaluation sources and `evaluation-reports/**/report.json` files.
 
 ## Prerequisites
 
@@ -117,10 +117,12 @@ The container uses `--init`, host IPC, the invoking user, and an isolated tempor
 - `scripts/evaluation-catalog.mjs` loads current case definitions, groups archived observations by operation, and derives case evidence.
 - `scripts/generate-content.mjs` creates the home page, skill pages, active and historical evaluation pages, the operation archive, and report evidence pages.
 - `scripts/telemetry-format.mjs` keeps API reference values and statuses consistent between generated reports and interactive promotion panels.
-- `.vitepress/` contains the GitHub Pages base path, navigation, and visual theme.
+- `.vitepress/` contains the deployment-aware base path, navigation, and visual theme.
 - `.github/workflows/deploy-website.yml` validates, tests, builds, and deploys the static artifact after changes reach `main`. Its build job uses the same pinned visual-test container as the local runner.
 
 GitHub Pages must use **GitHub Actions** as its publishing source. The workflow publishes `website/.vitepress/dist` to `https://renanfranca.github.io/codex-skills/`.
+
+Netlify builds set the standard `NETLIFY` environment variable. The shared base-path helper then uses `/`, so generated links target the root of Netlify preview and production domains.
 
 <!-- seed4j-needle-startupCommand -->
 <!-- seed4j-needle-documentation -->

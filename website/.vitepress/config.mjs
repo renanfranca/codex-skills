@@ -1,13 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vitepress';
+import { resolveSiteBase } from '../scripts/site-base.mjs';
 
 const contentConfig = JSON.parse(readFileSync(new URL('../content-config.json', import.meta.url), 'utf8'));
+const siteBase = resolveSiteBase(contentConfig.base);
 
 export default defineConfig({
   lang: 'en-US',
   title: 'Evaluating Codex Skills',
   description: 'Evidence of how effectively skills guide Codex behavior.',
-  base: contentConfig.base,
+  base: siteBase,
   srcDir: '.generated',
   cleanUrls: true,
   sitemap: {
@@ -21,7 +23,7 @@ export default defineConfig({
       {
         rel: 'icon',
         type: 'image/svg+xml',
-        href: `${contentConfig.base}mark-light.svg`,
+        href: `${siteBase}mark-light.svg`,
       },
     ],
   ],
