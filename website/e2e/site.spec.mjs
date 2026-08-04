@@ -273,12 +273,8 @@ test('evaluation pages separate current evidence, case results, and complete ope
     document.documentElement.style.scrollBehavior = 'auto';
   });
   await expect(page.getByText('Historical runs', { exact: true }).first()).toBeVisible();
-  await expect(
-    page.locator('.operation-summary > div').filter({ hasText: 'Case result' }).getByText('PASS', { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.locator('.operation-summary > div').filter({ hasText: 'Complete operation result' }).getByText('FAIL', { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Latest operation flow' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { level: 2, name: 'Operation history' })).toBeVisible();
   const flow = page.locator('.definition-flow');
   await expect(flow.getByRole('link')).toHaveCount(6);
   await expect(flow.locator('.definition-step-result')).toHaveCount(1);
