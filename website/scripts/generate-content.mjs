@@ -1076,33 +1076,6 @@ ${evaluation.operations
 </div>`;
 }
 
-function renderLatestOperationFlow(evaluation) {
-  const operation = evaluation.latestOperation;
-  if (!operation) return '<div class="empty-state">No related operation has been recorded.</div>';
-  const mechanicalPassed = operation.observations.filter(observation => observation.mechanicalPassed === true).length;
-  const mechanicalFailed = operation.observations.filter(observation => observation.mechanicalPassed === false).length;
-  const judgeCounts = Object.entries(
-    operation.observations.reduce((counts, observation) => {
-      counts[observation.judgeState] = (counts[observation.judgeState] ?? 0) + 1;
-      return counts;
-    }, {}),
-  )
-    .map(([state, count]) => `${state}: ${count}`)
-    .join(' · ');
-  return `<ol class="evaluation-flow operation-flow" aria-label="Latest related operation">
-  <li class="flow-stage"><a href="#latest-observations"><span>01</span><strong>Case observations</strong><small>${operation.observations.length} recorded</small></a></li>
-  <li class="flow-stage"><a href="#latest-verification"><span>02</span><strong>Recorded verification</strong><small>Mechanical pass: ${mechanicalPassed} · fail: ${mechanicalFailed}<br>Judge ${escapeHtml(judgeCounts || 'Not recorded')}</small></a></li>
-  <li class="flow-stage"><a href="#latest-result"><span>03</span><strong>Observation results</strong><small>${escapeHtml(operation.resultSummary)}</small></a></li>
-</ol>
-
-<div id="latest-observations" class="operation-summary" tabindex="-1">
-  <div><span>Case observations</span><strong>${operation.observations.length}</strong></div>
-  <div id="latest-result"><span>Case result</span><strong>${escapeHtml(evaluation.latestRecordedResult)}</strong></div>
-  <div><span>Complete operation result</span><strong>${escapeHtml(operation.status)}</strong></div>
-  <div id="latest-verification"><span>Observation results</span><strong>${escapeHtml(operation.resultSummary)}</strong></div>
-</div>`;
-}
-
 function renderEvaluationReadingGuide() {
   return `<aside class="evaluation-reading-guide">
   <strong>How to read this page</strong>
@@ -1262,12 +1235,6 @@ The runner records one final result for this case observation.
 <div id="definition-result" class="result-branches" tabindex="-1">
 ${decisionOutcomes}
 </div>
-
-## Latest operation flow
-
-The latest operation is the newest archived runner invocation related to this case. Its recorded result can differ from current evidence.
-
-${renderLatestOperationFlow(evaluation)}
 
 ## Operation history
 

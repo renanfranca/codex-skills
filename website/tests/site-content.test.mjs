@@ -251,7 +251,7 @@ test('renders an active evaluation card and a linked current-definition page', (
     /A response without workspace changes is not sufficient by itself; the declared criteria still determine the verdict\./,
   );
   assert.doesNotMatch(evaluationPage, /No action acceptable:[\s\S]*(?:true|false)/);
-  assert.match(evaluationPage, /The latest operation is the newest archived runner invocation related to this case/);
+  assert.doesNotMatch(evaluationPage, /The latest operation is the newest archived runner invocation related to this case/);
   assert.match(evaluationPage, /Operation history lists complete runner invocations that contain observations for this case/);
 });
 
@@ -1040,11 +1040,9 @@ test('derives case evidence from compatible observations while grouping each ope
     ],
   );
   const evaluationPage = readFileSync(join(context.output, 'skills', 'example-skill', 'evaluations', 'first-case.md'), 'utf8');
-  assert.match(evaluationPage, /## Latest operation flow/);
-  assert.match(evaluationPage, /class="evaluation-flow operation-flow"/);
-  assert.match(evaluationPage, /Case result[\s\S]*PASS: 1 · FAIL: 1/);
-  assert.match(evaluationPage, /Complete operation result[\s\S]*FAIL/);
-  assert.match(evaluationPage, /Observation results[\s\S]*PASS: 1 · FAIL: 1/);
+  assert.doesNotMatch(evaluationPage, /## Latest operation flow/);
+  assert.doesNotMatch(evaluationPage, /class="evaluation-flow operation-flow"/);
+  assert.match(evaluationPage, /## Operation history/);
 });
 
 test('separates archived-only case IDs as historical evaluations without inventing a current definition', () => {
