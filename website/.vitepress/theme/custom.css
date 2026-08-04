@@ -1782,6 +1782,27 @@ body {
     flex-direction: column;
   }
 
+  .command-list li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
+    row-gap: 8px;
+  }
+
+  .command-list li strong {
+    grid-column: 1;
+  }
+
+  .command-list li span {
+    grid-column: 2;
+    justify-self: end;
+  }
+
+  .command-list li code,
+  .command-list li small {
+    grid-column: 1 / -1;
+  }
+
   .operation-flow {
     grid-template-columns: 1fr;
   }

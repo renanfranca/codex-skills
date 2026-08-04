@@ -393,6 +393,19 @@ test.describe('narrow evaluation layout', () => {
   test('active evaluation pages keep long commands visible inside the viewport', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop', 'This regression is covered by the deterministic desktop project.');
 
+    await page.goto('skills/refactor-design/evaluations/hidden-invocation-state#mechanical-checks');
+
+    const workspaceCheck = page.locator('.command-list li').filter({ hasText: 'python3 -m unittest -q' });
+    await expect(workspaceCheck.getByText('Workspace check', { exact: true })).toBeVisible();
+    await expect(workspaceCheck.getByText('Expected exit: 0', { exact: true })).toBeVisible();
+    const workspaceCommandLines = await workspaceCheck.locator('code').evaluate(command => {
+      const range = document.createRange();
+      range.selectNodeContents(command);
+      return [...range.getClientRects()].filter(rect => rect.width > 0).length;
+    });
+    expect(workspaceCommandLines).toBeLessThanOrEqual(2);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
     await page.goto('skills/restructure-documentation/evaluations/documentation-system-restructure#judge-verification');
 
     await expect(page.locator('.mechanism-section#judge-verification')).toBeVisible();
