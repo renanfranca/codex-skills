@@ -1084,6 +1084,63 @@ function renderEvaluationReadingGuide() {
 </aside>`;
 }
 
+function renderPromotionQualificationMap() {
+  return `<section class="promotion-qualification-map" aria-labelledby="promotion-qualification-map">
+  <header>
+    <h2 id="promotion-qualification-map">How promotion qualification works</h2>
+    <p>Required evidence depends on the impact of the proposed change. This map explains qualification; it does not track a live run.</p>
+  </header>
+  <ol class="promotion-qualification-timeline">
+    <li>
+      <span class="promotion-qualification-phase" aria-hidden="true">01</span>
+      <div>
+        <h3>Prepare comparable sources</h3>
+        <p>Preserve independent baseline and candidate sources. Create or update minimal cases when behavior changes.</p>
+      </div>
+    </li>
+    <li>
+      <span class="promotion-qualification-phase" aria-hidden="true">02</span>
+      <div>
+        <h3>Classify and plan</h3>
+        <p>Classify the diff and review affected and regression cases, runtime, fingerprints, blockers, and the session limit. Keep cost authorization separate from authorization to execute.</p>
+      </div>
+    </li>
+    <li>
+      <span class="promotion-qualification-phase" aria-hidden="true">03</span>
+      <div>
+        <h3>Run the required evidence path</h3>
+        <div class="promotion-impact-grid">
+          <article>
+            <h4>Static</h4>
+            <p>Structural validation only. Do not invent RED or run <code>validate-change</code>; this path currently does not produce the <code>Validated promotion</code> status.</p>
+          </article>
+          <article>
+            <h4>Deterministic</h4>
+            <p>The baseline fails once, then the candidate passes three times with a stable result and structural validation. Direct checks use zero model sessions.</p>
+          </article>
+          <article>
+            <h4>Scoped</h4>
+            <p>RED for affected semantic cases, three stable GREEN results, and structural validation. No unrelated-case regression is required.</p>
+          </article>
+          <article>
+            <h4>Cross-cutting</h4>
+            <p>RED and GREEN 1 for affected cases, one regression of every remaining case, GREEN 2 and 3 for affected cases, and structural validation.</p>
+          </article>
+        </div>
+      </div>
+    </li>
+    <li>
+      <span class="promotion-qualification-phase" aria-hidden="true">04</span>
+      <div>
+        <h3>Review the qualification</h3>
+        <p>Any result other than <code>PASS</code> blocks qualification. An eligible <code>PASS</code> report with the current fingerprint establishes <code>Validated promotion</code>; a later source change makes that evidence historical. For <code>static</code>, completed structural gates still require separate review and authorization.</p>
+      </div>
+    </li>
+  </ol>
+  <p class="promotion-qualification-limit">Validated promotion means that one specific source satisfied its declared contracts. It does not prove correctness, completeness, or deterministic model output, and it does not publish or apply the change.</p>
+</section>`;
+}
+
 function explainNoActionAcceptable(value) {
   if (value === true) return 'The judge may accept a response without workspace changes when the declared criteria are satisfied.';
   if (value === false) {
@@ -1320,6 +1377,8 @@ description: ${yamlString(skill.description)}
   </div>
   ${renderEvidenceSummary(skill)}
 </div>
+
+${renderPromotionQualificationMap()}
 
 ## Active evaluations
 

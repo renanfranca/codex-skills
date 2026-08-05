@@ -129,6 +129,48 @@ test('the evidence legend explains all six statuses without relying on color', a
   await expect(legend.getByText('Color is only a secondary cue.')).toBeVisible();
 });
 
+test('a skill page documents promotion qualification without implying a live run', async ({ page }, testInfo) => {
+  await page.goto('skills/execplan-tdd');
+
+  const map = page.locator('.promotion-qualification-map');
+  const impactGrid = map.locator('.promotion-impact-grid');
+  await expect(map).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(map.getByRole('heading', { level: 2, name: 'How promotion qualification works' })).toBeVisible();
+  await expect(map.getByText(/does not track a live run/i)).toBeVisible();
+  await expect(map.getByText(/does not prove correctness, completeness, or deterministic model output/i)).toBeVisible();
+  await expect(impactGrid.getByRole('heading', { level: 4 })).toHaveText(['Static', 'Deterministic', 'Scoped', 'Cross-cutting']);
+  await expect(impactGrid.getByText(/does not produce the validated promotion status/i)).toBeVisible();
+  await expect(map.getByRole('button')).toHaveCount(0);
+
+  const columnCount = await impactGrid.evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length);
+  expect(columnCount).toBe(testInfo.project.name === 'mobile' ? 1 : 2);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await map.evaluate(element => element.scrollIntoView({ block: 'start' }));
+  await page.locator('.VPNav, .VPDocAside, .VPLocalNav').evaluateAll(elements => {
+    for (const element of elements) element.style.visibility = 'hidden';
+  });
+  await expect(map).toHaveScreenshot('promotion-qualification-map.png');
+  await page.locator('.VPNav, .VPDocAside, .VPLocalNav').evaluateAll(elements => {
+    for (const element of elements) element.style.visibility = '';
+  });
+
+  const themeSwitch = page.getByRole('switch', { name: 'Switch to dark theme' });
+  if (!(await themeSwitch.isVisible())) {
+    await page.getByRole('button', { name: 'mobile navigation' }).click();
+  }
+  await themeSwitch.click();
+
+  await expect(page.locator('html')).toHaveClass(/dark/);
+  await expect(map.getByRole('heading', { level: 4, name: 'Cross-cutting' })).toBeVisible();
+  expect(await contrastRatio(map.getByRole('heading', { level: 2 }))).toBeGreaterThanOrEqual(4.5);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.locator('.VPNav, .VPDocAside, .VPLocalNav').evaluateAll(elements => {
+    for (const element of elements) element.style.visibility = 'hidden';
+  });
+  await expect(map).toHaveScreenshot('promotion-qualification-map-dark.png');
+});
+
 test('a validated promotion explains qualification and recorded effort', async ({ page }, testInfo) => {
   await page.goto('skills/');
 
