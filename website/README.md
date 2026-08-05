@@ -80,6 +80,12 @@ Complete current suite evidence does not establish RED, repetition, stability, r
 
 A validated promotion panel projects recorded effort exclusively from its archived report: executed executor, judge, and total sessions; input, cached input, output, reasoning output, and total tokens; duration; normalized usage event count; API reference estimate value or status; and runtime and token telemetry completeness.
 
+## Promotion qualification map
+
+Every skill page places an always-expanded promotion qualification map after its evidence callout and before **Active evaluations**. The map is documentary: it explains the static, deterministic, scoped, and cross-cutting evidence paths, but does not track a live run. It is separate from the evidence callout and panel, which remain the only representations of the skill’s current archived state.
+
+Static structural validation does not invent RED, run `validate-change`, or produce the **Validated promotion** status. That status continues to require an eligible archived `PASS` whose current source fingerprint satisfies its declared qualification contracts. The map does not follow current progress, infer gates, or publish or apply a change.
+
 A model session is one isolated, ephemeral `codex exec --json` invocation started by the evaluation runner. The executor performs the evaluated task; an optional judge evaluates the result in a separate invocation. A model session is not a message, conversational turn, deterministic check, or complete promotion. Deterministic checks consume zero model sessions.
 
 Token totals measure recorded workload, not an observed financial charge. Cached input is a subset of input tokens. Reasoning output is a subset of output tokens, so it is displayed separately but never added to the total again.

@@ -1004,6 +1004,56 @@ function generateEvidenceModel(context) {
   return JSON.parse(readFileSync(join(context.output, 'data.json'), 'utf8'));
 }
 
+test('publishes a documentary promotion qualification map before active evaluations', () => {
+  const context = createEvidenceWorkspace('codex-skills-promotion-qualification-map-');
+  writeEvidenceArchive({ archive: context.archive, reports: [] });
+
+  generateEvidenceModel(context);
+  const skillPage = readFileSync(join(context.output, 'skills', 'example-skill.md'), 'utf8');
+  const mapStart = skillPage.indexOf('<section class="promotion-qualification-map"');
+  const activeEvaluationsStart = skillPage.indexOf('## Active evaluations');
+
+  assert.ok(mapStart > skillPage.indexOf('<div class="evidence-callout'));
+  assert.ok(activeEvaluationsStart > mapStart);
+  assert.equal((skillPage.match(/<section class="promotion-qualification-map"/g) ?? []).length, 1);
+  assert.match(skillPage, /<h2 id="promotion-qualification-map">How promotion qualification works<\/h2>/);
+  assert.match(
+    skillPage,
+    /Required evidence depends on the impact of the proposed change\. This map explains qualification; it does not track a live run\./,
+  );
+  assert.deepEqual(
+    [
+      ...skillPage.matchAll(
+        /<h3>(Prepare comparable sources|Classify and plan|Run the required evidence path|Review the qualification)<\/h3>/g,
+      ),
+    ].map(match => match[1]),
+    ['Prepare comparable sources', 'Classify and plan', 'Run the required evidence path', 'Review the qualification'],
+  );
+  assert.deepEqual(
+    [...skillPage.matchAll(/<h4>(Static|Deterministic|Scoped|Cross-cutting)<\/h4>/g)].map(match => match[1]),
+    ['Static', 'Deterministic', 'Scoped', 'Cross-cutting'],
+  );
+  assert.match(skillPage, /Static[\s\S]*Structural validation only[\s\S]*does not produce the <code>Validated promotion<\/code> status/);
+  assert.match(
+    skillPage,
+    /Deterministic[\s\S]*baseline fails once[\s\S]*candidate passes three times with a stable result[\s\S]*zero model sessions/,
+  );
+  assert.match(
+    skillPage,
+    /Scoped[\s\S]*RED for affected semantic cases[\s\S]*three stable GREEN results[\s\S]*No unrelated-case regression/,
+  );
+  assert.match(skillPage, /Cross-cutting[\s\S]*RED and GREEN 1[\s\S]*one regression of every remaining case[\s\S]*GREEN 2 and 3/);
+  assert.match(
+    skillPage,
+    /Any result other than <code>PASS<\/code> blocks qualification[\s\S]*current fingerprint establishes <code>Validated promotion<\/code>[\s\S]*source change makes that evidence historical/,
+  );
+  assert.match(
+    skillPage,
+    /Validated promotion means that one specific source satisfied its declared contracts\. It does not prove correctness, completeness, or deterministic model output, and it does not publish or apply the change\./,
+  );
+  assert.doesNotMatch(skillPage.slice(mapStart, activeEvaluationsStart), /live progress|current progress|running now/i);
+});
+
 test('derives case evidence from compatible observations while grouping each operation once', () => {
   const context = createEvidenceWorkspace('codex-skills-case-evidence-');
   const sourceFingerprint = runnerFingerprint(context.skill);
