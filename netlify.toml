@@ -5,3 +5,7 @@
 [build.environment]
   NODE_VERSION = "24"
   HUSKY = "0"
+
+[context.production]
+  command = "mkdir -p netlify-production && printf '/* https://renanfranca.github.io/codex-skills/:splat 302!\n' > netlify-production/_redirects"
+  publish = "netlify-production"
