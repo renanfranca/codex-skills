@@ -1,4 +1,0 @@
-interface:
-  display_name: "Sample Skill"
-  short_description: "Render sample text in uppercase"
-  default_prompt: "Use $sample-skill to render supplied text in uppercase."

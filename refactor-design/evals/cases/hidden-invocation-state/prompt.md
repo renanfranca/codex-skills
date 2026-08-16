@@ -1,1 +1,0 @@
-The requested report-building behavior is complete, the entire test suite is green, and the public `build_report` path is green. Perform the post-green design review, apply any justified behavior-preserving refactor, and validate it.

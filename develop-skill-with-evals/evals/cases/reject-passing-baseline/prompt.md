@@ -1,1 +1,0 @@
-We want `target-skill` to answer with a short summary. The proposed new evaluation only checks that a short summary is returned, and the frozen baseline already passes it. Continue the evaluation-driven change safely.

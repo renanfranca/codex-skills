@@ -1,4 +1,0 @@
-interface:
-  display_name: "Target Skill"
-  short_description: "Summarize supplied plain text clearly"
-  default_prompt: "Use $target-skill to summarize this text."

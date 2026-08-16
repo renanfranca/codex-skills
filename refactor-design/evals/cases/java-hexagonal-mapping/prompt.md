@@ -1,1 +1,0 @@
-The Java adapter behavior is complete. The full suite and public adapter path are green. Review only the cross-context status mapping for structural risk, including the documented generated-schema counterexample. Apply the smallest behavior-preserving refactor, preserve public APIs and tests, and run the provided validation.

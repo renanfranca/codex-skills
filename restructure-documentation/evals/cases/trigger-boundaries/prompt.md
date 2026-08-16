@@ -1,3 +1,0 @@
-Triage the five incoming requests in `REQUESTS.md` against the repository's available workflows. Create `trigger-assessment.md` with one heading per request ID and assign exactly one status to each: `APPLY`, `EXCLUDE`, or `APPLY_NO_ACTION`. Give a brief reason grounded in scope. Do not perform the requested work and do not edit `REQUESTS.md` or `AGENTS.md`.
-
-In the final evidence, restate each request ID, its exact status, and the concrete scope reason recorded in its section. For the `AGENTS.md` request, explicitly distinguish operational instructions from public documentation and identify why the normative exception applies. Do not merely state that triage or validation passed.
