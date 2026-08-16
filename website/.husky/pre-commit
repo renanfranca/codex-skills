@@ -1,2 +1,0 @@
-cd website
-npm exec -- lint-staged

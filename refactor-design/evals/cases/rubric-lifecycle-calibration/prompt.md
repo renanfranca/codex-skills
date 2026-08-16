@@ -1,1 +1,0 @@
-The behavior in `lifecycle.py` is complete. The full suite and public paths are green. Review only this file for lifecycle, temporal coupling, invocation state, builder, and metadata timing risks. Some signals are deliberate false positives, so apply only the smallest justified behavior-preserving refactors and rerun the existing suite.

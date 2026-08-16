@@ -1,10 +1,8 @@
 # Codex Skills
 
-Reusable [Codex](https://openai.com/codex/) workflows for skill development, execution planning, behavior focused TDD, design review, Git commits, and Seed4J CLI maintenance.
+Reusable [Codex](https://openai.com/codex/) workflows for execution planning, documentation restructuring, behavior focused TDD, design review, Git commits, and Seed4J CLI maintenance.
 
 This repository keeps each workflow self contained, inspectable, and ready to install where Codex can discover it.
-
-Browse the skills, their declared evaluation cases, and archived operation evidence at [renanfranca.github.io/codex-skills](https://renanfranca.github.io/codex-skills/).
 
 ## What is a Codex skill?
 
@@ -28,23 +26,18 @@ For a skill shared by one project, copy it to `<repository>/.agents/skills` inst
 Use $refactor-design to review this completed green change. Limit work to the changed scope, preserve its public contract, apply only the smallest justified refactor, rerun the relevant suite and public checkpoint, and pause at any exception gate.
 ```
 
-Repository contributors also need the separate audit memory clone for ExecPlans, decisions, evidence, and lessons:
+Repository contributors also need the separate project memory clone for ExecPlans, decisions, and lessons:
 
 ```bash
 git clone https://github.com/renanfranca/codex-skills-ai-context.git _temporary/codex-skills-ai-context
 ```
 
-The root `AGENTS.md` defines the required remote check and safety boundary. For website work, start Codex in the nested scope so its persistent workflow profile loads automatically:
-
-```bash
-codex --cd website
-```
+The root `AGENTS.md` defines the required remote check and safety boundary.
 
 ## Skill catalog
 
-### Skill development and design
+### Planning and design
 
-- [`develop-skill-with-evals`](develop-skill-with-evals/SKILL.md) — Create or improve Codex skills with impact aware evaluation gates, durable evidence, stability checks, and cumulative cost controls.
 - [`restructure-documentation`](restructure-documentation/SKILL.md) — Audit and reorganize existing documentation around clear audiences, canonical sources, ordered concepts, and validated navigation.
 - [`refactor-design`](refactor-design/SKILL.md) — Review completed green implementations for structural risks and apply behavior preserving refactors.
 - [`implement-execplan`](implement-execplan/SKILL.md) — Create, maintain, and execute self contained living plans for substantial or handoff sensitive work.
@@ -69,7 +62,6 @@ codex --cd website
 ## Where to go next
 
 - [Using Skills with Codex CLI](CODEX_CLI.md) covers discovery checks, TUI and `codex exec` workflows, task selection, sandbox behavior, resuming work, and troubleshooting.
-- [Evaluating Codex Skills](EVALUATIONS.md) explains evaluation concepts, evidence, supervision, and promotion.
 - [Repository Guidelines](AGENTS.md) defines contribution conventions, validation expectations, and repository safety.
 
 <details>

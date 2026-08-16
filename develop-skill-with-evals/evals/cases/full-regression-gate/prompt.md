@@ -1,1 +1,0 @@
-The focused case for a behavioral skill change is GREEN and stable across three runs. The full candidate suite now reports one unrelated `INCONCLUSIVE` case. Finish the development workflow and state whether the candidate can be promoted.

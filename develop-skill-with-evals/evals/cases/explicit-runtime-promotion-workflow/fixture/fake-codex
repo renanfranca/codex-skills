@@ -1,6 +1,0 @@
-#!/usr/bin/env python3
-from pathlib import Path
-
-
-Path("unexpected-nested-model-session").write_text("called", encoding="utf-8")
-raise SystemExit(91)
