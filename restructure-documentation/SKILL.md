@@ -11,9 +11,32 @@ Improve the architecture of existing documentation, not merely its prose. Preser
 
 1. Read repository instructions before inspecting or editing documentation. Treat `AGENTS.md` as operational instructions, not public documentation, unless the user explicitly asks for a normative change to it.
 2. Inspect `git status --short`, relevant diffs, and recent history. Identify preexisting changes and protect them. Never rewrite or discard concurrent work to simplify the restructure.
-3. Inventory the requested documents and their inbound and outbound local links, headings, explicit HTML IDs, commands, examples, and factual claims.
-4. Locate likely sources of truth in code, schemas, tests, generated references, repository instructions, and history. Do not decide between contradictory facts without evidence.
-5. State the authorized files, protected files, public paths and anchors, and unresolved authority before editing. Ask when an unresolved choice would change a contract or normative meaning.
+3. State the documentation files authorized for writing, every protected file, the public paths and anchors, and any unresolved authority. Reading a file does not authorize editing it.
+4. Inventory the requested documents and their inbound and outbound local links, headings, explicit HTML IDs, commands, examples, and factual claims.
+5. Locate likely sources of truth throughout the repository. Inspect implementation, tests, configuration, build definitions, schemas, migrations, scripts, generated files, repository instructions, and history when they can establish the product's actual behavior.
+
+Treat all investigation outside the accepted documentation scope as strictly read only. Never modify implementation, tests, configuration, build definitions, schemas, migrations, scripts, generated files, or documentation outside that scope. Apply this boundary independently of the repository's language, framework, and directory structure.
+
+## Validate authority before writing
+
+Validate the entire request against canonical repository sources before making the first edit:
+
+1. Map every requested factual or normative claim to evidence for the existing behavior. Do not decide between contradictory facts without evidence.
+2. Treat existing commands, options, arguments, exit semantics, formats, configuration keys, defaults, APIs, observable messages, installation processes, and release contracts as public contracts. Reorganize and clarify their documentation without inventing or changing them, and never edit the product to make it agree with a preferred documentation narrative.
+3. Refuse the entire request before modifying any file if any part would invent or alter a public contract, modify a non-documentation file, present unconfirmed behavior as existing, or disguise a product change as documentation work. Do not apply an apparently safe documentation subset.
+
+When the request contradicts confirmed behavior, preserve the product and refuse the request instead of changing the implementation.
+
+When refusing, identify the conflict, cite the repository sources that establish the existing behavior, and explain that the requested outcome requires a separate product change. Suggest that follow-up when useful, but do not perform it.
+
+When the repository cannot confirm a claim, state the uncertainty and ask for clarification or preserve the existing content. Never invent the missing fact. If the request requires presenting that unconfirmed claim as existing behavior, refuse atomically.
+
+Resolve competing goals in this order:
+
+1. Preserve existing public contracts and behavior.
+2. Respect documentation-only writing authority.
+3. Avoid unverified claims.
+4. Improve documentation architecture, navigation, and prose.
 
 Use `implement-execplan` when the work spans several documents and also involves public anchors, normative sources, meaningful overlap with concurrent changes, or another material recovery risk. Keep simpler audits and localized restructures direct.
 
