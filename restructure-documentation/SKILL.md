@@ -38,8 +38,6 @@ Resolve competing goals in this order:
 3. Avoid unverified claims.
 4. Improve documentation architecture, navigation, and prose.
 
-Use `implement-execplan` when the work spans several documents and also involves public anchors, normative sources, meaningful overlap with concurrent changes, or another material recovery risk. Keep simpler audits and localized restructures direct.
-
 ## Model the documentation system
 
 Read [documentation-roles.md](references/documentation-roles.md) when assigning roles or canonical ownership.
