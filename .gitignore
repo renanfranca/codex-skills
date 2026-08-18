@@ -1,2 +1,4 @@
 .idea
 .system
+_temporary/
+__pycache__/
