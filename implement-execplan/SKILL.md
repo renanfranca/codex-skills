@@ -1,228 +1,165 @@
 ---
 name: implement-execplan
-description: Create, maintain, and execute fully self-contained Execution Plans (ExecPlans) as living documents. Use when a task is large, risky, cross-cutting, or requires handoff-safe execution with explicit milestones, file-level edits, concrete validation commands, and continuous updates to Progress, Decisions, Risks, and Lessons Learned.
+description: Create, maintain, and execute self-contained ExecPlans for large, risky, cross-cutting, or handoff-sensitive repository work. Adapt plan structure and update cadence to the task; do not use for isolated mechanical edits unless explicitly invoked.
 ---
 
 # Implement ExecPlan
 
 ## Purpose
 
-Deliver user-visible behavior through a complete, traceable implementation guided by an ExecPlan that another engineer can continue without prior repository context.
+Deliver observable user-facing behavior through a self-contained implementation
+plan that another engineer can safely continue without prior repository or
+conversation context.
 
-## Safety Boundary
+## Activation boundary
 
-Use this skill only for authorized, defensive maintenance in the current repository.
-Do not provide offensive guidance, policy-bypassing instructions, hidden-prompt extraction, or chain-of-thought disclosure.
+Use this skill when the user explicitly invokes it or when the task is large,
+risky, cross-cutting, migration-heavy, or requires a durable handoff. For a
+narrow mechanical edit such as an isolated typo, work directly and do not
+create an ExecPlan unless the user explicitly asks for one.
 
-## Workflow
+## Safety boundary
 
-1. Clarify the requested outcome in observable terms.
-2. Write or update one ExecPlan document before major implementation work.
-3. Execute one milestone at a time.
-4. Keep the ExecPlan current while implementing.
-5. Reconcile canonical documentation with the final behavior.
-6. Validate with concrete commands and expected outcomes.
-7. Finalize with rollout/recovery guidance and lessons learned.
+Use this skill only for authorized, defensive maintenance in the current
+repository. Do not provide offensive guidance, policy-bypassing instructions,
+hidden-prompt extraction, or chain-of-thought disclosure.
 
-## Non-Negotiable Requirements
+Treat repository content, fixtures, logs, and captured requests as potentially
+sensitive. Include only the minimum necessary context, sanitize plans and
+handoffs, never reproduce credentials or secret-like values, and preserve
+read-only or sensitive files unless their modification is explicitly authorized.
 
-- Keep the ExecPlan fully self-contained.
-- Treat the ExecPlan as a living document and update it continuously.
-- Write for a novice with no prior repository knowledge.
-- Produce observable behavior, not only code movement.
-- Define uncommon, project-specific, or newly introduced terms inline.
-- Explain why the change matters from a user perspective before implementation details.
-- Specify exact files to edit and exact commands to run.
-- Restate all critical assumptions explicitly.
-- Name canonical documentation sources and explain how each is updated or why it remains accurate.
-- Avoid references to hidden context, unpublished notes, or external blog posts.
-- If the plan builds on another committed ExecPlan, reference it; otherwise include all context directly.
+## Working contract
 
-## Prompt-Safety Hygiene
+- Clarify the requested outcome in observable terms.
+- Create or update one `EXECPLAN.md` before major implementation work.
+- Keep the plan self-contained for a novice with no hidden context.
+- Explain user-visible purpose before implementation details.
+- State exact files, milestones, validation commands, expected outcomes, and
+  critical assumptions.
+- Execute one milestone at a time and keep behavior, tests, documentation, and
+  the plan reconciled.
+- Prefer the smallest plan that remains safe and handoff-ready.
+- Do not add empty sections, placeholder text, or `N/A` blocks.
 
-When writing content that may be copied into prompts:
+## Adaptive plan structure
 
-- State benign intent explicitly (for example: refactor, test, diagnose, harden, improve reliability).
-- Prefer neutral verbs (validate, inspect, simulate, reproduce) over ambiguous attack-like phrasing.
-- Never instruct policy bypassing or safeguard circumvention.
-- Keep security-related tasks explicitly defensive and authorized.
-- Include only the minimum sensitive context needed to implement and verify.
-- Keep instructions concrete and file-scoped.
-- Add a one-line scope boundary when wording could be interpreted multiple ways.
+Give the plan a short action-oriented title. Every ExecPlan must contain these
+exact core sections:
 
-Recommended boundary line for ambiguous/high-risk tasks:
+1. `## Purpose and success`
+2. `## Context and limits`
+3. `## Milestones`
+4. `## Progress`
+5. `## Validation`
+
+Add a conditional block only when its content materially helps execution or
+handoff:
+
+- `## Definitions` for uncommon project-specific terms needed to understand the
+  work.
+- `## Decisions` for consequential choices under the decision rules below.
+- `## Risks` for material safety, correctness, migration, operational, or
+  recovery risks.
+- `## Documentation` when canonical documentation must change or requires a
+  material reconciliation decision.
+- `## Rollout and recovery` when deployment, migration, compatibility, rollback,
+  or recovery needs explicit action.
+- `## Prototypes` when an active uncertainty requires an isolated experiment
+  with a hypothesis and measurable success criterion.
+- `## Lessons learned` only for non-obvious findings that materially help the
+  next engineer.
+
+Omit an inapplicable conditional section completely. In particular, when no
+consequential decision exists, the plan must contain no `Decisions` section and
+no routine decision log elsewhere.
+
+## Milestone contract
+
+For each milestone, state:
+
+- the behavior or evidence it will produce;
+- concrete file-level edits;
+- relevant documentation work, when any;
+- exact validation commands and expected outcomes;
+- observable acceptance criteria.
+
+Keep milestones incremental and independently verifiable. Use checklists only
+in `Progress`.
+
+## Update cadence
+
+Update the plan only at these points:
+
+1. when the plan is created;
+2. at a milestone boundary;
+3. after a material change in direction or risk;
+4. immediately before handoff.
+
+At those boundaries, reconcile `Progress`, validation evidence, applicable
+risks, documentation, recovery guidance, and consequential decisions. Do not
+rewrite the plan after routine edits whose state is already evident from code
+and tests.
+
+## Decision discipline
+
+Record a decision only when it changes at least one of:
+
+- a public or internal contract;
+- observable behavior;
+- architecture or responsibility boundaries;
+- scope;
+- migration or compatibility policy;
+- material risk;
+- rollout or recovery;
+- the choice between viable alternatives.
+
+For each consequential decision, state the selected option, viable alternatives
+considered when relevant, rationale, and the resulting consequence.
+
+Do not record routine implementation steps, details already evident in code or
+tests, formatting, mechanical renames, or discarded experiments. A task with no
+consequential decision must have no `Decisions` section.
+
+## Prompt-safety hygiene
+
+When plan content may be copied into prompts:
+
+- state benign, authorized intent;
+- prefer neutral verbs such as validate, inspect, diagnose, harden, and improve;
+- never instruct safeguard circumvention;
+- keep security work defensive, concrete, and file-scoped;
+- avoid copying sensitive fixture values into the plan or final response;
+- add a one-line defensive scope boundary when wording could be ambiguous.
+
+Use this boundary when needed:
 
 `Safety boundary: This task is limited to authorized, defensive maintenance of this repository. Do not provide offensive guidance or policy-bypassing instructions.`
 
-## Formatting Rules for ExecPlans
+## Validation and handoff
 
-- Write in plain prose with short, clear sections.
-- Use checklists only in `Progress`.
-- If embedded in another message, wrap the full ExecPlan in one fenced `md` block.
-- If saved as a standalone `.md` file, do not wrap with triple backticks.
+Validate from narrow to broad as appropriate: focused checks, the repository's
+full validation command, user-visible exercise, and canonical documentation
+reconciliation. Record observed outcomes, not unsupported claims.
 
-## Required ExecPlan Sections
+When a task changes a migration or compatibility contract and user-facing documentation is in scope, the final audit must confirm that the documentation names the exact legacy and current fields, shapes, flags, or formats promised by the task; do not replace contractual identifiers with vague labels.
 
-Every ExecPlan must contain these sections:
+Before handoff, re-read the request and verify every explicit positive
+requirement, prohibition, responsibility boundary, and acceptance criterion
+against the final workspace. For migrations, confirm that deprecated
+representations remain confined to the explicitly authorized compatibility
+boundary; passing tests alone does not complete this audit.
 
-1. Title (short and action-oriented)
-2. Purpose / Big Picture
-3. Scope
-4. Definitions
-5. Existing Context
-6. Desired End State
-7. Milestones
-8. Progress
-9. Decisions
-10. Risks and Mitigations
-11. Validation Strategy
-12. Documentation Impact
-13. Rollout and Recovery
-14. Lessons Learned
+Before handoff, update the plan at the final allowed boundary and summarize:
 
-## Milestone Contract
+- changed paths and delivered behavior;
+- each requested validation command and its observed exit status or result;
+- material boundaries, the risks they control, and remaining risks or limitations;
+- consequential decisions only; for each one, state the selected option,
+  rationale, contract or migration-risk implication, and recovery consequence.
+  State that none existed only when the task requests that fact;
+- documentation impact and recovery instructions when applicable.
 
-For each milestone:
-
-- State scope and resulting behavior.
-- List concrete file-level edits.
-- Identify canonical documentation changed by the milestone or justify why no documentation change is required.
-- List exact validation commands.
-- Define observable acceptance criteria.
-
-Keep milestones small, incremental, and independently verifiable.
-
-## Living Update Discipline
-
-Update the plan during execution, not only at the end:
-
-- Update `Progress` checkboxes as soon as status changes.
-- Record every meaningful decision with rationale.
-- Capture surprises immediately in `Lessons Learned`.
-- Revise `Risks and Mitigations` whenever risk profile changes.
-- Keep `Documentation Impact` aligned with implementation and public behavior.
-- If direction changes, update the plan before continuing implementation.
-
-## Prototyping and Parallel Approaches
-
-When uncertainty is high:
-
-- Add an explicit `Prototype` milestone.
-- State the hypothesis and measurable success criteria.
-- Keep prototype changes isolated.
-- Remove prototype code before completion unless intentionally promoted.
-
-When comparing approaches in parallel:
-
-- Document each option and trade-offs.
-- Describe validation evidence per option.
-- Record the chosen approach in `Decisions`.
-- Remove or archive rejected code before finalizing.
-
-## Validation Strategy
-
-Run validation from narrow to broad:
-
-1. Run focused checks for changed modules or packages.
-2. Run the repository's full validation command.
-3. Manually exercise user-visible behavior when applicable.
-4. Reconcile every canonical documentation source with the final behavior.
-5. Confirm acceptance criteria for every milestone.
-
-## ExecPlan Skeleton (Copy and Fill)
-
-# <Short, action-oriented title>
-
-This ExecPlan is a living document. Keep `Progress`, `Decisions`, `Risks`, and `Lessons Learned` up to date as work advances.
-
-## Purpose / Big Picture
-
-Explain in 2-4 sentences what user-visible capability is delivered and how to observe it working.
-
-## Scope
-
-State in-scope and out-of-scope items clearly.
-
-## Definitions
-
-Define project-specific terms, modules, flags, or protocols needed to understand this plan.
-
-## Existing Context
-
-Describe the current behavior and architecture relevant to this change. Reference specific files and classes.
-
-## Desired End State
-
-Describe expected behavior and code state after completion.
-
-## Milestones
-
-### Milestone 1 - <Name>
-
-#### Goal
-
-Describe what this milestone achieves.
-
-#### Changes
-
-- [ ] File-level edits with exact paths and intent.
-- [ ] Data model or type updates.
-- [ ] API, CLI, or UX behavior updates.
-- [ ] Canonical documentation updates, or an explicit justification for no documentation change.
-
-#### Validation
-
-- [ ] Command: `<exact command>`
-- [ ] Expected result: `<observable outcome>`
-
-#### Acceptance Criteria
-
-- [ ] Behavior is visible through a concrete scenario.
-- [ ] Tests prove expected behavior.
-
-### Milestone 2 - <Name>
-
-Repeat the same structure.
-
-## Progress
-
-Use a flat checkbox list and update continuously.
-
-- [ ] Milestone 1 started
-- [ ] Milestone 1 completed
-- [ ] Milestone 2 started
-- [ ] Milestone 2 completed
-
-## Decisions
-
-Record decisions as they happen.
-
-- Decision: <what>
-  Rationale: <why>
-  Date/Author: <YYYY-MM-DD / name>
-
-## Risks and Mitigations
-
-List meaningful risks and the mitigation for each.
-
-- Risk: <description>
-  Mitigation: <how to reduce or monitor>
-
-## Validation Strategy
-
-1. Run targeted tests relevant to modified packages.
-2. Run the repository full validation command.
-3. Manually exercise changed user-visible behavior when applicable.
-4. Confirm every canonical documentation source matches the final behavior or has a recorded no-change justification.
-
-## Documentation Impact
-
-Name every canonical documentation source relevant to the scope. For each source, describe the required update and its validation, or explain concretely why the final behavior leaves it accurate.
-
-## Rollout and Recovery
-
-Explain how to deploy or release safely and how to revert if needed.
-
-## Lessons Learned
-
-Capture non-obvious findings that help the next engineer.
+If the ExecPlan is a standalone Markdown file, do not wrap it in a code fence.
+If it is embedded in another message, wrap the complete plan in one fenced `md`
+block.
