@@ -12,7 +12,7 @@ This rubric is investigative, not a mechanical or exhaustive checklist. Apply a 
 - [Metadata read at different times](#metadata-read-at-different-times)
 - [Preformatted business diagnostics](#preformatted-business-diagnostics)
 - [Interface syntax leaking into the domain](#interface-syntax-leaking-into-the-domain)
-- [Duplicated transformations](#duplicated-transformations)
+- [Redundant knowledge and repeated work](#redundant-knowledge-and-repeated-work)
 - [Fragile mappings between models](#fragile-mappings-between-models)
 - [Empty values used as workflow status](#empty-values-used-as-workflow-status)
 - [Classes accumulating independent policies](#classes-accumulating-independent-policies)
@@ -92,14 +92,14 @@ Separate observable contract from implementation representation. Preserve public
 - **False positives:** a user-visible identifier may genuinely be part of the ubiquitous language.
 - **Do not act when:** the syntax is the business contract rather than an adapter representation.
 
-## Duplicated transformations
+## Redundant knowledge and repeated work
 
-- **Signal:** multiple paths convert equivalent source data to equivalent target data independently.
-- **Risk:** fixes and edge cases diverge, making behavior depend on the path taken.
-- **Investigate:** Are the inputs semantically identical? Do the transformations intentionally encode different policies?
-- **Possible refactors:** normalize to one stable representation and keep one authoritative transformation.
-- **False positives:** superficially similar code can represent separate bounded-context policies.
-- **Do not act when:** the policies have distinct terminology, ownership, or evolution despite similar mechanics.
+- **Signal:** a fact already established in the data flow is stored again as duplicated knowledge, representation, or state; recomputed through repeated computation, traversal, or transformation (including duplicated transformations); re-proved through repeated validation or defensive checks; or repaired downstream through late deduplication, normalization, or correction.
+- **Risk:** multiple places appear authoritative, derived facts diverge or become stale, defensive branches obscure valid invariants, and consumers repeat policy that should have one owner.
+- **Investigate:** Who established the fact, what is its authoritative source, and for how long does it remain valid? Did it cross a trust boundary? Can mutation or concurrency invalidate it? Do the representations or operations have independent ownership, lifecycle, or bounded-context policies? Which observable and public compatibility contracts depend on them? Would cheap local recomputation be simpler than cache, retained state, propagation, or a new abstraction?
+- **Possible refactors:** carry an already validated or derived result forward, keep one authoritative representation or transformation, enforce normalization or uniqueness at the source, or remove only the downstream proof, defense, or repair demonstrated to be redundant.
+- **False positives:** validation may be required again after persistence, deserialization, external input, or another trust boundary; defense in depth may be deliberate; similar work may express independently evolving policies; an identity field may have uses and lifecycle outside its container; and inexpensive recomputation may be clearer than shared state.
+- **Do not act when:** the fact can become invalid, security or a trust boundary requires a fresh proof, ownership or bounded-context policy is independent, public compatibility relies on the representation, or removing repetition would add cache, coupling, state, or abstraction without a proportional reduction in risk.
 
 ## Fragile mappings between models
 
