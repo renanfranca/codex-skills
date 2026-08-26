@@ -41,14 +41,11 @@ The root `AGENTS.md` defines the required remote check and safety boundary.
 - [`restructure-documentation`](restructure-documentation/SKILL.md) — Audit and reorganize existing documentation around clear audiences, canonical sources, ordered concepts, and validated navigation.
 - [`refactor-design`](refactor-design/SKILL.md) — Review completed green implementations for structural risks and apply behavior preserving refactors.
 - [`implement-execplan`](implement-execplan/SKILL.md) — Create, maintain, and execute self contained living plans for substantial or handoff sensitive work.
-- [`execplan-tdd`](execplan-tdd/SKILL.md) — Guide repository code changes through a living ExecPlan, behavior TDD, public checkpoint, design review, documentation reconciliation, and final validation.
+- [`execplan-tdd`](execplan-tdd/SKILL.md) — Explicitly invoke the complete living ExecPlan, behavior TDD, public checkpoint, design review, documentation reconciliation, and final validation workflow.
 
 ### Seed4J workflows
 
-- [`seed4j-execplan-tdd`](seed4j-execplan-tdd/SKILL.md) — Combine a living ExecPlan, behavior focused TDD, and post GREEN design review for substantial `seed4j-cli` changes.
 - [`seed4j-worktree-flow`](seed4j-worktree-flow/SKILL.md) — Audit, create, and clean up Seed4J CLI feature worktrees while keeping the main worktree stable.
-
-`seed4j-execplan-tdd` remains available without behavioral changes. Remove it only after the Seed4J project adopts `execplan-tdd` and declares its own complete workflow profile in `AGENTS.md`.
 
 ### Test driven development
 

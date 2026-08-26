@@ -2,3 +2,6 @@ interface:
   display_name: "ExecPlan TDD"
   short_description: "Guide code changes through ExecPlan and TDD"
   default_prompt: "Use $execplan-tdd to implement this repository code change through its declared plan, test, design review, documentation, and validation gates."
+
+policy:
+  allow_implicit_invocation: false

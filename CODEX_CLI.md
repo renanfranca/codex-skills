@@ -123,10 +123,9 @@ The [README catalog](README.md#skill-catalog) is the canonical active skill list
 | --- | --- | --- |
 | Audit or restructure an existing documentation system | [`restructure-documentation`](restructure-documentation/SKILL.md), [metadata](restructure-documentation/agents/openai.yaml) | Target repository |
 | Plan and execute a substantial repository change | [`implement-execplan`](implement-execplan/SKILL.md), [metadata](implement-execplan/agents/openai.yaml) | Target repository |
-| Guide a repository change through a declared ExecPlan and TDD profile | [`execplan-tdd`](execplan-tdd/SKILL.md), [metadata](execplan-tdd/agents/openai.yaml) | Target repository |
+| Explicitly guide a repository change through a declared ExecPlan and TDD profile | [`execplan-tdd`](execplan-tdd/SKILL.md), [metadata](execplan-tdd/agents/openai.yaml) | Target repository |
 | Review a completed green implementation for design risks | [`refactor-design`](refactor-design/SKILL.md), [metadata](refactor-design/agents/openai.yaml) | Target repository |
 | Implement behavior through autonomous quiet TDD | [`tdd-behavior-autonomous-quiet`](tdd-behavior-autonomous-quiet/SKILL.md), [metadata](tdd-behavior-autonomous-quiet/agents/openai.yaml) | Target repository |
-| Plan substantial Seed4J CLI work with TDD and design review | [`seed4j-execplan-tdd`](seed4j-execplan-tdd/SKILL.md), [metadata](seed4j-execplan-tdd/agents/openai.yaml) | `seed4j-cli` worktree |
 | Audit, create, or clean up Seed4J CLI worktrees | [`seed4j-worktree-flow`](seed4j-worktree-flow/SKILL.md), [metadata](seed4j-worktree-flow/agents/openai.yaml) | Main `seed4j-cli` worktree |
 | Commit exactly what is already staged | [`commit-staged-change`](commit-staged-change/SKILL.md), [metadata](commit-staged-change/agents/openai.yaml) | Target repository |
 | Let Codex select intended changes, stage, and commit them | [`commit-the-changes`](commit-the-changes/SKILL.md), [metadata](commit-the-changes/agents/openai.yaml) | Target repository |
