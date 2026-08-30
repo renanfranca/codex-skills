@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
+from contextlib import contextmanager
 from datetime import datetime, timezone
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -203,6 +205,24 @@ def now():
   return datetime.now(timezone.utc).isoformat()
 
 
+@contextmanager
+def exclusive_ledger_transaction(path):
+  lock_path = path.with_name(f".{path.name}.lock")
+  descriptor = None
+  try:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+    fcntl.flock(descriptor, fcntl.LOCK_EX)
+  except OSError as error:
+    if descriptor is not None:
+      os.close(descriptor)
+    raise WorkflowError(f"Unable to lock ledger at {path}: {error}") from error
+  try:
+    yield
+  finally:
+    os.close(descriptor)
+
+
 def write_atomic(path, value):
   descriptor = None
   temporary_path = None
@@ -335,14 +355,15 @@ def command_register_chat(args):
 
 
 def command_acquire(args):
-  ledger = load_ledger(args.state)
-  lease = ledger["checkout_lease"]
-  if lease is not None and lease["owner"] != args.owner:
-    raise WorkflowError(f"Checkout lease is held by {lease['owner']}")
-  if lease is None:
-    lease = {"owner": args.owner, "acquired_at": now()}
-    ledger["checkout_lease"] = lease
-    persist(args, ledger)
+  with exclusive_ledger_transaction(args.state):
+    ledger = load_ledger(args.state)
+    lease = ledger["checkout_lease"]
+    if lease is not None and lease["owner"] != args.owner:
+      raise WorkflowError(f"Checkout lease is held by {lease['owner']}")
+    if lease is None:
+      lease = {"owner": args.owner, "acquired_at": now()}
+      ledger["checkout_lease"] = lease
+      persist(args, ledger)
   print(json.dumps(lease, sort_keys=True))
 
 

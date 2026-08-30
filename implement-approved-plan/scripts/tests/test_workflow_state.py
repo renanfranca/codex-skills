@@ -1,8 +1,10 @@
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 
@@ -257,6 +259,128 @@ class WorkflowStateCliTest(unittest.TestCase):
       self.assertIn("held by implementer", second.stderr)
       ledger = json.loads(state.read_text(encoding="utf-8"))
       self.assertEqual("implementer", ledger["checkout_lease"]["owner"])
+
+  def test_concurrent_checkout_lease_acquisition_elects_one_owner(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      state = self.initialize(root)
+      ready = root / "ready"
+      ready.mkdir()
+      continue_marker = root / "continue"
+      (root / "sitecustomize.py").write_text(
+        """import fcntl
+import json
+import os
+from pathlib import Path
+import sys
+import time
+
+original_load = json.load
+original_flock = fcntl.flock
+
+
+def coordinated_flock(descriptor, operation):
+  if "acquire" in sys.argv and operation & fcntl.LOCK_EX:
+    owner = sys.argv[sys.argv.index("--owner") + 1]
+    (Path(os.environ["WORKFLOW_TEST_READY"]) / f"{owner}.lock-attempt").touch()
+  return original_flock(descriptor, operation)
+
+
+def coordinated_load(stream, *args, **kwargs):
+  value = original_load(stream, *args, **kwargs)
+  target = os.environ.get("WORKFLOW_TEST_STATE")
+  if (
+    target
+    and os.path.realpath(stream.name) == os.path.realpath(target)
+    and value.get("checkout_lease") is None
+    and "acquire" in sys.argv
+  ):
+    owner = sys.argv[sys.argv.index("--owner") + 1]
+    (Path(os.environ["WORKFLOW_TEST_READY"]) / owner).touch()
+    deadline = time.monotonic() + 10
+    marker = Path(os.environ["WORKFLOW_TEST_CONTINUE"])
+    while not marker.exists():
+      if time.monotonic() >= deadline:
+        raise RuntimeError("concurrent acquire test timed out")
+      time.sleep(0.01)
+  return value
+
+
+fcntl.flock = coordinated_flock
+json.load = coordinated_load
+""",
+        encoding="utf-8",
+      )
+      environment = os.environ.copy()
+      environment["PYTHONPATH"] = os.pathsep.join(
+        filter(None, (str(root), environment.get("PYTHONPATH")))
+      )
+      environment["WORKFLOW_TEST_STATE"] = str(state)
+      environment["WORKFLOW_TEST_READY"] = str(ready)
+      environment["WORKFLOW_TEST_CONTINUE"] = str(continue_marker)
+
+      commands = {
+        owner: [
+          sys.executable,
+          str(SCRIPT),
+          "--state",
+          str(state),
+          "acquire",
+          "--owner",
+          owner,
+        ]
+        for owner in ("implementer", "committer")
+      }
+      processes = {}
+      processes["implementer"] = subprocess.Popen(
+        commands["implementer"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=environment,
+      )
+      first_ready_deadline = time.monotonic() + 5
+      while not (ready / "implementer").exists():
+        if time.monotonic() >= first_ready_deadline:
+          break
+        time.sleep(0.01)
+      processes["committer"] = subprocess.Popen(
+        commands["committer"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=environment,
+      )
+      second_ready_deadline = time.monotonic() + 5
+      while not any(
+        marker.exists()
+        for marker in (ready / "committer", ready / "committer.lock-attempt")
+      ):
+        if processes["committer"].poll() is not None:
+          break
+        if time.monotonic() >= second_ready_deadline:
+          break
+        time.sleep(0.01)
+
+      continue_marker.touch()
+      observations = []
+      for owner, process in processes.items():
+        stdout, stderr = process.communicate(timeout=10)
+        observations.append((owner, process.returncode, stdout, stderr))
+
+      self.assertTrue((ready / "implementer").exists(), observations)
+      self.assertEqual([0, 2], sorted(item[1] for item in observations), observations)
+      winner = next(owner for owner, status, _, _ in observations if status == 0)
+      rejected = next(item for item in observations if item[1] == 2)
+      self.assertIn(f"held by {winner}", rejected[3])
+      shown = self.run_cli(state, "show")
+      self.assertEqual(0, shown.returncode, shown.stderr)
+      ledger = json.loads(shown.stdout)
+      self.assertEqual(winner, ledger["checkout_lease"]["owner"])
+      released = self.run_cli(state, "release", "--owner", winner)
+      reacquired = self.run_cli(state, "acquire", "--owner", rejected[0])
+      self.assertEqual(0, released.returncode, released.stderr)
+      self.assertEqual(0, reacquired.returncode, reacquired.stderr)
 
   def test_only_the_lease_owner_can_release_the_checkout(self):
     with tempfile.TemporaryDirectory() as directory:
