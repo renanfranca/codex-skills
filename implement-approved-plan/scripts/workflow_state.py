@@ -493,6 +493,13 @@ def command_record_pr(args):
     raise WorkflowError("Pull request creation requires a passed final gate")
   if ledger["phase"] != "baseline-committed":
     raise WorkflowError("Pull request creation requires the baseline-committed phase")
+  habit = ledger["habit"]
+  if habit is None or habit["status"] not in ("frozen", "not-applicable"):
+    raise WorkflowError(
+      "Pull request creation requires Habit evidence marked frozen or not-applicable"
+    )
+  if not any(commit["kind"] == "baseline" for commit in ledger["commits"]):
+    raise WorkflowError("Pull request creation requires a recorded baseline commit")
   require_lease(ledger, "coordinator")
   pull_request = {
     "repository": args.repo,

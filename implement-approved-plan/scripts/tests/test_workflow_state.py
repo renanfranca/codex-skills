@@ -41,7 +41,13 @@ class WorkflowStateCliTest(unittest.TestCase):
     self.assertEqual(0, result.returncode, result.stderr)
     return state
 
-  def prepare_pull_request(self, root):
+  def prepare_pull_request_prerequisites(
+    self,
+    root,
+    *,
+    record_habit=True,
+    record_baseline=True,
+  ):
     state = self.initialize(root)
     for phase in ("implementing", "implemented"):
       result = self.run_cli(state, "transition", "--to", phase)
@@ -79,17 +85,24 @@ class WorkflowStateCliTest(unittest.TestCase):
     for phase in ("coordinator-review", "habit-curation"):
       result = self.run_cli(state, "transition", "--to", phase)
       self.assertEqual(0, result.returncode, result.stderr)
-    self.assertEqual(0, self.run_cli(state, "acquire", "--owner", "habit-curator").returncode)
-    habit = self.run_cli(
-      state,
-      "record-habit",
-      "--status",
-      "not-applicable",
-      "--details",
-      "habit unavailable",
-    )
-    self.assertEqual(0, habit.returncode, habit.stderr)
-    self.assertEqual(0, self.run_cli(state, "release", "--owner", "habit-curator").returncode)
+    if record_habit:
+      self.assertEqual(
+        0,
+        self.run_cli(state, "acquire", "--owner", "habit-curator").returncode,
+      )
+      habit = self.run_cli(
+        state,
+        "record-habit",
+        "--status",
+        "not-applicable",
+        "--details",
+        "habit unavailable",
+      )
+      self.assertEqual(0, habit.returncode, habit.stderr)
+      self.assertEqual(
+        0,
+        self.run_cli(state, "release", "--owner", "habit-curator").returncode,
+      )
     for phase in ("structural-review", "final-validating"):
       result = self.run_cli(state, "transition", "--to", phase)
       self.assertEqual(0, result.returncode, result.stderr)
@@ -107,23 +120,33 @@ class WorkflowStateCliTest(unittest.TestCase):
     self.assertEqual(0, final_gate.returncode, final_gate.stderr)
     self.assertEqual(0, self.run_cli(state, "release", "--owner", "validator").returncode)
     self.assertEqual(0, self.run_cli(state, "transition", "--to", "habit-frozen").returncode)
-    self.assertEqual(0, self.run_cli(state, "acquire", "--owner", "committer").returncode)
-    baseline = self.run_cli(
-      state,
-      "record-commit",
-      "--sha",
-      "def5678",
-      "--kind",
-      "baseline",
-      "--subject",
-      "chore(demo): record baseline",
-    )
-    self.assertEqual(0, baseline.returncode, baseline.stderr)
-    self.assertEqual(0, self.run_cli(state, "release", "--owner", "committer").returncode)
+    if record_baseline:
+      self.assertEqual(
+        0,
+        self.run_cli(state, "acquire", "--owner", "committer").returncode,
+      )
+      baseline = self.run_cli(
+        state,
+        "record-commit",
+        "--sha",
+        "def5678",
+        "--kind",
+        "baseline",
+        "--subject",
+        "chore(demo): record baseline",
+      )
+      self.assertEqual(0, baseline.returncode, baseline.stderr)
+      self.assertEqual(
+        0,
+        self.run_cli(state, "release", "--owner", "committer").returncode,
+      )
     self.assertEqual(0, self.run_cli(state, "transition", "--to", "baseline-committed").returncode)
     self.assertEqual(0, self.run_cli(state, "acquire", "--owner", "coordinator").returncode)
-    pull_request = self.run_cli(
-      state,
+    return state
+
+  def prepare_pull_request(self, root):
+    state = self.prepare_pull_request_prerequisites(root)
+    arguments = (
       "record-pr",
       "--repo",
       "owner/demo",
@@ -134,7 +157,12 @@ class WorkflowStateCliTest(unittest.TestCase):
       "--status",
       "OPEN",
     )
+    pull_request = self.run_cli(state, *arguments)
     self.assertEqual(0, pull_request.returncode, pull_request.stderr)
+    before_repeat = state.read_text(encoding="utf-8")
+    repeated = self.run_cli(state, *arguments)
+    self.assertEqual(0, repeated.returncode, repeated.stderr)
+    self.assertEqual(before_repeat, state.read_text(encoding="utf-8"))
     self.assertEqual(0, self.run_cli(state, "transition", "--to", "pr-open").returncode)
     self.assertEqual(0, self.run_cli(state, "release", "--owner", "coordinator").returncode)
     return state
@@ -551,6 +579,56 @@ json.load = coordinated_load
       self.assertIn("final gate", result.stderr.lower())
       ledger = json.loads(state.read_text(encoding="utf-8"))
       self.assertIsNone(ledger["pull_request"])
+
+  def test_record_pr_rejects_missing_habit_evidence_without_changing_the_ledger(self):
+    with tempfile.TemporaryDirectory() as directory:
+      state = self.prepare_pull_request_prerequisites(
+        Path(directory),
+        record_habit=False,
+      )
+      before = state.read_text(encoding="utf-8")
+
+      result = self.run_cli(
+        state,
+        "record-pr",
+        "--repo",
+        "owner/demo",
+        "--number",
+        "12",
+        "--url",
+        "https://example.test/pull/12",
+        "--status",
+        "OPEN",
+      )
+
+      self.assertEqual(2, result.returncode)
+      self.assertIn("habit evidence", result.stderr.lower())
+      self.assertEqual(before, state.read_text(encoding="utf-8"))
+
+  def test_record_pr_rejects_missing_baseline_commit_without_changing_the_ledger(self):
+    with tempfile.TemporaryDirectory() as directory:
+      state = self.prepare_pull_request_prerequisites(
+        Path(directory),
+        record_baseline=False,
+      )
+      before = state.read_text(encoding="utf-8")
+
+      result = self.run_cli(
+        state,
+        "record-pr",
+        "--repo",
+        "owner/demo",
+        "--number",
+        "12",
+        "--url",
+        "https://example.test/pull/12",
+        "--status",
+        "OPEN",
+      )
+
+      self.assertEqual(2, result.returncode)
+      self.assertIn("baseline commit", result.stderr.lower())
+      self.assertEqual(before, state.read_text(encoding="utf-8"))
 
   def test_ci_allows_only_one_retry_for_transient_failure(self):
     with tempfile.TemporaryDirectory() as directory:
