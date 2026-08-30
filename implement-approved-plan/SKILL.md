@@ -13,6 +13,8 @@ Use a dedicated `gpt-5.6-sol` Coordinator at `xhigh`. If this is a bootstrap tas
 
 Before changing files, confirm that every required model/effort combination is callable. Never substitute a model or effort. Stop and ask the user if any exact combination is unavailable.
 
+Before creating the Coordinator or any local specialist task, confirm that the active permissions profile is Full access (`sandbox_mode = "danger-full-access"` with `approval_policy = "never"`). Permissions are environment state, not a prompt instruction. If the exact profile is unavailable, stop and ask the user instead of creating a task that will require interactive command approvals.
+
 Only the Coordinator communicates with specialists. Reuse one new task per role for the entire plan, and serialize all checkout activity with the ledger lease. Never ask specialists to coordinate with each other.
 
 ## Load the applicable procedures

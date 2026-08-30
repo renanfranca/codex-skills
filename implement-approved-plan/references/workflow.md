@@ -13,6 +13,8 @@
 
 Resolve the saved project first. Create tasks in its existing checkout with the exact settings below; using the saved project directly is intentional because the ledger serializes one checkout.
 
+Confirm Full access is active before creating any local task: `sandbox_mode = "danger-full-access"` and `approval_policy = "never"`. A prompt cannot grant permissions. If that exact profile is unavailable, stop before task creation and ask the user to enable it.
+
 | Ledger role | Model | Effort | Task contract |
 | --- | --- | --- | --- |
 | `implementer` | `gpt-5.6-sol` | `xhigh` | Use `$tdd-behavior-autonomous-quiet`; implement only assigned behavior; do not commit. |
