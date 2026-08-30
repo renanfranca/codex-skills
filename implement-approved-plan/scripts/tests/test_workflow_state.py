@@ -810,6 +810,81 @@ json.load = coordinated_load
       self.assertNotIn("traceback", result.stderr.lower())
       self.assertEqual(corrupt, state.read_text(encoding="utf-8"))
 
+  def test_show_rejects_a_phase_that_disagrees_with_history(self):
+    with tempfile.TemporaryDirectory() as directory:
+      state = self.initialize(Path(directory))
+      ledger = json.loads(state.read_text(encoding="utf-8"))
+      ledger["phase"] = "implementing"
+      corrupt = json.dumps(ledger, indent=2, sort_keys=True) + "\n"
+      state.write_text(corrupt, encoding="utf-8")
+
+      result = self.run_cli(state, "show")
+
+      self.assertEqual(2, result.returncode)
+      self.assertIn("corrupt ledger", result.stderr.lower())
+      self.assertNotIn("traceback", result.stderr.lower())
+      self.assertEqual(corrupt, state.read_text(encoding="utf-8"))
+
+  def test_show_rejects_a_discontinuous_history_chain(self):
+    with tempfile.TemporaryDirectory() as directory:
+      state = self.initialize(Path(directory))
+      for phase in ("implementing", "implemented"):
+        transitioned = self.run_cli(state, "transition", "--to", phase)
+        self.assertEqual(0, transitioned.returncode, transitioned.stderr)
+      ledger = json.loads(state.read_text(encoding="utf-8"))
+      ledger["history"][-1]["from"] = "initialized"
+      ledger["history"][-1]["to"] = "implementing"
+      ledger["phase"] = "implementing"
+      corrupt = json.dumps(ledger, indent=2, sort_keys=True) + "\n"
+      state.write_text(corrupt, encoding="utf-8")
+
+      result = self.run_cli(state, "show")
+
+      self.assertEqual(2, result.returncode)
+      self.assertIn("corrupt ledger", result.stderr.lower())
+      self.assertNotIn("traceback", result.stderr.lower())
+      self.assertEqual(corrupt, state.read_text(encoding="utf-8"))
+
+  def test_show_rejects_a_history_transition_outside_the_workflow_graph(self):
+    with tempfile.TemporaryDirectory() as directory:
+      state = self.initialize(Path(directory))
+      for phase in ("implementing", "implemented"):
+        transitioned = self.run_cli(state, "transition", "--to", phase)
+        self.assertEqual(0, transitioned.returncode, transitioned.stderr)
+      ledger = json.loads(state.read_text(encoding="utf-8"))
+      ledger["history"][-1]["to"] = "committed"
+      ledger["phase"] = "committed"
+      corrupt = json.dumps(ledger, indent=2, sort_keys=True) + "\n"
+      state.write_text(corrupt, encoding="utf-8")
+
+      result = self.run_cli(state, "show")
+
+      self.assertEqual(2, result.returncode)
+      self.assertIn("corrupt ledger", result.stderr.lower())
+      self.assertNotIn("traceback", result.stderr.lower())
+      self.assertEqual(corrupt, state.read_text(encoding="utf-8"))
+
+  def test_show_accepts_a_valid_corrective_history_loop(self):
+    with tempfile.TemporaryDirectory() as directory:
+      state = self.initialize(Path(directory))
+      for phase in (
+        "implementing",
+        "implemented",
+        "committed",
+        "initial-validating",
+        "implementing",
+      ):
+        transitioned = self.run_cli(state, "transition", "--to", phase)
+        self.assertEqual(0, transitioned.returncode, transitioned.stderr)
+
+      result = self.run_cli(state, "show")
+
+      self.assertEqual(0, result.returncode, result.stderr)
+      ledger = json.loads(result.stdout)
+      self.assertEqual("implementing", ledger["phase"])
+      self.assertEqual("initial-validating", ledger["history"][-1]["from"])
+      self.assertEqual("implementing", ledger["history"][-1]["to"])
+
 
 if __name__ == "__main__":
   unittest.main()

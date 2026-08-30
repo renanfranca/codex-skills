@@ -120,12 +120,24 @@ def nested_records_are_valid(ledger):
     )
     for name, attempts in ledger["gates"].items()
   )
-  history_valid = bool(ledger["history"]) and all(
-    fields_match(event, {"at": str, "from": (str, type(None)), "to": str})
-    and event["from"] in (None, *TRANSITIONS)
-    and event["to"] in TRANSITIONS
-    and ("note" not in event or isinstance(event["note"], str))
-    for event in ledger["history"]
+  history = ledger["history"]
+  history_valid = (
+    bool(history)
+    and all(
+      fields_match(event, {"at": str, "from": (str, type(None)), "to": str})
+      and event["from"] in (None, *TRANSITIONS)
+      and event["to"] in TRANSITIONS
+      and ("note" not in event or isinstance(event["note"], str))
+      for event in history
+    )
+    and history[0]["from"] is None
+    and history[0]["to"] == "initialized"
+    and all(
+      current["from"] == previous["to"]
+      and current["to"] in TRANSITIONS[current["from"]]
+      for previous, current in zip(history, history[1:])
+    )
+    and ledger["phase"] == history[-1]["to"]
   )
   lease = ledger["checkout_lease"]
   lease_valid = lease is None or (
