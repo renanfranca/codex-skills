@@ -1,0 +1,7 @@
+interface:
+  display_name: "Specify Issue"
+  short_description: "Turn issues into decision-complete specifications"
+  default_prompt: "Use $specify-issue to turn this issue or set of requirements into a decision-complete specification."
+
+policy:
+  allow_implicit_invocation: true
