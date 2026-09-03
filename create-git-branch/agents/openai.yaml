@@ -1,0 +1,6 @@
+interface:
+  display_name: "Create Git Branch"
+  short_description: "Create safe, meaningful Git branches"
+  default_prompt: "Use $create-git-branch to choose and create a safe branch for this work."
+policy:
+  allow_implicit_invocation: true
