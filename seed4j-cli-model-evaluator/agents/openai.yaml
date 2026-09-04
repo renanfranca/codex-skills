@@ -1,0 +1,7 @@
+interface:
+  display_name: "Seed4J CLI Model Evaluator"
+  short_description: "Evaluate frozen Seed4J model runs"
+  default_prompt: "Use $seed4j-cli-model-evaluator to evaluate the frozen Seed4J CLI model runs and open a documentation pull request."
+
+policy:
+  allow_implicit_invocation: false
