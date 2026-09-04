@@ -1,6 +1,6 @@
 # Codex Skills
 
-Reusable [Codex](https://openai.com/codex/) workflows for execution planning, documentation restructuring, behavior focused TDD, design review, Git commits, and Seed4J CLI maintenance.
+Reusable [Codex](https://openai.com/codex/) workflows for execution planning, documentation restructuring, behavior focused TDD, design review, Git commits, and Seed4J CLI maintenance and evaluation.
 
 This repository keeps each workflow self contained, inspectable, and ready to install where Codex can discover it.
 
@@ -46,6 +46,8 @@ The root `AGENTS.md` defines the required remote check and safety boundary.
 ### Seed4J workflows
 
 - [`seed4j-worktree-flow`](seed4j-worktree-flow/SKILL.md) — Audit, create, and clean up Seed4J CLI feature worktrees while keeping the main worktree stable.
+- [`seed4j-cli-model-runner`](seed4j-cli-model-runner/SKILL.md) — Create a specification-only public experiment and preserve sequential, configurable Codex model runs with deterministic audit evidence.
+- [`seed4j-cli-model-evaluator`](seed4j-cli-model-evaluator/SKILL.md) — Score frozen Seed4J CLI experiment branches against one evidence-linked rubric and open a documentation-only evaluation PR.
 
 ### Test driven development
 

@@ -127,6 +127,8 @@ The [README catalog](README.md#skill-catalog) is the canonical active skill list
 | Review a completed green implementation for design risks | [`refactor-design`](refactor-design/SKILL.md), [metadata](refactor-design/agents/openai.yaml) | Target repository |
 | Implement behavior through autonomous quiet TDD | [`tdd-behavior-autonomous-quiet`](tdd-behavior-autonomous-quiet/SKILL.md), [metadata](tdd-behavior-autonomous-quiet/agents/openai.yaml) | Target repository |
 | Audit, create, or clean up Seed4J CLI worktrees | [`seed4j-worktree-flow`](seed4j-worktree-flow/SKILL.md), [metadata](seed4j-worktree-flow/agents/openai.yaml) | Main `seed4j-cli` worktree |
+| Create and run a controlled Seed4J CLI model experiment | [`seed4j-cli-model-runner`](seed4j-cli-model-runner/SKILL.md), [metadata](seed4j-cli-model-runner/agents/openai.yaml) | Empty saved Codex project |
+| Evaluate frozen Seed4J CLI model experiment branches | [`seed4j-cli-model-evaluator`](seed4j-cli-model-evaluator/SKILL.md), [metadata](seed4j-cli-model-evaluator/agents/openai.yaml) | Completed experiment repository |
 | Commit exactly what is already staged | [`commit-staged-change`](commit-staged-change/SKILL.md), [metadata](commit-staged-change/agents/openai.yaml) | Target repository |
 | Let Codex select intended changes, stage, and commit them | [`commit-the-changes`](commit-the-changes/SKILL.md), [metadata](commit-the-changes/agents/openai.yaml) | Target repository |
 
@@ -147,6 +149,8 @@ Use $skill-name to inspect <repository state> and perform <commit or worktree ou
 ```
 
 The two commit skills create commits but never imply a push. Use `commit-staged-change` only when the exact intended diff is already staged. Use `commit-the-changes` when Codex is authorized to decide which current changes belong together and stage them.
+
+The Seed4J model runner and evaluator are explicit-only companion workflows. Run the runner from an empty local project already saved in Codex, then invoke the evaluator separately after every result branch and audit artifact is frozen. The runner requests one confirmation before it creates the public repository, pushes branches, or starts model tasks; the evaluator opens but never merges the documentation pull request.
 
 ## Review completed work
 
