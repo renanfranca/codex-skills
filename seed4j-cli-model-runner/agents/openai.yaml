@@ -1,0 +1,7 @@
+interface:
+  display_name: "Seed4J CLI Model Runner"
+  short_description: "Run controlled Seed4J model experiments"
+  default_prompt: "Use $seed4j-cli-model-runner to create a controlled Seed4J CLI model experiment from my specification and model matrix."
+
+policy:
+  allow_implicit_invocation: false
