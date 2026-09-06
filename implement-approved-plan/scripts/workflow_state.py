@@ -7,6 +7,7 @@ import fcntl
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import tempfile
 
@@ -30,8 +31,18 @@ SPECIALISTS_BY_SCHEMA = {
     "habit-curator": ("gpt-5.6-luna", "xhigh"),
     "structural-reviewer": ("gpt-5.6-sol", "xhigh"),
   },
+  3: {
+    "implementer": ("gpt-5.6-sol", "xhigh"),
+    "committer": ("gpt-5.6-terra", "xhigh"),
+    "validator": ("gpt-5.6-luna", "xhigh"),
+    "habit-curator": ("gpt-5.6-luna", "xhigh"),
+    "mutation-analyst": ("gpt-5.6-luna", "xhigh"),
+    "structural-reviewer": ("gpt-5.6-sol", "xhigh"),
+  },
 }
-SPECIALIST_ROLES = tuple(SPECIALISTS_BY_SCHEMA[2])
+SPECIALIST_ROLES = tuple(
+  sorted({role for specialists in SPECIALISTS_BY_SCHEMA.values() for role in specialists})
+)
 LEASE_OWNERS = ("coordinator", *SPECIALIST_ROLES)
 V1_TRANSITIONS = {
   "initialized": {"implementing"},
@@ -82,6 +93,32 @@ V2_TRANSITIONS = {
   "ready-for-merge": {"merged"},
   "merged": set(),
 }
+V3_TRANSITIONS = {
+  "initialized": {"implementing"},
+  "implementing": {"implemented"},
+  "implemented": {"habit-checking"},
+  "habit-checking": {"checkpoint-committing", "implementing"},
+  "checkpoint-committing": {"initial-validating", "implementing"},
+  "initial-validating": {"mutation-testing", "implementing"},
+  "mutation-testing": {"structural-review", "implementing"},
+  "structural-review": {"habit-rechecking", "implementing"},
+  "habit-rechecking": {
+    "final-committing",
+    "final-validating",
+    "implementing",
+  },
+  "final-committing": {"final-validating", "implementing"},
+  "final-validating": {
+    "mutation-rechecking",
+    "implementing",
+  },
+  "mutation-rechecking": {"delivery-ready", "implementing"},
+  "delivery-ready": {"pr-open"},
+  "pr-open": {"ci-monitoring"},
+  "ci-monitoring": {"ready-for-merge", "implementing"},
+  "ready-for-merge": {"merged"},
+  "merged": set(),
+}
 V2_CORRECTIVE_TRANSITIONS = {
   ("habit-checking", "implementing"),
   ("checkpoint-committing", "implementing"),
@@ -95,8 +132,26 @@ V2_CORRECTIVE_TRANSITIONS = {
   ("final-validating", "structural-review"),
   ("ci-monitoring", "implementing"),
 }
-TRANSITIONS_BY_SCHEMA = {1: V1_TRANSITIONS, 2: V2_TRANSITIONS}
-ALL_PHASES = tuple(sorted(V1_TRANSITIONS.keys() | V2_TRANSITIONS.keys()))
+V3_CORRECTIVE_TRANSITIONS = {
+  ("habit-checking", "implementing"),
+  ("checkpoint-committing", "implementing"),
+  ("initial-validating", "implementing"),
+  ("mutation-testing", "implementing"),
+  ("structural-review", "implementing"),
+  ("habit-rechecking", "implementing"),
+  ("final-committing", "implementing"),
+  ("final-validating", "implementing"),
+  ("mutation-rechecking", "implementing"),
+  ("ci-monitoring", "implementing"),
+}
+CORRECTIVE_TRANSITIONS_BY_SCHEMA = {
+  2: V2_CORRECTIVE_TRANSITIONS,
+  3: V3_CORRECTIVE_TRANSITIONS,
+}
+TRANSITIONS_BY_SCHEMA = {1: V1_TRANSITIONS, 2: V2_TRANSITIONS, 3: V3_TRANSITIONS}
+ALL_PHASES = tuple(
+  sorted(V1_TRANSITIONS.keys() | V2_TRANSITIONS.keys() | V3_TRANSITIONS.keys())
+)
 COMMIT_KINDS = (
   "implementation",
   "correction",
@@ -111,13 +166,30 @@ V2_GATE_NAMES = (
   "final-verify",
   "final-sonar",
 )
-GATE_NAMES_BY_SCHEMA = {1: V1_GATE_NAMES, 2: V2_GATE_NAMES}
+GATE_NAMES_BY_SCHEMA = {1: V1_GATE_NAMES, 2: V2_GATE_NAMES, 3: V2_GATE_NAMES}
 ALL_GATE_NAMES = tuple(sorted(set(V1_GATE_NAMES + V2_GATE_NAMES)))
 GATE_STATUSES = ("passed", "failed", "not-applicable")
 V1_HABIT_STATUSES = ("active", "curated", "frozen", "not-applicable")
 V2_HABIT_STATUSES = ("clean", "ratcheted", "snoozed", "not-applicable")
 ALL_HABIT_STATUSES = tuple(sorted(set(V1_HABIT_STATUSES + V2_HABIT_STATUSES)))
 HABIT_OBSERVATION_KINDS = ("no-configured-files",)
+MUTATION_RESULTS = ("passed", "failed", "not-applicable", "reused")
+MUTATION_OUTCOMES = ("survived", "no-coverage")
+MUTATION_CLASSIFICATIONS = (
+  "behavior-gap",
+  "dead-code",
+  "redundant-code",
+  "equivalent",
+)
+ACTIONABLE_MUTATION_CLASSIFICATIONS = (
+  "behavior-gap",
+  "dead-code",
+  "redundant-code",
+)
+MUTATION_NOT_APPLICABLE_REASONS = (
+  "runner-unavailable",
+  "no-production-changes",
+)
 CI_STATUSES = (
   "queued",
   "running",
@@ -222,7 +294,8 @@ def nested_records_are_valid(ledger):
   lease = ledger["checkout_lease"]
   lease_valid = lease is None or (
     fields_match(lease, {"owner": str, "acquired_at": str})
-    and lease["owner"] in LEASE_OWNERS
+    and lease["owner"]
+    in ("coordinator", *SPECIALISTS_BY_SCHEMA[ledger["schema_version"]])
   )
   habit = ledger["habit"]
   if ledger["schema_version"] == 1:
@@ -311,6 +384,10 @@ def nested_records_are_valid(ledger):
       for observation in habit_observations
     )
   )
+  mutation_attempts = ledger.get("mutation_attempts", [])
+  mutation_attempts_valid = ledger["schema_version"] in (1, 2) or (
+    mutation_attempts_are_valid(mutation_attempts)
+  )
   pull_request = ledger["pull_request"]
   pull_request_valid = pull_request is None or (
     fields_match(
@@ -358,9 +435,158 @@ def nested_records_are_valid(ledger):
       lease_valid,
       habit_valid,
       habit_observations_valid,
+      mutation_attempts_valid,
       pull_request_valid,
       ci_valid,
     )
+  )
+
+
+def mutation_attempt_is_valid(attempt):
+  if not fields_match(
+    attempt,
+    {
+      "stage": str,
+      "result": str,
+      "runner": str,
+      "analyzed_sha": str,
+      "fingerprint": str,
+      "target_classes": list,
+      "metrics": dict,
+      "classifications": list,
+      "actionable_findings": int,
+      "classification_path": (str, type(None)),
+      "log_path": str,
+      "report_paths": list,
+      "details": str,
+      "not_applicable_reason": (str, type(None)),
+      "failure_kind": (str, type(None)),
+      "reused_from_sha": (str, type(None)),
+      "reused_from_fingerprint": (str, type(None)),
+      "recorded_at": str,
+    },
+  ):
+    return False
+  metrics = attempt["metrics"]
+  required_metrics = (
+    "generated",
+    "killed",
+    "survived",
+    "no_coverage",
+    "execution_errors",
+  )
+  classifications = attempt["classifications"]
+  classifications_valid = all(
+    mutation_classification_is_valid(item) for item in classifications
+  )
+  outcome_counts = {
+    outcome: sum(item.get("outcome") == outcome for item in classifications)
+    for outcome in MUTATION_OUTCOMES
+  }
+  actionable_findings = sum(
+    item.get("classification") in ACTIONABLE_MUTATION_CLASSIFICATIONS
+    for item in classifications
+  )
+  return all(
+    (
+      attempt["stage"] in ("initial", "final"),
+      attempt["result"] in MUTATION_RESULTS,
+      bool(attempt["runner"].strip()),
+      re.fullmatch(r"[0-9a-f]{40}", attempt["analyzed_sha"]) is not None,
+      re.fullmatch(r"[0-9a-f]{64}", attempt["fingerprint"]) is not None,
+      all(isinstance(target, str) and target for target in attempt["target_classes"]),
+      all(
+        name in metrics
+        and isinstance(metrics[name], int)
+        and not isinstance(metrics[name], bool)
+        and metrics[name] >= 0
+        for name in required_metrics
+      ),
+      classifications_valid,
+      attempt["result"] == "failed"
+      or outcome_counts["survived"] == metrics.get("survived"),
+      attempt["result"] == "failed"
+      or outcome_counts["no-coverage"] == metrics.get("no_coverage"),
+      attempt["actionable_findings"] == actionable_findings,
+      all(isinstance(path, str) and path for path in attempt["report_paths"]),
+      attempt["result"] != "passed"
+      or (
+        attempt["actionable_findings"] == 0
+        and metrics.get("execution_errors") == 0
+        and metrics.get("generated")
+        == sum(
+          metrics.get(name, 0) for name in ("killed", "survived", "no_coverage")
+        )
+        and bool(attempt["target_classes"])
+        and bool(attempt["report_paths"])
+      ),
+      attempt["result"] != "not-applicable"
+      or attempt["not_applicable_reason"] in MUTATION_NOT_APPLICABLE_REASONS,
+      attempt["result"] != "failed" or attempt["failure_kind"] == "environmental",
+      attempt["result"] != "reused"
+      or (
+        attempt["stage"] == "final"
+        and attempt["reused_from_sha"] is not None
+        and attempt["reused_from_fingerprint"] is not None
+      ),
+    )
+  )
+
+
+def mutation_attempts_are_valid(attempts):
+  if not isinstance(attempts, list):
+    return False
+  latest_accepted_initial = None
+  reused_fields = (
+    "runner",
+    "fingerprint",
+    "target_classes",
+    "metrics",
+    "classifications",
+    "actionable_findings",
+    "classification_path",
+    "report_paths",
+    "not_applicable_reason",
+  )
+  for attempt in attempts:
+    if not mutation_attempt_is_valid(attempt):
+      return False
+    if attempt["stage"] == "initial" and attempt["result"] in (
+      "passed",
+      "not-applicable",
+    ):
+      latest_accepted_initial = attempt
+    if attempt["result"] == "reused":
+      if latest_accepted_initial is None:
+        return False
+      if (
+        attempt["reused_from_sha"] != latest_accepted_initial["analyzed_sha"]
+        or attempt["reused_from_fingerprint"]
+        != latest_accepted_initial["fingerprint"]
+        or any(
+          attempt[field] != latest_accepted_initial[field]
+          for field in reused_fields
+        )
+      ):
+        return False
+  return True
+
+
+def mutation_classification_is_valid(classification):
+  return (
+    fields_match(
+      classification,
+      {
+        "mutant_id": str,
+        "outcome": str,
+        "classification": str,
+        "justification": str,
+      },
+    )
+    and bool(classification["mutant_id"].strip())
+    and classification["outcome"] in MUTATION_OUTCOMES
+    and classification["classification"] in MUTATION_CLASSIFICATIONS
+    and bool(classification["justification"].strip())
   )
 
 
@@ -420,7 +646,7 @@ def load_ledger(path):
       ledger = json.load(stream)
   except (OSError, json.JSONDecodeError) as error:
     raise WorkflowError(f"Corrupt ledger at {path}: {error}") from error
-  if not isinstance(ledger, dict) or ledger.get("schema_version") not in (1, 2):
+  if not isinstance(ledger, dict) or ledger.get("schema_version") not in (1, 2, 3):
     raise WorkflowError(f"Corrupt ledger at {path}: unsupported structure")
   invalid_fields = [
     name
@@ -434,6 +660,14 @@ def load_ledger(path):
     if name not in ledger or (ledger[name] is not None and not isinstance(ledger[name], dict))
   )
   transitions = TRANSITIONS_BY_SCHEMA[ledger["schema_version"]]
+  if ledger["schema_version"] == 3:
+    if (
+      not isinstance(ledger.get("base_sha"), str)
+      or re.fullmatch(r"[0-9a-f]{40}", ledger["base_sha"]) is None
+    ):
+      invalid_fields.append("base_sha")
+    if not isinstance(ledger.get("mutation_attempts"), list):
+      invalid_fields.append("mutation_attempts")
   if invalid_fields or ledger["phase"] not in transitions:
     fields = ", ".join(sorted(set(invalid_fields))) or "phase"
     raise WorkflowError(f"Corrupt ledger at {path}: invalid fields: {fields}")
@@ -450,6 +684,9 @@ def persist(args, ledger):
 def command_init(args):
   plan_path = Path(args.plan).resolve()
   repository = Path(args.repo).resolve()
+  if not re.fullmatch(r"[0-9a-fA-F]{40}", args.base_sha):
+    raise WorkflowError("Schema v3 requires a full 40-character hexadecimal base SHA")
+  base_sha = args.base_sha.lower()
   if args.state.exists():
     existing = load_ledger(args.state)
     identity = {
@@ -458,6 +695,7 @@ def command_init(args):
       "repository": str(repository),
       "branch": args.branch,
       "base": args.base,
+      "base_sha": base_sha,
     }
     if all(existing.get(key) == value for key, value in identity.items()):
       print(json.dumps(existing, sort_keys=True))
@@ -465,18 +703,20 @@ def command_init(args):
     raise WorkflowError("State path already belongs to a different plan identity")
   timestamp = now()
   ledger = {
-    "schema_version": 2,
+    "schema_version": 3,
     "slug": args.slug,
     "plan_path": str(plan_path),
     "repository": str(repository),
     "branch": args.branch,
     "base": args.base,
+    "base_sha": base_sha,
     "phase": "initialized",
     "chats": {},
     "commits": [],
     "gates": {},
     "habit": None,
     "habit_observations": [],
+    "mutation_attempts": [],
     "pull_request": None,
     "ci": None,
     "checkout_lease": None,
@@ -500,6 +740,10 @@ def command_show(args):
 
 def command_register_chat(args):
   ledger = load_ledger(args.state)
+  if args.role not in SPECIALISTS_BY_SCHEMA[ledger["schema_version"]]:
+    raise WorkflowError(
+      f"Role {args.role} is not supported by schema v{ledger['schema_version']}"
+    )
   required_model, required_effort = SPECIALISTS_BY_SCHEMA[ledger["schema_version"]][
     args.role
   ]
@@ -524,6 +768,14 @@ def command_register_chat(args):
 def command_acquire(args):
   with exclusive_ledger_transaction(args.state):
     ledger = load_ledger(args.state)
+    if args.owner not in (
+      "coordinator",
+      *SPECIALISTS_BY_SCHEMA[ledger["schema_version"]],
+    ):
+      raise WorkflowError(
+        f"Lease owner {args.owner} is not supported by schema "
+        f"v{ledger['schema_version']}"
+      )
     lease = ledger["checkout_lease"]
     if lease is not None and lease["owner"] != args.owner:
       raise WorkflowError(f"Checkout lease is held by {lease['owner']}")
@@ -536,6 +788,13 @@ def command_acquire(args):
 
 def command_release(args):
   ledger = load_ledger(args.state)
+  if args.owner not in (
+    "coordinator",
+    *SPECIALISTS_BY_SCHEMA[ledger["schema_version"]],
+  ):
+    raise WorkflowError(
+      f"Lease owner {args.owner} is not supported by schema v{ledger['schema_version']}"
+    )
   lease = ledger["checkout_lease"]
   if lease is not None and lease["owner"] != args.owner:
     raise WorkflowError(f"Checkout lease is held by {lease['owner']}")
@@ -558,35 +817,36 @@ def command_transition(args):
   if args.to not in transitions.get(current, set()):
     raise WorkflowError(f"Invalid transition from {current} to {args.to}")
   if (
-    ledger["schema_version"] == 2
-    and (current, args.to) in V2_CORRECTIVE_TRANSITIONS
+    ledger["schema_version"] in (2, 3)
+    and (current, args.to)
+    in CORRECTIVE_TRANSITIONS_BY_SCHEMA[ledger["schema_version"]]
     and (args.note is None or not args.note.strip())
   ):
     raise WorkflowError(
       "Corrective transition requires a Coordinator authorization note"
     )
-  if ledger["schema_version"] == 2 and args.to == "implementing":
+  if ledger["schema_version"] in (2, 3) and args.to == "implementing":
     require_registered_specialists(ledger)
   if (
-    ledger["schema_version"] == 2
+    ledger["schema_version"] in (2, 3)
     and current == "habit-checking"
     and args.to == "checkpoint-committing"
   ):
     require_current_quick_habit_evidence(ledger)
   if (
-    ledger["schema_version"] == 2
+    ledger["schema_version"] in (2, 3)
     and current == "checkpoint-committing"
     and args.to == "initial-validating"
   ):
     require_current_commit(ledger, "checkpoint-committing", "checkpoint")
   if (
-    ledger["schema_version"] == 2
+    ledger["schema_version"] in (2, 3)
     and current == "habit-rechecking"
     and args.to in ("final-committing", "final-validating")
   ):
     require_current_habit_evidence(ledger, "final")
   if (
-    ledger["schema_version"] == 2
+    ledger["schema_version"] in (2, 3)
     and current == "final-committing"
     and args.to == "final-validating"
   ):
@@ -606,6 +866,22 @@ def command_transition(args):
       "initial-validating",
     )
   if (
+    ledger["schema_version"] == 3
+    and current == "initial-validating"
+    and args.to == "mutation-testing"
+  ):
+    require_current_gates(
+      ledger,
+      ("initial-verify", "initial-sonar"),
+      "initial-validating",
+    )
+  if (
+    ledger["schema_version"] == 3
+    and current == "mutation-testing"
+    and args.to == "structural-review"
+  ):
+    require_current_mutation_evidence(ledger, "initial")
+  if (
     ledger["schema_version"] == 2
     and current == "final-validating"
     and args.to == "delivery-ready"
@@ -616,7 +892,23 @@ def command_transition(args):
       "final-validating",
     )
   if (
-    ledger["schema_version"] == 2
+    ledger["schema_version"] == 3
+    and current == "final-validating"
+    and args.to == "mutation-rechecking"
+  ):
+    require_current_gates(
+      ledger,
+      ("final-verify", "final-sonar"),
+      "final-validating",
+    )
+  if (
+    ledger["schema_version"] == 3
+    and current == "mutation-rechecking"
+    and args.to == "delivery-ready"
+  ):
+    require_current_mutation_evidence(ledger, "final")
+  if (
+    ledger["schema_version"] in (2, 3)
     and current == "ci-monitoring"
     and args.to == "ready-for-merge"
   ):
@@ -634,7 +926,7 @@ def command_transition(args):
 def require_registered_specialists(ledger):
   invalid_roles = [
     role
-    for role in SPECIALIST_ROLES
+    for role in SPECIALISTS_BY_SCHEMA[ledger["schema_version"]]
     if role not in ledger["chats"] or not ledger["chats"][role]["thread_id"].strip()
   ]
   if invalid_roles:
@@ -711,6 +1003,23 @@ def require_current_passed_ci(ledger):
     raise WorkflowError("Transition requires current passed CI evidence")
 
 
+def require_current_mutation_evidence(ledger, stage):
+  attempts = ledger["mutation_attempts"]
+  phase = "mutation-testing" if stage == "initial" else "mutation-rechecking"
+  phase_started_at = next(
+    event["at"] for event in reversed(ledger["history"]) if event["to"] == phase
+  )
+  if (
+    not attempts
+    or attempts[-1]["stage"] != stage
+    or attempts[-1]["result"] not in ("passed", "reused", "not-applicable")
+    or attempts[-1]["recorded_at"] < phase_started_at
+  ):
+    raise WorkflowError(
+      f"Transition requires accepted current {stage} mutation evidence"
+    )
+
+
 def require_lease(ledger, owner):
   lease = ledger["checkout_lease"]
   if lease is None or lease["owner"] != owner:
@@ -721,7 +1030,7 @@ def require_lease(ledger, owner):
 def command_record_commit(args):
   ledger = load_ledger(args.state)
   require_lease(ledger, "committer")
-  if ledger["schema_version"] == 2:
+  if ledger["schema_version"] in (2, 3):
     allowed_kinds_by_phase = {
       "checkpoint-committing": ("implementation", "correction"),
       "final-committing": (
@@ -739,7 +1048,7 @@ def command_record_commit(args):
     "kind": args.kind,
     "subject": args.subject,
   }
-  if ledger["schema_version"] == 2:
+  if ledger["schema_version"] in (2, 3):
     commit["phase"] = ledger["phase"]
   existing = next((item for item in ledger["commits"] if item["sha"] == args.sha), None)
   if existing is not None:
@@ -761,7 +1070,7 @@ def command_record_gate(args):
     raise WorkflowError(
       f"Gate {args.name} is not supported by schema v{ledger['schema_version']}"
     )
-  if ledger["schema_version"] == 2:
+  if ledger["schema_version"] in (2, 3):
     required_phase = (
       "initial-validating" if args.name.startswith("initial-") else "final-validating"
     )
@@ -772,7 +1081,7 @@ def command_record_gate(args):
     "details": args.details,
     "url": args.url,
   }
-  if ledger["schema_version"] == 2:
+  if ledger["schema_version"] in (2, 3):
     gate["phase"] = ledger["phase"]
   attempts = ledger["gates"].setdefault(args.name, [])
   if attempts:
@@ -800,7 +1109,7 @@ def command_record_habit(args):
     raise WorkflowError(
       f"Habit status {args.status} is not supported by schema v{ledger['schema_version']}"
     )
-  if ledger["schema_version"] == 2:
+  if ledger["schema_version"] in (2, 3):
     if args.snoozed_until_changed or args.pruned:
       raise WorkflowError("Schema v2 rejects legacy Habit freeze controls")
     if args.finding_count < 0 or args.active_finding_count < 0:
@@ -888,8 +1197,8 @@ def legacy_habit_record(args):
 
 def command_record_habit_observation(args):
   ledger = load_ledger(args.state)
-  if ledger["schema_version"] != 2:
-    raise WorkflowError("Habit observations require schema v2")
+  if ledger["schema_version"] not in (2, 3):
+    raise WorkflowError("Habit observations require schema v2 or v3")
   require_lease(ledger, "coordinator")
   if ledger["phase"] != "habit-checking":
     raise WorkflowError("Habit observations require the habit-checking phase")
@@ -936,6 +1245,225 @@ def command_record_habit_observation(args):
   ledger["habit"] = None
   persist(args, ledger)
   print(json.dumps(observation, sort_keys=True))
+
+
+def mutation_artifact_path(ledger, raw_path, label):
+  repository = Path(ledger["repository"]).resolve()
+  artifact_root = (repository / ".agent" / "tmp").resolve()
+  path = Path(raw_path)
+  if not path.is_absolute():
+    path = repository / path
+  resolved = path.resolve()
+  try:
+    resolved.relative_to(artifact_root)
+    relative = resolved.relative_to(repository)
+  except ValueError as error:
+    raise WorkflowError(f"Mutation {label} must be stored under .agent/tmp") from error
+  if not resolved.exists():
+    raise WorkflowError(f"Mutation {label} does not exist: {resolved}")
+  if label in ("log", "classification file") and not resolved.is_file():
+    raise WorkflowError(f"Mutation {label} must be a file: {resolved}")
+  return relative.as_posix(), resolved
+
+
+def load_mutation_classifications(ledger, raw_path):
+  if raw_path is None:
+    return None, []
+  relative, resolved = mutation_artifact_path(
+    ledger,
+    raw_path,
+    "classification file",
+  )
+  try:
+    with resolved.open(encoding="utf-8") as stream:
+      classifications = json.load(stream)
+  except (OSError, json.JSONDecodeError) as error:
+    raise WorkflowError(f"Invalid mutation classification file: {error}") from error
+  if not isinstance(classifications, list):
+    raise WorkflowError("Mutation classification file must contain a JSON list")
+  if not all(mutation_classification_is_valid(item) for item in classifications):
+    raise WorkflowError("Every mutation classification must be complete and supported")
+  mutant_ids = [item["mutant_id"] for item in classifications]
+  if len(mutant_ids) != len(set(mutant_ids)):
+    raise WorkflowError("Mutation classifications require unique mutant IDs")
+  return relative, classifications
+
+
+def validate_completed_mutation_attempt(attempt):
+  metrics = attempt["metrics"]
+  if any(
+    not isinstance(value, int) or isinstance(value, bool) or value < 0
+    for value in metrics.values()
+  ):
+    raise WorkflowError("Mutation metrics require non-negative integer counts")
+  if metrics["generated"] < sum(
+    metrics[name] for name in ("killed", "survived", "no_coverage")
+  ):
+    raise WorkflowError("Mutation metrics cannot classify more mutants than generated")
+  classifications = attempt["classifications"]
+  outcome_counts = {
+    outcome: sum(item["outcome"] == outcome for item in classifications)
+    for outcome in MUTATION_OUTCOMES
+  }
+  if attempt["result"] != "failed" and (
+    outcome_counts["survived"] != metrics["survived"]
+    or outcome_counts["no-coverage"] != metrics["no_coverage"]
+  ):
+    raise WorkflowError(
+      "Every survived and no-coverage mutant must be classified exactly once"
+    )
+  actionable = sum(
+    item["classification"] in ACTIONABLE_MUTATION_CLASSIFICATIONS
+    for item in classifications
+  )
+  if attempt["result"] == "passed":
+    if not attempt["target_classes"]:
+      raise WorkflowError("Passed mutation evidence requires production target classes")
+    if actionable:
+      raise WorkflowError("Passed mutation evidence requires zero actionable findings")
+    if metrics["execution_errors"] != 0:
+      raise WorkflowError("Passed mutation evidence requires zero execution errors")
+    if metrics["generated"] != sum(
+      metrics[name] for name in ("killed", "survived", "no_coverage")
+    ):
+      raise WorkflowError(
+        "Passed mutation evidence must account for every generated mutant"
+      )
+    if not attempt["report_paths"]:
+      raise WorkflowError("Passed mutation evidence requires at least one report path")
+  return actionable
+
+
+def command_record_mutation(args):
+  ledger = load_ledger(args.state)
+  if ledger["schema_version"] != 3:
+    raise WorkflowError("Mutation evidence requires schema v3")
+  require_lease(ledger, "mutation-analyst")
+  stage_by_phase = {
+    "mutation-testing": "initial",
+    "mutation-rechecking": "final",
+  }
+  if ledger["phase"] not in stage_by_phase:
+    raise WorkflowError("Mutation evidence requires a mutation testing phase")
+  if not re.fullmatch(r"[0-9a-fA-F]{40}", args.analyzed_sha):
+    raise WorkflowError("Mutation evidence requires a full analyzed commit SHA")
+  if not re.fullmatch(r"[0-9a-fA-F]{64}", args.fingerprint):
+    raise WorkflowError("Mutation evidence requires a SHA-256 input fingerprint")
+  if not args.details.strip():
+    raise WorkflowError("Mutation evidence requires non-empty details")
+  stage = stage_by_phase[ledger["phase"]]
+  if stage == "initial" and args.result == "reused":
+    raise WorkflowError("Initial mutation evidence cannot be reused")
+  log_path, _ = mutation_artifact_path(ledger, args.log, "log")
+
+  if args.result == "reused":
+    source = next(
+      (
+        attempt
+        for attempt in reversed(ledger["mutation_attempts"])
+        if attempt["stage"] == "initial"
+        and attempt["result"] in ("passed", "not-applicable")
+      ),
+      None,
+    )
+    if source is None:
+      raise WorkflowError("Reused mutation evidence requires an accepted initial attempt")
+    if (
+      args.reused_from_sha != source["analyzed_sha"]
+      or args.reused_from_fingerprint != source["fingerprint"]
+      or args.fingerprint.lower() != source["fingerprint"]
+      or sorted(set(args.target_class)) != source["target_classes"]
+      or args.runner != source["runner"]
+    ):
+      raise WorkflowError(
+        "Mutation evidence can be reused only with unchanged inputs and target classes"
+      )
+    attempt = {
+      "stage": stage,
+      "result": "reused",
+      "runner": source["runner"],
+      "analyzed_sha": args.analyzed_sha.lower(),
+      "fingerprint": source["fingerprint"],
+      "target_classes": source["target_classes"],
+      "metrics": source["metrics"],
+      "classifications": source["classifications"],
+      "actionable_findings": source["actionable_findings"],
+      "classification_path": source["classification_path"],
+      "log_path": log_path,
+      "report_paths": source["report_paths"],
+      "details": args.details,
+      "not_applicable_reason": source["not_applicable_reason"],
+      "failure_kind": None,
+      "reused_from_sha": source["analyzed_sha"],
+      "reused_from_fingerprint": source["fingerprint"],
+    }
+  else:
+    classification_path, classifications = load_mutation_classifications(
+      ledger,
+      args.classification_file,
+    )
+    report_paths = [
+      mutation_artifact_path(ledger, path, "report")[0] for path in args.report
+    ]
+    target_classes = sorted(set(args.target_class))
+    if args.runner.lower() == "pit" and any(
+      not target.endswith("*") for target in target_classes
+    ):
+      raise WorkflowError("PIT target classes must end in * to include inner classes")
+    attempt = {
+      "stage": stage,
+      "result": args.result,
+      "runner": args.runner,
+      "analyzed_sha": args.analyzed_sha.lower(),
+      "fingerprint": args.fingerprint.lower(),
+      "target_classes": target_classes,
+      "metrics": {
+        "generated": args.generated,
+        "killed": args.killed,
+        "survived": args.survived,
+        "no_coverage": args.no_coverage,
+        "execution_errors": args.execution_errors,
+      },
+      "classifications": classifications,
+      "actionable_findings": 0,
+      "classification_path": classification_path,
+      "log_path": log_path,
+      "report_paths": report_paths,
+      "details": args.details,
+      "not_applicable_reason": args.not_applicable_reason,
+      "failure_kind": args.failure_kind,
+      "reused_from_sha": None,
+      "reused_from_fingerprint": None,
+    }
+    attempt["actionable_findings"] = validate_completed_mutation_attempt(attempt)
+    if args.result == "not-applicable":
+      if args.not_applicable_reason not in MUTATION_NOT_APPLICABLE_REASONS:
+        raise WorkflowError("Not-applicable mutation evidence requires an explicit reason")
+      if any(attempt["metrics"].values()) or classifications or report_paths:
+        raise WorkflowError("Not-applicable mutation evidence cannot report a runner execution")
+      if args.not_applicable_reason == "no-production-changes" and target_classes:
+        raise WorkflowError("No-production-changes evidence cannot include target classes")
+    elif args.not_applicable_reason is not None:
+      raise WorkflowError("Only not-applicable mutation evidence accepts that reason")
+    if args.result == "failed":
+      if args.failure_kind != "environmental":
+        raise WorkflowError("Failed mutation evidence requires environmental diagnosis")
+      if attempt["metrics"]["execution_errors"] == 0:
+        raise WorkflowError("Failed mutation evidence requires an execution error count")
+    elif args.failure_kind is not None:
+      raise WorkflowError("Only failed mutation evidence accepts a failure kind")
+
+  attempts = ledger["mutation_attempts"]
+  if attempts:
+    comparable = {key: attempts[-1].get(key) for key in attempt}
+    current_phase_evidence = attempts[-1]["recorded_at"] >= ledger["history"][-1]["at"]
+    if comparable == attempt and current_phase_evidence:
+      print(json.dumps(attempts[-1], sort_keys=True))
+      return
+  attempt["recorded_at"] = now()
+  attempts.append(attempt)
+  persist(args, ledger)
+  print(json.dumps(attempt, sort_keys=True))
 
 
 def command_record_pr(args):
@@ -992,6 +1520,8 @@ def require_v2_pull_request_evidence(ledger):
   habit = ledger["habit"]
   if habit is None or habit["stage"] != "final":
     raise WorkflowError("Pull request creation requires final Habit evidence")
+  if ledger["schema_version"] == 3:
+    require_current_mutation_evidence(ledger, "final")
 
 
 def command_record_ci(args):
@@ -1060,6 +1590,7 @@ def build_parser():
   initialize.add_argument("--repo", required=True)
   initialize.add_argument("--branch", required=True)
   initialize.add_argument("--base", required=True)
+  initialize.add_argument("--base-sha", required=True)
   initialize.set_defaults(handler=command_init)
 
   show = subparsers.add_parser("show")
@@ -1121,6 +1652,30 @@ def build_parser():
   record_habit_observation.add_argument("--details", required=True)
   record_habit_observation.add_argument("--reclassify-current", action="store_true")
   record_habit_observation.set_defaults(handler=command_record_habit_observation)
+
+  record_mutation = subparsers.add_parser("record-mutation")
+  record_mutation.add_argument("--runner", required=True)
+  record_mutation.add_argument("--result", required=True, choices=MUTATION_RESULTS)
+  record_mutation.add_argument("--analyzed-sha", required=True)
+  record_mutation.add_argument("--fingerprint", required=True)
+  record_mutation.add_argument("--target-class", action="append", default=[])
+  record_mutation.add_argument("--generated", type=int, default=0)
+  record_mutation.add_argument("--killed", type=int, default=0)
+  record_mutation.add_argument("--survived", type=int, default=0)
+  record_mutation.add_argument("--no-coverage", type=int, default=0)
+  record_mutation.add_argument("--execution-errors", type=int, default=0)
+  record_mutation.add_argument("--classification-file")
+  record_mutation.add_argument("--log", required=True)
+  record_mutation.add_argument("--report", action="append", default=[])
+  record_mutation.add_argument("--details", required=True)
+  record_mutation.add_argument(
+    "--not-applicable-reason",
+    choices=MUTATION_NOT_APPLICABLE_REASONS,
+  )
+  record_mutation.add_argument("--failure-kind", choices=("environmental",))
+  record_mutation.add_argument("--reused-from-sha")
+  record_mutation.add_argument("--reused-from-fingerprint")
+  record_mutation.set_defaults(handler=command_record_mutation)
 
   record_pr = subparsers.add_parser("record-pr")
   record_pr.add_argument("--repo", required=True)

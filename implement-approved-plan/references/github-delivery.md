@@ -4,7 +4,7 @@
 
 At every invocation, inspect each `.agent/tmp/*.workflow.json`. For a ledger with a recorded pull request, query that exact repository and number using GitHub's authoritative pull-request fields. Call protected ledger cleanup only when GitHub reports `MERGED` and an unambiguous merge timestamp.
 
-Preserve both files when the pull request is open, closed without merge, absent, inaccessible, the query fails, or the response is ambiguous. Do not delete a local or remote branch during reconciliation.
+Preserve plan, ledger, mutation artifacts, and branches when the pull request is open, closed without merge, absent, inaccessible, or ambiguous, or when the query fails. Do not delete a local or remote branch during reconciliation.
 
 ## Prepare human choices
 
@@ -19,11 +19,17 @@ This is a human gate. Never infer whether the pull request should close the issu
 
 ## Create the pull request
 
-Before creation, confirm the ledger is `delivery-ready`, current `final-verify` and `final-sonar` attempts are green, final Habit evidence is acceptable, the branch is pushed, and the checkout has no uncommitted delivery delta. Acceptable schema-v2 Habit evidence is `clean`, `ratcheted`, explicitly user-authorized `snoozed`, or genuinely unavailable `not-applicable`. Do not create or modify snooze state. A schema-v2 pull request does not require a baseline commit.
+Before creation, confirm the schema-v3 ledger is `delivery-ready`, the branch is pushed, and the checkout has no uncommitted delivery delta. Require all of:
 
-Create a pull request ready for review, never a draft, against the base named by the plan.
+- current passed `final-verify` and `final-sonar` attempts;
+- final Habit evidence of `clean`, `ratcheted`, explicitly user-authorized `snoozed`, or genuinely unavailable `not-applicable`;
+- current final mutation evidence of `passed`, `reused`, or `not-applicable`.
 
-The body must explain intent and observable behavior, list validation commands and observed results, state coverage/Sonar/Habit evidence, disclose known risks, and include the selected issue reference. Record repository, number, URL, status, reference kind, and labels in the ledger, then transition to `pr-open` and `ci-monitoring`.
+Mutation `failed`, actionable findings, incomplete classifications, missing evidence, or stale evidence block pull-request creation. `not-applicable` must name `runner-unavailable` or `no-production-changes`; never describe it as a green mutation run. A schema-v3 pull request does not require a Habit baseline commit.
+
+Create a pull request ready for review, never a draft, against the base named by the plan. The body must explain intent and observable behavior, list validation commands and observed results, state coverage/Sonar/Habit evidence, and summarize mutation scope, target classes, metrics, classification outcome, fingerprint, result, and log/report paths. For `reused`, include initial and final analyzed SHAs and the shared fingerprint. For `not-applicable`, include the explicit reason. Disclose known risks and include the selected issue reference.
+
+Apply only the selected existing labels. Record repository, number, URL, status, reference kind, and labels in the ledger, then transition to `pr-open` and `ci-monitoring`.
 
 Do not merge the pull request and do not delete either branch.
 
@@ -31,8 +37,8 @@ Do not merge the pull request and do not delete either branch.
 
 Follow every required check to a terminal result. Record run identifiers, URLs, and diagnostic evidence.
 
-- Route a code failure back to the responsible specialist, produce additional commits, push, and repeat affected gates.
-- Route an environment failure to the Validator.
-- Re-run a failure only when evidence shows it is transient. Permit one transient retry for the entire recorded CI flow; the ledger rejects another.
+- Route a code failure back through `implementing`, produce an additional commit, push, and repeat Habit, clean validation, mutation testing, structural review, final Habit, final validation, and mutation recheck as applicable.
+- Route an environment failure to the Validator; mutation-runner environment failures remain diagnostic work for the Mutation Analyst and Coordinator and do not authorize code changes.
+- Re-run a CI failure only when evidence shows it is transient. Permit one transient retry for the entire recorded CI flow; the ledger rejects another.
 
-When all required checks are green, record current `passed` CI evidence, transition to `ready-for-merge`, and pause for the user to merge. Keep the plan, ledger, and branches intact. A future explicit invocation performs GitHub confirmation and protected cleanup of only the plan/ledger pair. Cleanup never deletes a branch.
+When all required checks are green, record current `passed` CI evidence, transition to `ready-for-merge`, and pause for the user to merge. Keep plan, ledger, mutation artifacts, and branches intact. A future explicit invocation performs GitHub confirmation and protected cleanup of only the plan/ledger pair. Cleanup never deletes a branch.
