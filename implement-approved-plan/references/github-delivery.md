@@ -19,7 +19,9 @@ This is a human gate. Never infer whether the pull request should close the issu
 
 ## Create the pull request
 
-Before creation, confirm the final gate is green, Habit is frozen or recorded not applicable, the baseline commit is recorded, the branch is pushed, and the checkout has no uncommitted delivery delta. Create a pull request ready for review, never a draft, against the base named by the plan.
+Before creation, confirm the ledger is `delivery-ready`, current `final-verify` and `final-sonar` attempts are green, final Habit evidence is acceptable, the branch is pushed, and the checkout has no uncommitted delivery delta. Acceptable schema-v2 Habit evidence is `clean`, `ratcheted`, explicitly user-authorized `snoozed`, or genuinely unavailable `not-applicable`. Do not create or modify snooze state. A schema-v2 pull request does not require a baseline commit.
+
+Create a pull request ready for review, never a draft, against the base named by the plan.
 
 The body must explain intent and observable behavior, list validation commands and observed results, state coverage/Sonar/Habit evidence, disclose known risks, and include the selected issue reference. Record repository, number, URL, status, reference kind, and labels in the ledger, then transition to `pr-open` and `ci-monitoring`.
 
@@ -33,4 +35,4 @@ Follow every required check to a terminal result. Record run identifiers, URLs, 
 - Route an environment failure to the Validator.
 - Re-run a failure only when evidence shows it is transient. Permit one transient retry for the entire recorded CI flow; the ledger rejects another.
 
-When all required checks are green, record `passed`, transition to `ready-for-merge`, and pause for the user to merge. Keep the plan, ledger, and branches intact. A future explicit invocation performs GitHub confirmation and protected cleanup.
+When all required checks are green, record current `passed` CI evidence, transition to `ready-for-merge`, and pause for the user to merge. Keep the plan, ledger, and branches intact. A future explicit invocation performs GitHub confirmation and protected cleanup of only the plan/ledger pair. Cleanup never deletes a branch.

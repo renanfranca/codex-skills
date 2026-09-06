@@ -15,15 +15,25 @@ class WorkflowError(Exception):
   pass
 
 
-SPECIALISTS = {
-  "implementer": ("gpt-5.6-sol", "xhigh"),
-  "committer": ("gpt-5.6-terra", "xhigh"),
-  "validator": ("gpt-5.6-luna", "xhigh"),
-  "habit-curator": ("gpt-5.6-sol", "xhigh"),
-  "structural-reviewer": ("gpt-5.6-sol", "xhigh"),
+SPECIALISTS_BY_SCHEMA = {
+  1: {
+    "implementer": ("gpt-5.6-sol", "xhigh"),
+    "committer": ("gpt-5.6-terra", "xhigh"),
+    "validator": ("gpt-5.6-luna", "xhigh"),
+    "habit-curator": ("gpt-5.6-sol", "xhigh"),
+    "structural-reviewer": ("gpt-5.6-sol", "xhigh"),
+  },
+  2: {
+    "implementer": ("gpt-5.6-sol", "xhigh"),
+    "committer": ("gpt-5.6-terra", "xhigh"),
+    "validator": ("gpt-5.6-luna", "xhigh"),
+    "habit-curator": ("gpt-5.6-luna", "xhigh"),
+    "structural-reviewer": ("gpt-5.6-sol", "xhigh"),
+  },
 }
-LEASE_OWNERS = ("coordinator", *SPECIALISTS)
-TRANSITIONS = {
+SPECIALIST_ROLES = tuple(SPECIALISTS_BY_SCHEMA[2])
+LEASE_OWNERS = ("coordinator", *SPECIALIST_ROLES)
+V1_TRANSITIONS = {
   "initialized": {"implementing"},
   "implementing": {"implemented"},
   "implemented": {"committed"},
@@ -45,6 +55,48 @@ TRANSITIONS = {
   "ready-for-merge": {"merged"},
   "merged": set(),
 }
+V2_TRANSITIONS = {
+  "initialized": {"implementing"},
+  "implementing": {"implemented"},
+  "implemented": {"habit-checking"},
+  "habit-checking": {"checkpoint-committing", "implementing"},
+  "checkpoint-committing": {"initial-validating", "implementing"},
+  "initial-validating": {"structural-review", "implementing"},
+  "structural-review": {"habit-rechecking", "implementing"},
+  "habit-rechecking": {
+    "final-committing",
+    "final-validating",
+    "implementing",
+    "structural-review",
+  },
+  "final-committing": {"final-validating", "implementing"},
+  "final-validating": {
+    "delivery-ready",
+    "implementing",
+    "habit-rechecking",
+    "structural-review",
+  },
+  "delivery-ready": {"pr-open"},
+  "pr-open": {"ci-monitoring"},
+  "ci-monitoring": {"ready-for-merge", "implementing"},
+  "ready-for-merge": {"merged"},
+  "merged": set(),
+}
+V2_CORRECTIVE_TRANSITIONS = {
+  ("habit-checking", "implementing"),
+  ("checkpoint-committing", "implementing"),
+  ("initial-validating", "implementing"),
+  ("structural-review", "implementing"),
+  ("habit-rechecking", "implementing"),
+  ("habit-rechecking", "structural-review"),
+  ("final-committing", "implementing"),
+  ("final-validating", "implementing"),
+  ("final-validating", "habit-rechecking"),
+  ("final-validating", "structural-review"),
+  ("ci-monitoring", "implementing"),
+}
+TRANSITIONS_BY_SCHEMA = {1: V1_TRANSITIONS, 2: V2_TRANSITIONS}
+ALL_PHASES = tuple(sorted(V1_TRANSITIONS.keys() | V2_TRANSITIONS.keys()))
 COMMIT_KINDS = (
   "implementation",
   "correction",
@@ -52,9 +104,20 @@ COMMIT_KINDS = (
   "structural-refactor",
   "baseline",
 )
-GATE_NAMES = ("initial", "public-checkpoint", "sonar", "final")
+V1_GATE_NAMES = ("initial", "public-checkpoint", "sonar", "final")
+V2_GATE_NAMES = (
+  "initial-verify",
+  "initial-sonar",
+  "final-verify",
+  "final-sonar",
+)
+GATE_NAMES_BY_SCHEMA = {1: V1_GATE_NAMES, 2: V2_GATE_NAMES}
+ALL_GATE_NAMES = tuple(sorted(set(V1_GATE_NAMES + V2_GATE_NAMES)))
 GATE_STATUSES = ("passed", "failed", "not-applicable")
-HABIT_STATUSES = ("active", "curated", "frozen", "not-applicable")
+V1_HABIT_STATUSES = ("active", "curated", "frozen", "not-applicable")
+V2_HABIT_STATUSES = ("clean", "ratcheted", "snoozed", "not-applicable")
+ALL_HABIT_STATUSES = tuple(sorted(set(V1_HABIT_STATUSES + V2_HABIT_STATUSES)))
+HABIT_OBSERVATION_KINDS = ("no-configured-files",)
 CI_STATUSES = (
   "queued",
   "running",
@@ -88,10 +151,12 @@ def fields_match(record, schema):
 
 
 def nested_records_are_valid(ledger):
+  specialists = SPECIALISTS_BY_SCHEMA[ledger["schema_version"]]
+  transitions = TRANSITIONS_BY_SCHEMA[ledger["schema_version"]]
   chats_valid = all(
-    role in SPECIALISTS
+    role in specialists
     and fields_match(chat, {"thread_id": str, "model": str, "effort": str})
-    and (chat["model"], chat["effort"]) == SPECIALISTS[role]
+    and (chat["model"], chat["effort"]) == specialists[role]
     for role, chat in ledger["chats"].items()
   )
   commits_valid = all(
@@ -100,10 +165,17 @@ def nested_records_are_valid(ledger):
       {"sha": str, "kind": str, "subject": str, "recorded_at": str},
     )
     and commit["kind"] in COMMIT_KINDS
+    and (
+      ledger["schema_version"] == 1
+      or (
+        fields_match(commit, {"phase": str})
+        and commit["phase"] in ("checkpoint-committing", "final-committing")
+      )
+    )
     for commit in ledger["commits"]
   )
   gates_valid = all(
-    name in GATE_NAMES
+    name in GATE_NAMES_BY_SCHEMA[ledger["schema_version"]]
     and isinstance(attempts, list)
     and all(
       fields_match(
@@ -116,6 +188,14 @@ def nested_records_are_valid(ledger):
         },
       )
       and attempt["status"] in GATE_STATUSES
+      and (
+        ledger["schema_version"] == 1
+        or (
+          fields_match(attempt, {"phase": str})
+          and attempt["phase"]
+          in ("initial-validating", "final-validating")
+        )
+      )
       for attempt in attempts
     )
     for name, attempts in ledger["gates"].items()
@@ -125,8 +205,8 @@ def nested_records_are_valid(ledger):
     bool(history)
     and all(
       fields_match(event, {"at": str, "from": (str, type(None)), "to": str})
-      and event["from"] in (None, *TRANSITIONS)
-      and event["to"] in TRANSITIONS
+      and event["from"] in (None, *transitions)
+      and event["to"] in transitions
       and ("note" not in event or isinstance(event["note"], str))
       for event in history
     )
@@ -134,7 +214,7 @@ def nested_records_are_valid(ledger):
     and history[0]["to"] == "initialized"
     and all(
       current["from"] == previous["to"]
-      and current["to"] in TRANSITIONS[current["from"]]
+      and current["to"] in transitions[current["from"]]
       for previous, current in zip(history, history[1:])
     )
     and ledger["phase"] == history[-1]["to"]
@@ -145,21 +225,91 @@ def nested_records_are_valid(ledger):
     and lease["owner"] in LEASE_OWNERS
   )
   habit = ledger["habit"]
-  habit_valid = habit is None or (
-    fields_match(
-      habit,
-      {
-        "status": str,
-        "details": str,
-        "finding_count": int,
-        "classified_count": int,
-        "snoozed_until_changed": bool,
-        "pruned": bool,
-        "recorded_at": str,
-      },
+  if ledger["schema_version"] == 1:
+    habit_valid = habit is None or (
+      fields_match(
+        habit,
+        {
+          "status": str,
+          "details": str,
+          "finding_count": int,
+          "classified_count": int,
+          "snoozed_until_changed": bool,
+          "pruned": bool,
+          "recorded_at": str,
+        },
+      )
+      and habit["status"] in V1_HABIT_STATUSES
+      and ("history" not in habit or isinstance(habit["history"], list))
     )
-    and habit["status"] in HABIT_STATUSES
-    and ("history" not in habit or isinstance(habit["history"], list))
+  else:
+    habit_valid = habit is None or (
+      fields_match(
+        habit,
+        {
+          "status": str,
+          "details": str,
+          "finding_count": int,
+          "stage": str,
+          "recorded_at": str,
+        },
+      )
+      and habit["status"] in V2_HABIT_STATUSES
+      and habit["stage"] in ("quick", "final")
+      and habit["finding_count"] >= 0
+      and (
+        habit["status"] != "clean" or habit["finding_count"] == 0
+      )
+      and (
+        habit["status"] != "ratcheted"
+        or (
+          fields_match(
+            habit,
+            {
+              "active_finding_count": int,
+              "baseline_authorized": bool,
+              "baseline_unchanged": bool,
+            },
+          )
+          and habit["active_finding_count"] == 0
+          and habit["baseline_authorized"]
+          and habit["baseline_unchanged"]
+        )
+      )
+      and (
+        habit["status"] != "snoozed"
+        or (
+          fields_match(habit, {"user_authorized_snooze": bool})
+          and habit["user_authorized_snooze"]
+        )
+      )
+      and (
+        habit["status"] != "not-applicable"
+        or (
+          fields_match(habit, {"tool_unavailable": bool})
+          and habit["tool_unavailable"]
+        )
+      )
+      and ("history" not in habit or isinstance(habit["history"], list))
+    )
+  habit_observations = ledger.get("habit_observations", [])
+  habit_observations_valid = ledger["schema_version"] == 1 or (
+    isinstance(habit_observations, list)
+    and all(
+      fields_match(
+        observation,
+        {
+          "kind": str,
+          "details": str,
+          "stage": str,
+          "reclassified_habit": (dict, type(None)),
+          "recorded_at": str,
+        },
+      )
+      and observation["kind"] in HABIT_OBSERVATION_KINDS
+      and observation["stage"] == "quick"
+      for observation in habit_observations
+    )
   )
   pull_request = ledger["pull_request"]
   pull_request_valid = pull_request is None or (
@@ -207,6 +357,7 @@ def nested_records_are_valid(ledger):
       history_valid,
       lease_valid,
       habit_valid,
+      habit_observations_valid,
       pull_request_valid,
       ci_valid,
     )
@@ -269,7 +420,7 @@ def load_ledger(path):
       ledger = json.load(stream)
   except (OSError, json.JSONDecodeError) as error:
     raise WorkflowError(f"Corrupt ledger at {path}: {error}") from error
-  if not isinstance(ledger, dict) or ledger.get("schema_version") != 1:
+  if not isinstance(ledger, dict) or ledger.get("schema_version") not in (1, 2):
     raise WorkflowError(f"Corrupt ledger at {path}: unsupported structure")
   invalid_fields = [
     name
@@ -282,7 +433,8 @@ def load_ledger(path):
     for name in nullable_objects
     if name not in ledger or (ledger[name] is not None and not isinstance(ledger[name], dict))
   )
-  if invalid_fields or ledger["phase"] not in TRANSITIONS:
+  transitions = TRANSITIONS_BY_SCHEMA[ledger["schema_version"]]
+  if invalid_fields or ledger["phase"] not in transitions:
     fields = ", ".join(sorted(set(invalid_fields))) or "phase"
     raise WorkflowError(f"Corrupt ledger at {path}: invalid fields: {fields}")
   if not nested_records_are_valid(ledger):
@@ -313,7 +465,7 @@ def command_init(args):
     raise WorkflowError("State path already belongs to a different plan identity")
   timestamp = now()
   ledger = {
-    "schema_version": 1,
+    "schema_version": 2,
     "slug": args.slug,
     "plan_path": str(plan_path),
     "repository": str(repository),
@@ -324,6 +476,7 @@ def command_init(args):
     "commits": [],
     "gates": {},
     "habit": None,
+    "habit_observations": [],
     "pull_request": None,
     "ci": None,
     "checkout_lease": None,
@@ -347,7 +500,9 @@ def command_show(args):
 
 def command_register_chat(args):
   ledger = load_ledger(args.state)
-  required_model, required_effort = SPECIALISTS[args.role]
+  required_model, required_effort = SPECIALISTS_BY_SCHEMA[ledger["schema_version"]][
+    args.role
+  ]
   if (args.model, args.effort) != (required_model, required_effort):
     raise WorkflowError(
       f"{args.role} requires {required_model} at {required_effort}; fallback is forbidden"
@@ -392,6 +547,7 @@ def command_release(args):
 
 def command_transition(args):
   ledger = load_ledger(args.state)
+  transitions = TRANSITIONS_BY_SCHEMA[ledger["schema_version"]]
   current = ledger["phase"]
   if args.to == current:
     previous = ledger["history"][-1]
@@ -399,12 +555,72 @@ def command_transition(args):
       raise WorkflowError(f"Transition to {args.to} already recorded with different details")
     print(json.dumps(previous, sort_keys=True))
     return
-  if args.to not in TRANSITIONS.get(current, set()):
+  if args.to not in transitions.get(current, set()):
     raise WorkflowError(f"Invalid transition from {current} to {args.to}")
-  if args.to == "structural-review":
+  if (
+    ledger["schema_version"] == 2
+    and (current, args.to) in V2_CORRECTIVE_TRANSITIONS
+    and (args.note is None or not args.note.strip())
+  ):
+    raise WorkflowError(
+      "Corrective transition requires a Coordinator authorization note"
+    )
+  if ledger["schema_version"] == 2 and args.to == "implementing":
+    require_registered_specialists(ledger)
+  if (
+    ledger["schema_version"] == 2
+    and current == "habit-checking"
+    and args.to == "checkpoint-committing"
+  ):
+    require_current_quick_habit_evidence(ledger)
+  if (
+    ledger["schema_version"] == 2
+    and current == "checkpoint-committing"
+    and args.to == "initial-validating"
+  ):
+    require_current_commit(ledger, "checkpoint-committing", "checkpoint")
+  if (
+    ledger["schema_version"] == 2
+    and current == "habit-rechecking"
+    and args.to in ("final-committing", "final-validating")
+  ):
+    require_current_habit_evidence(ledger, "final")
+  if (
+    ledger["schema_version"] == 2
+    and current == "final-committing"
+    and args.to == "final-validating"
+  ):
+    require_current_commit(ledger, "final-committing", "final delta")
+  if ledger["schema_version"] == 1 and args.to == "structural-review":
     checkpoints = ledger["gates"].get("public-checkpoint", [])
     if not checkpoints or checkpoints[-1]["status"] != "passed":
       raise WorkflowError("Structural review requires a passed public-checkpoint gate")
+  if (
+    ledger["schema_version"] == 2
+    and current == "initial-validating"
+    and args.to == "structural-review"
+  ):
+    require_current_gates(
+      ledger,
+      ("initial-verify", "initial-sonar"),
+      "initial-validating",
+    )
+  if (
+    ledger["schema_version"] == 2
+    and current == "final-validating"
+    and args.to == "delivery-ready"
+  ):
+    require_current_gates(
+      ledger,
+      ("final-verify", "final-sonar"),
+      "final-validating",
+    )
+  if (
+    ledger["schema_version"] == 2
+    and current == "ci-monitoring"
+    and args.to == "ready-for-merge"
+  ):
+    require_current_passed_ci(ledger)
   timestamp = now()
   ledger["phase"] = args.to
   event = {"at": timestamp, "from": current, "to": args.to}
@@ -413,6 +629,86 @@ def command_transition(args):
   ledger["history"].append(event)
   persist(args, ledger)
   print(json.dumps(event, sort_keys=True))
+
+
+def require_registered_specialists(ledger):
+  invalid_roles = [
+    role
+    for role in SPECIALIST_ROLES
+    if role not in ledger["chats"] or not ledger["chats"][role]["thread_id"].strip()
+  ]
+  if invalid_roles:
+    roles = ", ".join(invalid_roles)
+    raise WorkflowError(
+      "Implementation requires registered specialist chats with non-empty "
+      f"thread IDs: {roles}"
+    )
+
+
+def require_current_habit_evidence(ledger, stage):
+  habit = ledger["habit"]
+  if (
+    habit is None
+    or habit["stage"] != stage
+    or habit["recorded_at"] < ledger["history"][-1]["at"]
+  ):
+    raise WorkflowError(f"Transition requires current {stage} Habit evidence")
+
+
+def require_current_quick_habit_evidence(ledger):
+  habit = ledger["habit"]
+  phase_started_at = ledger["history"][-1]["at"]
+  terminal_evidence = (
+    habit is not None
+    and habit["stage"] == "quick"
+    and habit["recorded_at"] >= phase_started_at
+  )
+  observations = ledger.get("habit_observations", [])
+  scoped_observation = bool(observations) and (
+    observations[-1]["stage"] == "quick"
+    and observations[-1]["recorded_at"] >= phase_started_at
+  )
+  if not terminal_evidence and not scoped_observation:
+    raise WorkflowError("Transition requires current quick Habit evidence")
+
+
+def require_current_commit(ledger, phase, label):
+  phase_started_at = ledger["history"][-1]["at"]
+  if not any(
+    commit.get("phase") == phase and commit["recorded_at"] >= phase_started_at
+    for commit in ledger["commits"]
+  ):
+    raise WorkflowError(f"Transition requires a current {label} commit")
+
+
+def require_current_gates(ledger, names, phase):
+  phase_started_at = next(
+    event["at"] for event in reversed(ledger["history"]) if event["to"] == phase
+  )
+  missing = []
+  for name in names:
+    attempts = ledger["gates"].get(name, [])
+    if (
+      not attempts
+      or attempts[-1].get("phase") != phase
+      or attempts[-1]["status"] != "passed"
+      or attempts[-1]["recorded_at"] < phase_started_at
+    ):
+      missing.append(name)
+  if missing:
+    raise WorkflowError(f"Transition requires passed current gates: {', '.join(missing)}")
+
+
+def require_current_passed_ci(ledger):
+  ci = ledger["ci"]
+  phase_started_at = ledger["history"][-1]["at"]
+  if (
+    ci is None
+    or ci["status"] != "passed"
+    or not ci["events"]
+    or ci["events"][-1]["recorded_at"] < phase_started_at
+  ):
+    raise WorkflowError("Transition requires current passed CI evidence")
 
 
 def require_lease(ledger, owner):
@@ -425,11 +721,26 @@ def require_lease(ledger, owner):
 def command_record_commit(args):
   ledger = load_ledger(args.state)
   require_lease(ledger, "committer")
+  if ledger["schema_version"] == 2:
+    allowed_kinds_by_phase = {
+      "checkpoint-committing": ("implementation", "correction"),
+      "final-committing": (
+        "correction",
+        "habit-refactor",
+        "structural-refactor",
+      ),
+    }
+    if args.kind not in allowed_kinds_by_phase.get(ledger["phase"], ()):
+      raise WorkflowError(
+        f"Commit kind {args.kind} is not allowed during {ledger['phase']}"
+      )
   commit = {
     "sha": args.sha,
     "kind": args.kind,
     "subject": args.subject,
   }
+  if ledger["schema_version"] == 2:
+    commit["phase"] = ledger["phase"]
   existing = next((item for item in ledger["commits"] if item["sha"] == args.sha), None)
   if existing is not None:
     comparable = {key: existing[key] for key in commit}
@@ -446,15 +757,31 @@ def command_record_commit(args):
 def command_record_gate(args):
   ledger = load_ledger(args.state)
   require_lease(ledger, "validator")
+  if args.name not in GATE_NAMES_BY_SCHEMA[ledger["schema_version"]]:
+    raise WorkflowError(
+      f"Gate {args.name} is not supported by schema v{ledger['schema_version']}"
+    )
+  if ledger["schema_version"] == 2:
+    required_phase = (
+      "initial-validating" if args.name.startswith("initial-") else "final-validating"
+    )
+    if ledger["phase"] != required_phase:
+      raise WorkflowError(f"Gate {args.name} requires phase {required_phase}")
   gate = {
     "status": args.status,
     "details": args.details,
     "url": args.url,
   }
+  if ledger["schema_version"] == 2:
+    gate["phase"] = ledger["phase"]
   attempts = ledger["gates"].setdefault(args.name, [])
   if attempts:
     comparable = {key: attempts[-1].get(key) for key in gate}
-    if comparable == gate:
+    current_phase_evidence = (
+      ledger["schema_version"] == 1
+      or attempts[-1]["recorded_at"] >= ledger["history"][-1]["at"]
+    )
+    if comparable == gate and current_phase_evidence:
       print(json.dumps(attempts[-1], sort_keys=True))
       return
   gate["recorded_at"] = now()
@@ -466,23 +793,68 @@ def command_record_gate(args):
 def command_record_habit(args):
   ledger = load_ledger(args.state)
   require_lease(ledger, "habit-curator")
-  if args.status == "frozen":
-    if args.finding_count != args.classified_count:
-      raise WorkflowError("Habit freeze requires every finding to be classified")
-    if not args.snoozed_until_changed or not args.pruned:
-      raise WorkflowError("Habit freeze requires until-changed snooze and prune evidence")
-  record = {
-    "status": args.status,
-    "details": args.details,
-    "finding_count": args.finding_count,
-    "classified_count": args.classified_count,
-    "snoozed_until_changed": args.snoozed_until_changed,
-    "pruned": args.pruned,
-  }
+  allowed_statuses = (
+    V1_HABIT_STATUSES if ledger["schema_version"] == 1 else V2_HABIT_STATUSES
+  )
+  if args.status not in allowed_statuses:
+    raise WorkflowError(
+      f"Habit status {args.status} is not supported by schema v{ledger['schema_version']}"
+    )
+  if ledger["schema_version"] == 2:
+    if args.snoozed_until_changed or args.pruned:
+      raise WorkflowError("Schema v2 rejects legacy Habit freeze controls")
+    if args.finding_count < 0 or args.active_finding_count < 0:
+      raise WorkflowError("Habit v2 requires non-negative finding counts")
+    stage_by_phase = {"habit-checking": "quick", "habit-rechecking": "final"}
+    if ledger["phase"] not in stage_by_phase:
+      raise WorkflowError("Habit v2 evidence requires a Habit checking phase")
+    if args.status == "clean" and args.finding_count != 0:
+      raise WorkflowError("Clean Habit evidence requires zero raw findings")
+    if args.status == "ratcheted" and (
+      args.active_finding_count != 0
+      or not args.baseline_authorized
+      or not args.baseline_unchanged
+    ):
+      raise WorkflowError(
+        "Ratcheted Habit evidence requires an authorized unchanged baseline "
+        "and zero active findings"
+      )
+    if args.status == "snoozed" and not args.user_authorized_snooze:
+      raise WorkflowError(
+        "Snoozed Habit evidence requires explicit user authorization"
+      )
+    if args.status == "not-applicable" and not args.tool_unavailable:
+      raise WorkflowError(
+        "Not-applicable Habit status requires tool-unavailable evidence"
+      )
+    record = {
+      "status": args.status,
+      "details": args.details,
+      "finding_count": args.finding_count,
+      "stage": stage_by_phase[ledger["phase"]],
+    }
+    if args.status == "ratcheted":
+      record.update(
+        {
+          "active_finding_count": args.active_finding_count,
+          "baseline_authorized": args.baseline_authorized,
+          "baseline_unchanged": args.baseline_unchanged,
+        }
+      )
+    if args.status == "snoozed":
+      record["user_authorized_snooze"] = args.user_authorized_snooze
+    if args.status == "not-applicable":
+      record["tool_unavailable"] = args.tool_unavailable
+  else:
+    record = legacy_habit_record(args)
   current = ledger["habit"]
   if current is not None:
     comparable = {key: current.get(key) for key in record}
-    if comparable == record:
+    current_phase_evidence = (
+      ledger["schema_version"] == 1
+      or current["recorded_at"] >= ledger["history"][-1]["at"]
+    )
+    if comparable == record and current_phase_evidence:
       print(json.dumps(current, sort_keys=True))
       return
     history = current.get("history", []) + [
@@ -498,20 +870,80 @@ def command_record_habit(args):
   print(json.dumps(record, sort_keys=True))
 
 
+def legacy_habit_record(args):
+  if args.status == "frozen":
+    if args.finding_count != args.classified_count:
+      raise WorkflowError("Habit freeze requires every finding to be classified")
+    if not args.snoozed_until_changed or not args.pruned:
+      raise WorkflowError("Habit freeze requires until-changed snooze and prune evidence")
+  return {
+    "status": args.status,
+    "details": args.details,
+    "finding_count": args.finding_count,
+    "classified_count": args.classified_count,
+    "snoozed_until_changed": args.snoozed_until_changed,
+    "pruned": args.pruned,
+  }
+
+
+def command_record_habit_observation(args):
+  ledger = load_ledger(args.state)
+  if ledger["schema_version"] != 2:
+    raise WorkflowError("Habit observations require schema v2")
+  require_lease(ledger, "coordinator")
+  if ledger["phase"] != "habit-checking":
+    raise WorkflowError("Habit observations require the habit-checking phase")
+  observations = ledger.setdefault("habit_observations", [])
+  candidate = {
+    "kind": args.kind,
+    "details": args.details,
+    "stage": "quick",
+  }
+  if observations:
+    comparable = {key: observations[-1].get(key) for key in candidate}
+    current_observation = (
+      observations[-1]["recorded_at"] >= ledger["history"][-1]["at"]
+    )
+    reclassification_matches = (
+      not args.reclassify_current
+      or observations[-1]["reclassified_habit"] is not None
+    )
+    if comparable == candidate and current_observation and reclassification_matches:
+      print(json.dumps(observations[-1], sort_keys=True))
+      return
+  reclassified_habit = None
+  if args.reclassify_current:
+    habit = ledger["habit"]
+    if (
+      habit is None
+      or habit["stage"] != "quick"
+      or habit["status"] != "not-applicable"
+    ):
+      raise WorkflowError(
+        "Reclassification requires current quick not-applicable Habit evidence"
+      )
+    reclassified_habit = habit
+  elif ledger["habit"] is not None:
+    raise WorkflowError(
+      "Habit observation conflicts with active terminal Habit evidence"
+    )
+  observation = {
+    **candidate,
+    "reclassified_habit": reclassified_habit,
+    "recorded_at": now(),
+  }
+  observations.append(observation)
+  ledger["habit"] = None
+  persist(args, ledger)
+  print(json.dumps(observation, sort_keys=True))
+
+
 def command_record_pr(args):
   ledger = load_ledger(args.state)
-  final_gates = ledger["gates"].get("final", [])
-  if not final_gates or final_gates[-1]["status"] != "passed":
-    raise WorkflowError("Pull request creation requires a passed final gate")
-  if ledger["phase"] != "baseline-committed":
-    raise WorkflowError("Pull request creation requires the baseline-committed phase")
-  habit = ledger["habit"]
-  if habit is None or habit["status"] not in ("frozen", "not-applicable"):
-    raise WorkflowError(
-      "Pull request creation requires Habit evidence marked frozen or not-applicable"
-    )
-  if not any(commit["kind"] == "baseline" for commit in ledger["commits"]):
-    raise WorkflowError("Pull request creation requires a recorded baseline commit")
+  if ledger["schema_version"] == 1:
+    require_v1_pull_request_evidence(ledger)
+  else:
+    require_v2_pull_request_evidence(ledger)
   require_lease(ledger, "coordinator")
   pull_request = {
     "repository": args.repo,
@@ -532,6 +964,34 @@ def command_record_pr(args):
   ledger["pull_request"] = pull_request
   persist(args, ledger)
   print(json.dumps(pull_request, sort_keys=True))
+
+
+def require_v1_pull_request_evidence(ledger):
+  final_gates = ledger["gates"].get("final", [])
+  if not final_gates or final_gates[-1]["status"] != "passed":
+    raise WorkflowError("Pull request creation requires a passed final gate")
+  if ledger["phase"] != "baseline-committed":
+    raise WorkflowError("Pull request creation requires the baseline-committed phase")
+  habit = ledger["habit"]
+  if habit is None or habit["status"] not in ("frozen", "not-applicable"):
+    raise WorkflowError(
+      "Pull request creation requires Habit evidence marked frozen or not-applicable"
+    )
+  if not any(commit["kind"] == "baseline" for commit in ledger["commits"]):
+    raise WorkflowError("Pull request creation requires a recorded baseline commit")
+
+
+def require_v2_pull_request_evidence(ledger):
+  if ledger["phase"] != "delivery-ready":
+    raise WorkflowError("Pull request creation requires the delivery-ready phase")
+  require_current_gates(
+    ledger,
+    ("final-verify", "final-sonar"),
+    "final-validating",
+  )
+  habit = ledger["habit"]
+  if habit is None or habit["stage"] != "final":
+    raise WorkflowError("Pull request creation requires final Habit evidence")
 
 
 def command_record_ci(args):
@@ -606,7 +1066,7 @@ def build_parser():
   show.set_defaults(handler=command_show)
 
   register_chat = subparsers.add_parser("register-chat")
-  register_chat.add_argument("--role", required=True, choices=sorted(SPECIALISTS))
+  register_chat.add_argument("--role", required=True, choices=sorted(SPECIALIST_ROLES))
   register_chat.add_argument("--thread-id", required=True)
   register_chat.add_argument("--model", required=True)
   register_chat.add_argument("--effort", required=True)
@@ -621,7 +1081,7 @@ def build_parser():
   release.set_defaults(handler=command_release)
 
   transition = subparsers.add_parser("transition")
-  transition.add_argument("--to", required=True, choices=sorted(TRANSITIONS))
+  transition.add_argument("--to", required=True, choices=ALL_PHASES)
   transition.add_argument("--note")
   transition.set_defaults(handler=command_transition)
 
@@ -632,20 +1092,35 @@ def build_parser():
   record_commit.set_defaults(handler=command_record_commit)
 
   record_gate = subparsers.add_parser("record-gate")
-  record_gate.add_argument("--name", required=True, choices=GATE_NAMES)
+  record_gate.add_argument("--name", required=True, choices=ALL_GATE_NAMES)
   record_gate.add_argument("--status", required=True, choices=GATE_STATUSES)
   record_gate.add_argument("--details", required=True)
   record_gate.add_argument("--url")
   record_gate.set_defaults(handler=command_record_gate)
 
   record_habit = subparsers.add_parser("record-habit")
-  record_habit.add_argument("--status", required=True, choices=HABIT_STATUSES)
+  record_habit.add_argument("--status", required=True, choices=ALL_HABIT_STATUSES)
   record_habit.add_argument("--details", required=True)
   record_habit.add_argument("--finding-count", type=int, default=0)
   record_habit.add_argument("--classified-count", type=int, default=0)
+  record_habit.add_argument("--active-finding-count", type=int, default=0)
+  record_habit.add_argument("--baseline-authorized", action="store_true")
+  record_habit.add_argument("--baseline-unchanged", action="store_true")
+  record_habit.add_argument("--user-authorized-snooze", action="store_true")
+  record_habit.add_argument("--tool-unavailable", action="store_true")
   record_habit.add_argument("--snoozed-until-changed", action="store_true")
   record_habit.add_argument("--pruned", action="store_true")
   record_habit.set_defaults(handler=command_record_habit)
+
+  record_habit_observation = subparsers.add_parser("record-habit-observation")
+  record_habit_observation.add_argument(
+    "--kind",
+    required=True,
+    choices=HABIT_OBSERVATION_KINDS,
+  )
+  record_habit_observation.add_argument("--details", required=True)
+  record_habit_observation.add_argument("--reclassify-current", action="store_true")
+  record_habit_observation.set_defaults(handler=command_record_habit_observation)
 
   record_pr = subparsers.add_parser("record-pr")
   record_pr.add_argument("--repo", required=True)

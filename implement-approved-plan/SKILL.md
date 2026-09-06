@@ -15,7 +15,7 @@ Before changing files, confirm that every required model/effort combination is c
 
 Before creating the Coordinator or any local specialist task, confirm that the active permissions profile is Full access (`sandbox_mode = "danger-full-access"` with `approval_policy = "never"`). Permissions are environment state, not a prompt instruction. If the exact profile is unavailable, stop and ask the user instead of creating a task that will require interactive command approvals.
 
-Only the Coordinator communicates with specialists. Reuse one new task per role for the entire plan, and serialize all checkout activity with the ledger lease. Never ask specialists to coordinate with each other.
+Create and register all five specialist tasks exactly once before the first `implementing` transition. Only the Coordinator communicates with specialists, grants assignments, and operates ledger leases. Reuse the registered tasks for the entire plan; never ask specialists to coordinate with each other.
 
 ## Load the applicable procedures
 
@@ -28,5 +28,7 @@ Only the Coordinator communicates with specialists. Reuse one new task per role 
 An approved plan authorizes its stated implementation and delivery operations, not merge, branch deletion, unrelated cleanup, label creation, amend, or rebase. Keep corrective work as additional commits.
 
 Pause for every human choice required by the plan. In particular, obtain the user's issue-reference and existing-label selections before creating a pull request when the plan calls for those choices.
+
+Never create or modify Habit snooze state. A `snoozed` ledger result records a pre-existing state only after the user explicitly authorizes it. Schema v2 does not require a Habit baseline commit.
 
 Keep `.agent/tmp/<slug>.md` and `.agent/tmp/<slug>.workflow.json` until a future invocation independently confirms the recorded pull request is `MERGED`. Never infer merge from a closed pull request, green CI, or local Git state.
