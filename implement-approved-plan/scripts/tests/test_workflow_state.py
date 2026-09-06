@@ -9,13 +9,18 @@ import unittest
 
 
 SCRIPT = Path(__file__).parents[1] / "workflow_state.py"
-SPECIALISTS = {
+V2_SPECIALISTS = {
   "implementer": ("gpt-5.6-sol", "xhigh"),
   "committer": ("gpt-5.6-terra", "xhigh"),
   "validator": ("gpt-5.6-luna", "xhigh"),
   "habit-curator": ("gpt-5.6-luna", "xhigh"),
   "structural-reviewer": ("gpt-5.6-sol", "xhigh"),
 }
+V3_SPECIALISTS = {
+  **V2_SPECIALISTS,
+  "mutation-analyst": ("gpt-5.6-luna", "xhigh"),
+}
+BASE_SHA = "a" * 40
 
 
 class WorkflowStateCliTest(unittest.TestCase):
@@ -27,7 +32,38 @@ class WorkflowStateCliTest(unittest.TestCase):
       check=False,
     )
 
-  def initialize(self, root, slug="demo"):
+  def initialize_v2(self, root, slug="demo"):
+    plan = root / f"{slug}.md"
+    state = root / f"{slug}.workflow.json"
+    plan.write_text("# Approved plan\n", encoding="utf-8")
+    timestamp = "2026-09-06T00:00:00+00:00"
+    ledger = {
+      "schema_version": 2,
+      "slug": slug,
+      "plan_path": str(plan.resolve()),
+      "repository": str(root.resolve()),
+      "branch": f"codex/{slug}",
+      "base": "main",
+      "phase": "initialized",
+      "chats": {},
+      "commits": [],
+      "gates": {},
+      "habit": None,
+      "habit_observations": [],
+      "pull_request": None,
+      "ci": None,
+      "checkout_lease": None,
+      "history": [{"at": timestamp, "from": None, "to": "initialized"}],
+      "created_at": timestamp,
+      "updated_at": timestamp,
+    }
+    state.write_text(
+      json.dumps(ledger, indent=2, sort_keys=True) + "\n",
+      encoding="utf-8",
+    )
+    return state
+
+  def initialize_v3(self, root, slug="demo"):
     plan = root / f"{slug}.md"
     state = root / f"{slug}.workflow.json"
     plan.write_text("# Approved plan\n", encoding="utf-8")
@@ -44,12 +80,21 @@ class WorkflowStateCliTest(unittest.TestCase):
       f"codex/{slug}",
       "--base",
       "main",
+      "--base-sha",
+      BASE_SHA,
     )
     self.assertEqual(0, result.returncode, result.stderr)
     return state
 
-  def register_specialists(self, state, *, omitted_role=None, empty_role=None):
-    for role, (model, effort) in SPECIALISTS.items():
+  def register_specialists(
+    self,
+    state,
+    *,
+    specialists=V2_SPECIALISTS,
+    omitted_role=None,
+    empty_role=None,
+  ):
+    for role, (model, effort) in specialists.items():
       if role == omitted_role:
         continue
       result = self.run_cli(
@@ -67,12 +112,17 @@ class WorkflowStateCliTest(unittest.TestCase):
       self.assertEqual(0, result.returncode, result.stderr)
 
   def initialize_for_implementation(self, root, slug="demo"):
-    state = self.initialize(root, slug)
+    state = self.initialize_v2(root, slug)
     self.register_specialists(state)
     return state
 
+  def initialize_v3_for_implementation(self, root, slug="demo"):
+    state = self.initialize_v3(root, slug)
+    self.register_specialists(state, specialists=V3_SPECIALISTS)
+    return state
+
   def initialize_legacy(self, root, slug="demo"):
-    state = self.initialize(root, slug)
+    state = self.initialize_v2(root, slug)
     ledger = json.loads(state.read_text(encoding="utf-8"))
     ledger["schema_version"] = 1
     state.write_text(
@@ -88,6 +138,159 @@ class WorkflowStateCliTest(unittest.TestCase):
       self.assertEqual(0, result.returncode, result.stderr)
     acquired = self.run_cli(state, "acquire", "--owner", "habit-curator")
     self.assertEqual(0, acquired.returncode, acquired.stderr)
+    return state
+
+  def prepare_v3_initial_validation(self, root):
+    state = self.initialize_v3_for_implementation(root)
+    for phase in ("implementing", "implemented", "habit-checking"):
+      result = self.run_cli(state, "transition", "--to", phase)
+      self.assertEqual(0, result.returncode, result.stderr)
+    acquired = self.run_cli(state, "acquire", "--owner", "habit-curator")
+    self.assertEqual(0, acquired.returncode, acquired.stderr)
+    habit = self.run_cli(
+      state,
+      "record-habit",
+      "--status",
+      "clean",
+      "--details",
+      "quick check has zero raw findings",
+    )
+    self.assertEqual(0, habit.returncode, habit.stderr)
+    released = self.run_cli(state, "release", "--owner", "habit-curator")
+    self.assertEqual(0, released.returncode, released.stderr)
+    committing = self.run_cli(state, "transition", "--to", "checkpoint-committing")
+    self.assertEqual(0, committing.returncode, committing.stderr)
+    acquired = self.run_cli(state, "acquire", "--owner", "committer")
+    self.assertEqual(0, acquired.returncode, acquired.stderr)
+    committed = self.run_cli(
+      state,
+      "record-commit",
+      "--sha",
+      "b" * 40,
+      "--kind",
+      "implementation",
+      "--subject",
+      "feat(demo): implement behavior",
+    )
+    self.assertEqual(0, committed.returncode, committed.stderr)
+    released = self.run_cli(state, "release", "--owner", "committer")
+    self.assertEqual(0, released.returncode, released.stderr)
+    validating = self.run_cli(state, "transition", "--to", "initial-validating")
+    self.assertEqual(0, validating.returncode, validating.stderr)
+    return state
+
+  def prepare_v3_mutation_testing(self, root):
+    state = self.prepare_v3_initial_validation(root)
+    acquired = self.run_cli(state, "acquire", "--owner", "validator")
+    self.assertEqual(0, acquired.returncode, acquired.stderr)
+    for name in ("initial-verify", "initial-sonar"):
+      gate = self.run_cli(
+        state,
+        "record-gate",
+        "--name",
+        name,
+        "--status",
+        "passed",
+        "--details",
+        f"{name} passed",
+      )
+      self.assertEqual(0, gate.returncode, gate.stderr)
+    released = self.run_cli(state, "release", "--owner", "validator")
+    self.assertEqual(0, released.returncode, released.stderr)
+    mutation = self.run_cli(state, "transition", "--to", "mutation-testing")
+    self.assertEqual(0, mutation.returncode, mutation.stderr)
+    return state
+
+  def write_mutation_artifacts(self, root, classifications, prefix="mutation"):
+    artifacts = root / ".agent" / "tmp"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    log = artifacts / f"{prefix}.log"
+    log.write_text("complete mutation runner output\n", encoding="utf-8")
+    report = artifacts / f"{prefix}-pit-report"
+    report.mkdir()
+    classifications_path = artifacts / f"{prefix}-classifications.json"
+    classifications_path.write_text(
+      json.dumps(classifications, indent=2, sort_keys=True) + "\n",
+      encoding="utf-8",
+    )
+    return log, report, classifications_path
+
+  def prepare_v3_mutation_rechecking(self, root):
+    state = self.prepare_v3_mutation_testing(root)
+    log, report, classifications = self.write_mutation_artifacts(root, [])
+    acquired = self.run_cli(state, "acquire", "--owner", "mutation-analyst")
+    self.assertEqual(0, acquired.returncode, acquired.stderr)
+    mutation = self.run_cli(
+      state,
+      "record-mutation",
+      "--runner",
+      "pit",
+      "--result",
+      "passed",
+      "--analyzed-sha",
+      "b" * 40,
+      "--fingerprint",
+      "c" * 64,
+      "--target-class",
+      "com.example.OrderService*",
+      "--generated",
+      "2",
+      "--killed",
+      "2",
+      "--classification-file",
+      str(classifications),
+      "--log",
+      str(log),
+      "--report",
+      str(report),
+      "--details",
+      "PIT completed with all mutants killed",
+    )
+    self.assertEqual(0, mutation.returncode, mutation.stderr)
+    released = self.run_cli(state, "release", "--owner", "mutation-analyst")
+    self.assertEqual(0, released.returncode, released.stderr)
+    reviewed = self.run_cli(state, "transition", "--to", "structural-review")
+    self.assertEqual(0, reviewed.returncode, reviewed.stderr)
+    rechecking = self.run_cli(state, "transition", "--to", "habit-rechecking")
+    self.assertEqual(0, rechecking.returncode, rechecking.stderr)
+    acquired = self.run_cli(state, "acquire", "--owner", "habit-curator")
+    self.assertEqual(0, acquired.returncode, acquired.stderr)
+    habit = self.run_cli(
+      state,
+      "record-habit",
+      "--status",
+      "clean",
+      "--details",
+      "post-review check has zero raw findings",
+    )
+    self.assertEqual(0, habit.returncode, habit.stderr)
+    released = self.run_cli(state, "release", "--owner", "habit-curator")
+    self.assertEqual(0, released.returncode, released.stderr)
+    validating = self.run_cli(state, "transition", "--to", "final-validating")
+    self.assertEqual(0, validating.returncode, validating.stderr)
+    acquired = self.run_cli(state, "acquire", "--owner", "validator")
+    self.assertEqual(0, acquired.returncode, acquired.stderr)
+    for name in ("final-verify", "final-sonar"):
+      gate = self.run_cli(
+        state,
+        "record-gate",
+        "--name",
+        name,
+        "--status",
+        "passed",
+        "--details",
+        f"{name} passed",
+      )
+      self.assertEqual(0, gate.returncode, gate.stderr)
+    released = self.run_cli(state, "release", "--owner", "validator")
+    self.assertEqual(0, released.returncode, released.stderr)
+    mutation_recheck = self.run_cli(
+      state,
+      "transition",
+      "--to",
+      "mutation-rechecking",
+    )
+    self.assertEqual(0, mutation_recheck.returncode, mutation_recheck.stderr)
     return state
 
   def prepare_v2_checkpoint_commit(self, root):
@@ -415,22 +618,26 @@ class WorkflowStateCliTest(unittest.TestCase):
         "codex/demo",
         "--base",
         "main",
+        "--base-sha",
+        BASE_SHA,
       )
 
       self.assertEqual(0, result.returncode, result.stderr)
       ledger = json.loads(state.read_text(encoding="utf-8"))
-      self.assertEqual(2, ledger["schema_version"])
+      self.assertEqual(3, ledger["schema_version"])
       self.assertEqual("demo", ledger["slug"])
       self.assertEqual(str(plan.resolve()), ledger["plan_path"])
       self.assertEqual(str(root.resolve()), ledger["repository"])
       self.assertEqual("codex/demo", ledger["branch"])
       self.assertEqual("main", ledger["base"])
+      self.assertEqual(BASE_SHA, ledger["base_sha"])
       self.assertEqual("initialized", ledger["phase"])
       self.assertEqual({}, ledger["chats"])
       self.assertEqual([], ledger["commits"])
       self.assertEqual({}, ledger["gates"])
       self.assertIsNone(ledger["habit"])
       self.assertEqual([], ledger["habit_observations"])
+      self.assertEqual([], ledger["mutation_attempts"])
       self.assertIsNone(ledger["pull_request"])
       self.assertIsNone(ledger["ci"])
       self.assertIsNone(ledger["checkout_lease"])
@@ -454,6 +661,8 @@ class WorkflowStateCliTest(unittest.TestCase):
         "codex/demo",
         "--base",
         "main",
+        "--base-sha",
+        BASE_SHA,
       )
       first = self.run_cli(state, *arguments)
       before = state.read_text(encoding="utf-8")
@@ -478,7 +687,7 @@ class WorkflowStateCliTest(unittest.TestCase):
 
   def test_show_reads_a_legacy_v1_ledger_without_rewriting_it(self):
     with tempfile.TemporaryDirectory() as directory:
-      state = self.initialize(Path(directory))
+      state = self.initialize_v2(Path(directory))
       self.register_specialists(state)
       ledger = json.loads(state.read_text(encoding="utf-8"))
       ledger["schema_version"] = 1
@@ -494,7 +703,7 @@ class WorkflowStateCliTest(unittest.TestCase):
 
   def test_show_reads_an_existing_v2_ledger_without_the_observation_field(self):
     with tempfile.TemporaryDirectory() as directory:
-      state = self.initialize(Path(directory))
+      state = self.initialize_v2(Path(directory))
       ledger = json.loads(state.read_text(encoding="utf-8"))
       del ledger["habit_observations"]
       existing_content = json.dumps(ledger, indent=2, sort_keys=True) + "\n"
@@ -509,7 +718,7 @@ class WorkflowStateCliTest(unittest.TestCase):
   def test_register_chat_records_the_required_specialist_identity(self):
     with tempfile.TemporaryDirectory() as directory:
       root = Path(directory)
-      state = self.initialize(root)
+      state = self.initialize_v2(root)
 
       result = self.run_cli(
         state,
@@ -537,7 +746,7 @@ class WorkflowStateCliTest(unittest.TestCase):
 
   def test_schema_v2_registers_the_exact_specialist_matrix(self):
     with tempfile.TemporaryDirectory() as directory:
-      state = self.initialize(Path(directory))
+      state = self.initialize_v2(Path(directory))
 
       self.register_specialists(state)
 
@@ -549,7 +758,7 @@ class WorkflowStateCliTest(unittest.TestCase):
             "model": model,
             "effort": effort,
           }
-          for role, (model, effort) in SPECIALISTS.items()
+          for role, (model, effort) in V2_SPECIALISTS.items()
         },
         ledger["chats"],
       )
@@ -558,14 +767,14 @@ class WorkflowStateCliTest(unittest.TestCase):
     with tempfile.TemporaryDirectory() as directory:
       root = Path(directory)
       scenarios = (
-        *(("missing", role) for role in SPECIALISTS),
-        *(("empty", role) for role in SPECIALISTS),
+        *(("missing", role) for role in V2_SPECIALISTS),
+        *(("empty", role) for role in V2_SPECIALISTS),
       )
       for condition, role in scenarios:
         with self.subTest(condition=condition, role=role):
           case_root = root / f"{condition}-{role}"
           case_root.mkdir()
-          state = self.initialize(case_root)
+          state = self.initialize_v2(case_root)
           self.register_specialists(
             state,
             omitted_role=role if condition == "missing" else None,
@@ -578,9 +787,589 @@ class WorkflowStateCliTest(unittest.TestCase):
           self.assertEqual(2, result.returncode)
           self.assertEqual(before, state.read_text(encoding="utf-8"))
 
+  def test_schema_v3_requires_mutation_analyst_luna_xhigh_before_implementation(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      state = self.initialize_v3(root)
+      self.register_specialists(
+        state,
+        specialists=V3_SPECIALISTS,
+        omitted_role="mutation-analyst",
+      )
+      before_missing = state.read_text(encoding="utf-8")
+
+      missing = self.run_cli(state, "transition", "--to", "implementing")
+
+      self.assertEqual(2, missing.returncode)
+      self.assertIn("mutation-analyst", missing.stderr)
+      self.assertEqual(before_missing, state.read_text(encoding="utf-8"))
+
+      for model, effort in (("gpt-5.6-sol", "xhigh"), ("gpt-5.6-luna", "high")):
+        with self.subTest(model=model, effort=effort):
+          rejected = self.run_cli(
+            state,
+            "register-chat",
+            "--role",
+            "mutation-analyst",
+            "--thread-id",
+            "mutation-thread",
+            "--model",
+            model,
+            "--effort",
+            effort,
+          )
+
+          self.assertEqual(2, rejected.returncode)
+          self.assertEqual(before_missing, state.read_text(encoding="utf-8"))
+
+      accepted = self.run_cli(
+        state,
+        "register-chat",
+        "--role",
+        "mutation-analyst",
+        "--thread-id",
+        "mutation-thread",
+        "--model",
+        "gpt-5.6-luna",
+        "--effort",
+        "xhigh",
+      )
+      transitioned = self.run_cli(state, "transition", "--to", "implementing")
+
+      self.assertEqual(0, accepted.returncode, accepted.stderr)
+      self.assertEqual(0, transitioned.returncode, transitioned.stderr)
+      ledger = json.loads(state.read_text(encoding="utf-8"))
+      self.assertEqual(
+        {
+          role: {
+            "thread_id": (
+              "mutation-thread" if role == "mutation-analyst" else f"{role}-thread"
+            ),
+            "model": model,
+            "effort": effort,
+          }
+          for role, (model, effort) in V3_SPECIALISTS.items()
+        },
+        ledger["chats"],
+      )
+
+  def test_schema_v3_enters_mutation_testing_only_after_initial_validation(self):
+    with tempfile.TemporaryDirectory() as directory:
+      state = self.prepare_v3_initial_validation(Path(directory))
+      before = state.read_text(encoding="utf-8")
+
+      blocked = self.run_cli(state, "transition", "--to", "mutation-testing")
+
+      self.assertEqual(2, blocked.returncode)
+      self.assertEqual(before, state.read_text(encoding="utf-8"))
+
+      acquired = self.run_cli(state, "acquire", "--owner", "validator")
+      self.assertEqual(0, acquired.returncode, acquired.stderr)
+      for name in ("initial-verify", "initial-sonar"):
+        gate = self.run_cli(
+          state,
+          "record-gate",
+          "--name",
+          name,
+          "--status",
+          "passed",
+          "--details",
+          f"{name} passed",
+        )
+        self.assertEqual(0, gate.returncode, gate.stderr)
+      released = self.run_cli(state, "release", "--owner", "validator")
+      direct_review = self.run_cli(state, "transition", "--to", "structural-review")
+      mutation = self.run_cli(state, "transition", "--to", "mutation-testing")
+
+      self.assertEqual(0, released.returncode, released.stderr)
+      self.assertEqual(2, direct_review.returncode)
+      self.assertEqual(0, mutation.returncode, mutation.stderr)
+      self.assertEqual(
+        "mutation-testing",
+        json.loads(state.read_text(encoding="utf-8"))["phase"],
+      )
+
+  def test_schema_v3_rejects_unclassified_survivors_and_blocks_structural_review(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      state = self.prepare_v3_mutation_testing(root)
+      log, report, classifications = self.write_mutation_artifacts(
+        root,
+        [
+          {
+            "mutant_id": "OrderService.java:42:CONDITIONALS_BOUNDARY",
+            "outcome": "survived",
+            "classification": "equivalent",
+            "justification": "The boundary is normalized by the public constructor.",
+          }
+        ],
+      )
+      blocked_review = self.run_cli(state, "transition", "--to", "structural-review")
+      self.assertEqual(2, blocked_review.returncode)
+      acquired = self.run_cli(state, "acquire", "--owner", "mutation-analyst")
+      self.assertEqual(0, acquired.returncode, acquired.stderr)
+      before = state.read_text(encoding="utf-8")
+
+      rejected = self.run_cli(
+        state,
+        "record-mutation",
+        "--runner",
+        "pit",
+        "--result",
+        "passed",
+        "--analyzed-sha",
+        "b" * 40,
+        "--fingerprint",
+        "c" * 64,
+        "--target-class",
+        "com.example.OrderService*",
+        "--generated",
+        "4",
+        "--killed",
+        "2",
+        "--survived",
+        "1",
+        "--no-coverage",
+        "1",
+        "--classification-file",
+        str(classifications),
+        "--log",
+        str(log),
+        "--report",
+        str(report),
+        "--details",
+        "PIT completed but one no-coverage mutant was not classified",
+      )
+
+      self.assertEqual(2, rejected.returncode)
+      self.assertIn("classified", rejected.stderr.lower())
+      self.assertEqual(before, state.read_text(encoding="utf-8"))
+
+  def test_schema_v3_accepts_zero_actionable_findings_and_justified_equivalents(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      state = self.prepare_v3_mutation_testing(root)
+      log, report, classifications = self.write_mutation_artifacts(
+        root,
+        [
+          {
+            "mutant_id": "OrderService.java:42:CONDITIONALS_BOUNDARY",
+            "outcome": "survived",
+            "classification": "equivalent",
+            "justification": "The boundary is normalized by the public constructor.",
+          },
+          {
+            "mutant_id": "OrderService.java:57:NULL_RETURNS",
+            "outcome": "no-coverage",
+            "classification": "equivalent",
+            "justification": "The generated null is rejected by a non-null record component.",
+          },
+        ],
+      )
+      acquired = self.run_cli(state, "acquire", "--owner", "mutation-analyst")
+      self.assertEqual(0, acquired.returncode, acquired.stderr)
+
+      recorded = self.run_cli(
+        state,
+        "record-mutation",
+        "--runner",
+        "pit",
+        "--result",
+        "passed",
+        "--analyzed-sha",
+        "b" * 40,
+        "--fingerprint",
+        "c" * 64,
+        "--target-class",
+        "com.example.OrderService*",
+        "--generated",
+        "4",
+        "--killed",
+        "2",
+        "--survived",
+        "1",
+        "--no-coverage",
+        "1",
+        "--classification-file",
+        str(classifications),
+        "--log",
+        str(log),
+        "--report",
+        str(report),
+        "--details",
+        "PIT completed with no actionable findings",
+      )
+      released = self.run_cli(state, "release", "--owner", "mutation-analyst")
+      reviewed = self.run_cli(state, "transition", "--to", "structural-review")
+
+      self.assertEqual(0, recorded.returncode, recorded.stderr)
+      self.assertEqual(0, released.returncode, released.stderr)
+      self.assertEqual(0, reviewed.returncode, reviewed.stderr)
+      ledger = json.loads(state.read_text(encoding="utf-8"))
+      attempt = ledger["mutation_attempts"][-1]
+      self.assertEqual("initial", attempt["stage"])
+      self.assertEqual("passed", attempt["result"])
+      self.assertEqual(["com.example.OrderService*"], attempt["target_classes"])
+      self.assertEqual(2, len(attempt["classifications"]))
+      self.assertEqual(0, attempt["actionable_findings"])
+      self.assertEqual(".agent/tmp/mutation.log", attempt["log_path"])
+      self.assertEqual([".agent/tmp/mutation-pit-report"], attempt["report_paths"])
+
+  def test_schema_v3_records_not_applicable_without_calling_it_passed(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      for reason, targets in (
+        ("runner-unavailable", ["com.example.OrderService*"]),
+        ("no-production-changes", []),
+      ):
+        with self.subTest(reason=reason):
+          case_root = root / reason
+          case_root.mkdir()
+          state = self.prepare_v3_mutation_testing(case_root)
+          artifacts = case_root / ".agent" / "tmp"
+          artifacts.mkdir(parents=True, exist_ok=True)
+          log = artifacts / "mutation-assessment.log"
+          log.write_text(f"not applicable: {reason}\n", encoding="utf-8")
+          acquired = self.run_cli(state, "acquire", "--owner", "mutation-analyst")
+          self.assertEqual(0, acquired.returncode, acquired.stderr)
+          arguments = [
+            "record-mutation",
+            "--runner",
+            "pit",
+            "--result",
+            "not-applicable",
+            "--analyzed-sha",
+            "b" * 40,
+            "--fingerprint",
+            "c" * 64,
+            "--not-applicable-reason",
+            reason,
+            "--log",
+            str(log),
+            "--details",
+            f"Mutation testing is not applicable because {reason}",
+          ]
+          for target in targets:
+            arguments.extend(("--target-class", target))
+
+          recorded = self.run_cli(state, *arguments)
+          released = self.run_cli(state, "release", "--owner", "mutation-analyst")
+          reviewed = self.run_cli(state, "transition", "--to", "structural-review")
+
+          self.assertEqual(0, recorded.returncode, recorded.stderr)
+          self.assertEqual(0, released.returncode, released.stderr)
+          self.assertEqual(0, reviewed.returncode, reviewed.stderr)
+          attempt = json.loads(state.read_text(encoding="utf-8"))[
+            "mutation_attempts"
+          ][-1]
+          self.assertEqual("not-applicable", attempt["result"])
+          self.assertNotEqual("passed", attempt["result"])
+          self.assertEqual(reason, attempt["not_applicable_reason"])
+
+  def test_schema_v3_rejects_actionable_errors_and_unaccounted_mutants(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      state = self.prepare_v3_mutation_testing(root)
+      log, report, classifications = self.write_mutation_artifacts(
+        root,
+        [
+          {
+            "mutant_id": "OrderService.java:42:NEGATE_CONDITIONALS",
+            "outcome": "survived",
+            "classification": "behavior-gap",
+            "justification": "The public rejection path lacks a boundary example.",
+          }
+        ],
+        prefix="actionable",
+      )
+      acquired = self.run_cli(state, "acquire", "--owner", "mutation-analyst")
+      self.assertEqual(0, acquired.returncode, acquired.stderr)
+      before = state.read_text(encoding="utf-8")
+
+      actionable = self.run_cli(
+        state,
+        "record-mutation",
+        "--runner",
+        "pit",
+        "--result",
+        "passed",
+        "--analyzed-sha",
+        "b" * 40,
+        "--fingerprint",
+        "c" * 64,
+        "--target-class",
+        "com.example.OrderService*",
+        "--generated",
+        "1",
+        "--survived",
+        "1",
+        "--classification-file",
+        str(classifications),
+        "--log",
+        str(log),
+        "--report",
+        str(report),
+        "--details",
+        "One behavior gap remains",
+      )
+
+      self.assertEqual(2, actionable.returncode)
+      self.assertIn("zero actionable", actionable.stderr.lower())
+      self.assertEqual(before, state.read_text(encoding="utf-8"))
+
+      empty_classifications = root / ".agent" / "tmp" / "empty-classifications.json"
+      empty_classifications.write_text("[]\n", encoding="utf-8")
+      execution_error = self.run_cli(
+        state,
+        "record-mutation",
+        "--runner",
+        "pit",
+        "--result",
+        "passed",
+        "--analyzed-sha",
+        "b" * 40,
+        "--fingerprint",
+        "c" * 64,
+        "--target-class",
+        "com.example.OrderService*",
+        "--execution-errors",
+        "1",
+        "--classification-file",
+        str(empty_classifications),
+        "--log",
+        str(log),
+        "--report",
+        str(report),
+        "--details",
+        "The mutation runner reported an execution error",
+      )
+
+      self.assertEqual(2, execution_error.returncode)
+      self.assertIn("zero execution errors", execution_error.stderr.lower())
+      self.assertEqual(before, state.read_text(encoding="utf-8"))
+
+      unaccounted = self.run_cli(
+        state,
+        "record-mutation",
+        "--runner",
+        "pit",
+        "--result",
+        "passed",
+        "--analyzed-sha",
+        "b" * 40,
+        "--fingerprint",
+        "c" * 64,
+        "--target-class",
+        "com.example.OrderService*",
+        "--generated",
+        "2",
+        "--killed",
+        "1",
+        "--classification-file",
+        str(empty_classifications),
+        "--log",
+        str(log),
+        "--report",
+        str(report),
+        "--details",
+        "One generated mutant has no terminal outcome",
+      )
+
+      self.assertEqual(2, unaccounted.returncode)
+      self.assertIn("account for every generated mutant", unaccounted.stderr.lower())
+      self.assertEqual(before, state.read_text(encoding="utf-8"))
+
+  def test_schema_v3_records_partial_environment_failure_without_accepting_the_gate(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      state = self.prepare_v3_mutation_testing(root)
+      artifacts = root / ".agent" / "tmp"
+      artifacts.mkdir(parents=True, exist_ok=True)
+      log = artifacts / "mutation-environment-failure.log"
+      log.write_text("worker process terminated before classification\n", encoding="utf-8")
+      acquired = self.run_cli(state, "acquire", "--owner", "mutation-analyst")
+      self.assertEqual(0, acquired.returncode, acquired.stderr)
+
+      failed = self.run_cli(
+        state,
+        "record-mutation",
+        "--runner",
+        "pit",
+        "--result",
+        "failed",
+        "--failure-kind",
+        "environmental",
+        "--analyzed-sha",
+        "b" * 40,
+        "--fingerprint",
+        "c" * 64,
+        "--target-class",
+        "com.example.OrderService*",
+        "--generated",
+        "3",
+        "--killed",
+        "1",
+        "--survived",
+        "1",
+        "--execution-errors",
+        "1",
+        "--log",
+        str(log),
+        "--details",
+        "PIT worker terminated before the remaining mutants were classified",
+      )
+      released = self.run_cli(state, "release", "--owner", "mutation-analyst")
+      review = self.run_cli(state, "transition", "--to", "structural-review")
+
+      self.assertEqual(0, failed.returncode, failed.stderr)
+      self.assertEqual(0, released.returncode, released.stderr)
+      self.assertEqual(2, review.returncode)
+      attempt = json.loads(state.read_text(encoding="utf-8"))["mutation_attempts"][-1]
+      self.assertEqual("failed", attempt["result"])
+      self.assertEqual("environmental", attempt["failure_kind"])
+      self.assertEqual([], attempt["classifications"])
+
+  def test_schema_v3_reuses_mutation_only_when_inputs_are_unchanged(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      state = self.prepare_v3_mutation_rechecking(root)
+      before_gate = state.read_text(encoding="utf-8")
+
+      blocked = self.run_cli(state, "transition", "--to", "delivery-ready")
+
+      self.assertEqual(2, blocked.returncode)
+      self.assertEqual(before_gate, state.read_text(encoding="utf-8"))
+      artifacts = root / ".agent" / "tmp"
+      reuse_log = artifacts / "mutation-reuse.log"
+      reuse_log.write_text("inputs compared with initial attempt\n", encoding="utf-8")
+      acquired = self.run_cli(state, "acquire", "--owner", "mutation-analyst")
+      self.assertEqual(0, acquired.returncode, acquired.stderr)
+      before_mismatch = state.read_text(encoding="utf-8")
+      common_arguments = [
+        "record-mutation",
+        "--runner",
+        "pit",
+        "--result",
+        "reused",
+        "--analyzed-sha",
+        "d" * 40,
+        "--target-class",
+        "com.example.OrderService*",
+        "--reused-from-sha",
+        "b" * 40,
+        "--reused-from-fingerprint",
+        "c" * 64,
+        "--log",
+        str(reuse_log),
+        "--details",
+        "Production, eligible tests, and PIT configuration are unchanged",
+      ]
+
+      mismatch = self.run_cli(
+        state,
+        *common_arguments,
+        "--fingerprint",
+        "e" * 64,
+      )
+
+      self.assertEqual(2, mismatch.returncode)
+      self.assertIn("unchanged inputs", mismatch.stderr.lower())
+      self.assertEqual(before_mismatch, state.read_text(encoding="utf-8"))
+
+      reused = self.run_cli(
+        state,
+        *common_arguments,
+        "--fingerprint",
+        "c" * 64,
+      )
+      released = self.run_cli(state, "release", "--owner", "mutation-analyst")
+      delivered = self.run_cli(state, "transition", "--to", "delivery-ready")
+
+      self.assertEqual(0, reused.returncode, reused.stderr)
+      self.assertEqual(0, released.returncode, released.stderr)
+      self.assertEqual(0, delivered.returncode, delivered.stderr)
+      attempts = json.loads(state.read_text(encoding="utf-8"))["mutation_attempts"]
+      self.assertEqual(2, len(attempts))
+      self.assertEqual("reused", attempts[-1]["result"])
+      self.assertEqual("b" * 40, attempts[-1]["reused_from_sha"])
+      self.assertEqual("c" * 64, attempts[-1]["reused_from_fingerprint"])
+      self.assertEqual(attempts[0]["metrics"], attempts[-1]["metrics"])
+
+  def test_schema_v3_requires_a_new_run_after_relevant_inputs_change(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      state = self.prepare_v3_mutation_rechecking(root)
+      log, report, classifications = self.write_mutation_artifacts(
+        root,
+        [],
+        prefix="final-mutation",
+      )
+      acquired = self.run_cli(state, "acquire", "--owner", "mutation-analyst")
+      self.assertEqual(0, acquired.returncode, acquired.stderr)
+
+      rerun = self.run_cli(
+        state,
+        "record-mutation",
+        "--runner",
+        "pit",
+        "--result",
+        "passed",
+        "--analyzed-sha",
+        "d" * 40,
+        "--fingerprint",
+        "e" * 64,
+        "--target-class",
+        "com.example.OrderService*",
+        "--generated",
+        "3",
+        "--killed",
+        "3",
+        "--classification-file",
+        str(classifications),
+        "--log",
+        str(log),
+        "--report",
+        str(report),
+        "--details",
+        "Relevant tests changed, so PIT was executed again",
+      )
+      released = self.run_cli(state, "release", "--owner", "mutation-analyst")
+      delivered = self.run_cli(state, "transition", "--to", "delivery-ready")
+
+      self.assertEqual(0, rerun.returncode, rerun.stderr)
+      self.assertEqual(0, released.returncode, released.stderr)
+      self.assertEqual(0, delivered.returncode, delivered.stderr)
+      attempts = json.loads(state.read_text(encoding="utf-8"))["mutation_attempts"]
+      self.assertEqual(["initial", "final"], [item["stage"] for item in attempts])
+      self.assertEqual("passed", attempts[-1]["result"])
+      self.assertEqual("e" * 64, attempts[-1]["fingerprint"])
+
+  def test_schema_v3_blocks_pull_request_without_final_mutation_evidence(self):
+    with tempfile.TemporaryDirectory() as directory:
+      state = self.prepare_v3_mutation_rechecking(Path(directory))
+      acquired = self.run_cli(state, "acquire", "--owner", "coordinator")
+      self.assertEqual(0, acquired.returncode, acquired.stderr)
+      before = state.read_text(encoding="utf-8")
+
+      pull_request = self.run_cli(
+        state,
+        "record-pr",
+        "--repo",
+        "owner/demo",
+        "--number",
+        "12",
+        "--url",
+        "https://example.test/pull/12",
+        "--status",
+        "OPEN",
+      )
+
+      self.assertEqual(2, pull_request.returncode)
+      self.assertEqual(before, state.read_text(encoding="utf-8"))
+
   def test_checkout_lease_rejects_a_second_owner(self):
     with tempfile.TemporaryDirectory() as directory:
-      state = self.initialize(Path(directory))
+      state = self.initialize_v2(Path(directory))
       first = self.run_cli(state, "acquire", "--owner", "implementer")
 
       second = self.run_cli(state, "acquire", "--owner", "committer")
@@ -594,7 +1383,7 @@ class WorkflowStateCliTest(unittest.TestCase):
   def test_concurrent_checkout_lease_acquisition_elects_one_owner(self):
     with tempfile.TemporaryDirectory() as directory:
       root = Path(directory)
-      state = self.initialize(root)
+      state = self.initialize_v2(root)
       ready = root / "ready"
       ready.mkdir()
       continue_marker = root / "continue"
@@ -715,7 +1504,7 @@ json.load = coordinated_load
 
   def test_only_the_lease_owner_can_release_the_checkout(self):
     with tempfile.TemporaryDirectory() as directory:
-      state = self.initialize(Path(directory))
+      state = self.initialize_v2(Path(directory))
       acquired = self.run_cli(state, "acquire", "--owner", "validator")
 
       rejected = self.run_cli(state, "release", "--owner", "coordinator")
@@ -730,7 +1519,7 @@ json.load = coordinated_load
 
   def test_transition_rejects_skipping_required_phases(self):
     with tempfile.TemporaryDirectory() as directory:
-      state = self.initialize(Path(directory))
+      state = self.initialize_v2(Path(directory))
 
       result = self.run_cli(state, "transition", "--to", "structural-review")
 
@@ -1208,6 +1997,35 @@ json.load = coordinated_load
       self.assertEqual("habit-checking", event["from"])
       self.assertEqual("implementing", event["to"])
       self.assertTrue(event["note"])
+
+  def test_schema_v2_preserves_its_existing_corrective_review_routes(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      scenarios = (
+        (self.prepare_v2_habit_recheck, "structural-review"),
+        (self.prepare_v2_final_validation, "habit-rechecking"),
+        (self.prepare_v2_final_validation, "structural-review"),
+      )
+      for index, (prepare, target) in enumerate(scenarios):
+        with self.subTest(target=target):
+          case_root = root / str(index)
+          case_root.mkdir()
+          state = prepare(case_root)
+
+          transitioned = self.run_cli(
+            state,
+            "transition",
+            "--to",
+            target,
+            "--note",
+            "Coordinator routed the existing schema-v2 corrective flow",
+          )
+
+          self.assertEqual(0, transitioned.returncode, transitioned.stderr)
+          self.assertEqual(
+            target,
+            json.loads(state.read_text(encoding="utf-8"))["phase"],
+          )
 
   def test_schema_v2_records_fresh_habit_evidence_after_a_corrective_loop(self):
     with tempfile.TemporaryDirectory() as directory:
@@ -1691,7 +2509,7 @@ json.load = coordinated_load
   def test_cleanup_preserves_files_without_confirmed_merged_status(self):
     with tempfile.TemporaryDirectory() as directory:
       root = Path(directory)
-      state = self.initialize(root)
+      state = self.initialize_v2(root)
       ledger = json.loads(state.read_text(encoding="utf-8"))
       plan = Path(ledger["plan_path"])
 
@@ -1775,7 +2593,7 @@ json.load = coordinated_load
   def test_failed_atomic_write_preserves_the_previous_ledger(self):
     with tempfile.TemporaryDirectory() as directory:
       root = Path(directory)
-      state = self.initialize(root)
+      state = self.initialize_v2(root)
       before = state.read_text(encoding="utf-8")
       root.chmod(0o500)
       try:
@@ -1825,7 +2643,7 @@ json.load = coordinated_load
   def test_init_rejects_reusing_a_state_path_for_a_different_plan_identity(self):
     with tempfile.TemporaryDirectory() as directory:
       root = Path(directory)
-      state = self.initialize(root)
+      state = self.initialize_v2(root)
       before = state.read_text(encoding="utf-8")
 
       result = self.run_cli(
@@ -1841,6 +2659,8 @@ json.load = coordinated_load
         "codex/different",
         "--base",
         "main",
+        "--base-sha",
+        BASE_SHA,
       )
 
       self.assertEqual(2, result.returncode)
@@ -1862,7 +2682,7 @@ json.load = coordinated_load
 
   def test_show_rejects_corrupt_nested_workflow_records(self):
     with tempfile.TemporaryDirectory() as directory:
-      state = self.initialize(Path(directory))
+      state = self.initialize_v2(Path(directory))
       ledger = json.loads(state.read_text(encoding="utf-8"))
       ledger["commits"] = [{}]
       corrupt = json.dumps(ledger, indent=2, sort_keys=True) + "\n"
@@ -1875,9 +2695,34 @@ json.load = coordinated_load
       self.assertNotIn("traceback", result.stderr.lower())
       self.assertEqual(corrupt, state.read_text(encoding="utf-8"))
 
+  def test_show_rejects_v3_reuse_that_does_not_match_its_initial_attempt(self):
+    with tempfile.TemporaryDirectory() as directory:
+      state = self.prepare_v3_mutation_rechecking(Path(directory))
+      ledger = json.loads(state.read_text(encoding="utf-8"))
+      initial = ledger["mutation_attempts"][0]
+      forged_reuse = {
+        **initial,
+        "stage": "final",
+        "result": "reused",
+        "analyzed_sha": "d" * 40,
+        "log_path": ".agent/tmp/forged-reuse.log",
+        "reused_from_sha": initial["analyzed_sha"],
+        "reused_from_fingerprint": "f" * 64,
+        "recorded_at": "9999-01-01T00:00:00+00:00",
+      }
+      ledger["mutation_attempts"].append(forged_reuse)
+      corrupt = json.dumps(ledger, indent=2, sort_keys=True) + "\n"
+      state.write_text(corrupt, encoding="utf-8")
+
+      result = self.run_cli(state, "show")
+
+      self.assertEqual(2, result.returncode)
+      self.assertIn("corrupt ledger", result.stderr.lower())
+      self.assertEqual(corrupt, state.read_text(encoding="utf-8"))
+
   def test_show_rejects_a_phase_that_disagrees_with_history(self):
     with tempfile.TemporaryDirectory() as directory:
-      state = self.initialize(Path(directory))
+      state = self.initialize_v2(Path(directory))
       ledger = json.loads(state.read_text(encoding="utf-8"))
       ledger["phase"] = "implementing"
       corrupt = json.dumps(ledger, indent=2, sort_keys=True) + "\n"
