@@ -130,6 +130,8 @@ class GeneratedConfigTests(unittest.TestCase):
       self.assertEqual(0, result.returncode, result.stderr)
       config = json.loads(output.read_text(encoding="utf-8"))
       self.assertEqual("codex-auth 0.2.10", config["codex_auth_version"])
+      self.assertEqual(2, config["schema_version"])
+      self.assertEqual(10, config["force_timeout_seconds"])
       self.assertEqual(
         {"account-a", "account-b"}, set(config["accounts"].keys())
       )

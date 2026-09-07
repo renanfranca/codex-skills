@@ -19,7 +19,7 @@ if (!outputPath) {
 }
 
 const config = {
-  schema_version: 1,
+  schema_version: 2,
   distro: required("SWITCHER_CONFIG_DISTRO"),
   codex_home_linux: required("SWITCHER_CONFIG_CODEX_HOME_LINUX"),
   codex_home_windows: required("SWITCHER_CONFIG_CODEX_HOME_WINDOWS"),
@@ -29,6 +29,7 @@ const config = {
   app_package_name: "OpenAI.Codex",
   app_id: "App",
   graceful_timeout_seconds: 15,
+  force_timeout_seconds: 10,
   startup_delay_seconds: 5,
   accounts: {
     "account-a": {
