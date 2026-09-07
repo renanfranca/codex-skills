@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "distro": "Example-Distro",
+  "codex_home_linux": "/mnt/c/Users/example/.codex",
+  "codex_home_windows": "C:\\Users\\example\\.codex",
+  "node_linux": "/home/example/.local/bin/node",
+  "codex_auth_js_linux": "/home/example/.local/lib/node_modules/@loongphy/codex-auth/bin/codex-auth.js",
+  "codex_auth_version": "codex-auth 0.2.10",
+  "app_package_name": "OpenAI.Codex",
+  "app_id": "App",
+  "graceful_timeout_seconds": 15,
+  "startup_delay_seconds": 5,
+  "accounts": {
+    "account-a": {
+      "label": "Account A",
+      "selector": "first@example.test",
+      "account_key": "example-account-a",
+      "configured": true
+    },
+    "account-b": {
+      "label": "Account B",
+      "selector": "second@example.test",
+      "account_key": "example-account-b",
+      "configured": true
+    }
+  }
+}

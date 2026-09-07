@@ -1,0 +1,6 @@
+interface:
+  display_name: "Switch Codex Account"
+  short_description: "Safely switch between two local Codex accounts."
+  default_prompt: "Use $switch-codex-account status, account-a, or account-b to operate the local manual switcher."
+policy:
+  allow_implicit_invocation: false

@@ -58,6 +58,10 @@ The root `AGENTS.md` defines the required remote check and safety boundary.
 - [`commit-staged-change`](commit-staged-change/SKILL.md) — Inspect and commit already staged changes safely with a Conventional Commits message aligned to repository conventions.
 - [`commit-the-changes`](commit-the-changes/SKILL.md) — Infer the repository's commit style, stage the intended changes, and create a matching commit.
 
+### Desktop integration
+
+- [`switch-codex-account`](switch-codex-account/README.md) — Manually switch Codex Desktop on Windows between two locally configured accounts through WSL while preserving shared projects and sessions.
+
 ## Where to go next
 
 - [Using Skills with Codex CLI](CODEX_CLI.md) covers discovery checks, TUI and `codex exec` workflows, task selection, sandbox behavior, resuming work, and troubleshooting.

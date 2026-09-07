@@ -2,3 +2,8 @@
 .system
 _temporary/
 __pycache__/
+switch-codex-account/**/auth.json
+switch-codex-account/**/config.json
+switch-codex-account/**/last-result.json
+switch-codex-account/**/registry.json
+switch-codex-account/**/*.log

@@ -1,0 +1,59 @@
+name: Switch Codex account
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/switch-codex-account.yml"
+      - ".gitignore"
+      - "README.md"
+      - "switch-codex-account/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/switch-codex-account.yml"
+      - ".gitignore"
+      - "README.md"
+      - "switch-codex-account/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux scripts and package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check shell and Node syntax
+        run: |
+          bash -n switch-codex-account/scripts/install.sh
+          bash -n switch-codex-account/scripts/dispatch.sh
+          bash -n switch-codex-account/scripts/uninstall.sh
+          node --check switch-codex-account/scripts/registry-helper.mjs
+          node --check switch-codex-account/scripts/write-config.mjs
+      - name: Run switcher tests
+        run: python3 -m unittest discover -s switch-codex-account/scripts/tests -p 'test_*.py' -v
+      - name: Check documentation links
+        run: python3 restructure-documentation/scripts/check_markdown_links.py README.md switch-codex-account/README.md
+      - name: Check whitespace
+        run: git diff --check
+
+  windows:
+    name: Windows controller
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install current Pester
+        shell: powershell
+        run: Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+      - name: Run controller tests
+        shell: powershell
+        run: |
+          Import-Module Pester -MinimumVersion 5.5.0
+          $result = Invoke-Pester -Path switch-codex-account/scripts/tests -PassThru
+          if ($result.FailedCount -gt 0) { exit 1 }
