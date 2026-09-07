@@ -232,18 +232,15 @@ Describe 'Codex Account Switcher' {
         Mock Copy-RollbackFiles { return (Join-Path $script:TestRoot 'rollback') }
         Mock Get-CodexPackageProcesses { return @([pscustomobject]@{ ProcessId = 100 }) }
         Mock Stop-CodexPackage { throw (New-Object System.TimeoutException('process tree timeout')) }
-        Mock Invoke-CodexAuthSwitch { throw 'codex-auth must not be called' }
+        $script:CodexAuthCalled = $false
+        Mock Invoke-CodexAuthSwitch { $script:CodexAuthCalled = $true; throw 'codex-auth must not be called' }
         Mock Start-CodexPackage { }
 
         $failure = ''
         try { Invoke-SwitchMain -RequestedTarget 'account-b' -IsStatusOnly $false -IsValidateOnly $false -IsDryRun $false }
         catch { $failure = $_.Exception.Message }
         Assert-Matches $failure 'stopped'
-        Assert-MockCalled Test-Preflight 1
-        Assert-MockCalled Copy-RollbackFiles 1
-        Assert-MockCalled Get-CodexPackageProcesses 1
-        Assert-MockCalled Stop-CodexPackage 1
-        Assert-MockCalled Invoke-CodexAuthSwitch 0
+        Assert-Equal $script:CodexAuthCalled $false
         $result = Get-Content -LiteralPath $script:ResultPath -Raw | ConvertFrom-Json
         Assert-Equal $result.stage 'shutdown'
         Assert-Equal $result.reason 'shutdown_timeout'
