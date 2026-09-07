@@ -1,27 +1,29 @@
-$controller = Join-Path (Split-Path -Parent $PSScriptRoot) 'windows\Switch-CodexAccount.ps1'
-. $controller
-
-function Assert-Equal {
-    param($Actual, $Expected)
-    if ($Actual -ne $Expected) { throw "Expected '$Expected' but received '$Actual'." }
-}
-
-function Assert-Throws {
-    param([Parameter(Mandatory = $true)][scriptblock]$Operation)
-    $threw = $false
-    try { & $Operation } catch { $threw = $true }
-    if (-not $threw) { throw 'Expected the operation to throw.' }
-}
-
-function Assert-Matches {
-    param([string]$Actual, [string]$Pattern, [switch]$Negated)
-    $matched = $Actual -match $Pattern
-    if (($Negated -and $matched) -or (-not $Negated -and -not $matched)) {
-        throw "Unexpected match result for pattern '$Pattern'."
-    }
-}
-
 Describe 'Codex Account Switcher' {
+    BeforeAll {
+        $controller = Join-Path (Split-Path -Parent $PSScriptRoot) 'windows\Switch-CodexAccount.ps1'
+        . $controller
+
+        function Assert-Equal {
+            param($Actual, $Expected)
+            if ($Actual -ne $Expected) { throw "Expected '$Expected' but received '$Actual'." }
+        }
+
+        function Assert-Throws {
+            param([Parameter(Mandatory = $true)][scriptblock]$Operation)
+            $threw = $false
+            try { & $Operation } catch { $threw = $true }
+            if (-not $threw) { throw 'Expected the operation to throw.' }
+        }
+
+        function Assert-Matches {
+            param([string]$Actual, [string]$Pattern, [switch]$Negated)
+            $matched = $Actual -match $Pattern
+            if (($Negated -and $matched) -or (-not $Negated -and -not $matched)) {
+                throw "Unexpected match result for pattern '$Pattern'."
+            }
+        }
+    }
+
     BeforeEach {
         $script:TestRoot = Join-Path $env:TEMP ('CodexAccountSwitcher.Tests.' + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $script:TestRoot | Out-Null

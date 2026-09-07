@@ -1,12 +1,14 @@
-$registration = Join-Path (Split-Path -Parent $PSScriptRoot) 'windows\Register-CodexAccountSwitcher.ps1'
-. $registration
-
-function Assert-Equal {
-    param($Actual, $Expected)
-    if ($Actual -ne $Expected) { throw "Expected '$Expected' but received '$Actual'." }
-}
-
 Describe 'Codex Account Switcher task definitions' {
+    BeforeAll {
+        $registration = Join-Path (Split-Path -Parent $PSScriptRoot) 'windows\Register-CodexAccountSwitcher.ps1'
+        . $registration
+
+        function Assert-Equal {
+            param($Actual, $Expected)
+            if ($Actual -ne $Expected) { throw "Expected '$Expected' but received '$Actual'." }
+        }
+    }
+
     It 'defines exactly two explicit account tasks' {
         $definitions = @(Get-SwitcherTaskDefinitions -Path 'C:\Runtime\Switch-CodexAccount.ps1')
         Assert-Equal $definitions.Count 2
