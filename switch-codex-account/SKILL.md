@@ -24,7 +24,8 @@ bash "$HOME/.agents/skills/switch-codex-account/scripts/dispatch.sh" status
 
 Summarize the returned JSON without exposing local paths or account identifiers.
 An operation accepted by Windows Task Scheduler is not complete until its final
-state appears under `last_result`.
+state appears under `last_result`. When a switch fails, report its safe `stage`
+and `reason` when present.
 
 ## Account switch
 

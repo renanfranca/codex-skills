@@ -99,9 +99,11 @@ bash "$HOME/.agents/skills/switch-codex-account/scripts/dispatch.sh" account-b
 ```
 
 A switch request is handed to Windows Task Scheduler. The controller waits five
-seconds, closes only processes whose executable belongs to the installed
-`OpenAI.Codex` package, updates authentication through codex-auth, verifies the
-target account, and reopens Codex Desktop. It does not stop ChatGPT Classic.
+seconds, asks the installed `OpenAI.Codex` package to close, and then stops only
+verified Codex process roots and their descendants if graceful shutdown does not
+finish. It waits for the process tree to remain absent before updating
+authentication through codex-auth, verifying the target account, and reopening
+Codex Desktop. It does not stop ChatGPT Classic or unrelated WSL processes.
 
 ## Updating and reconfiguring
 
@@ -160,7 +162,8 @@ restoration itself fails.
 
 Safe operational state is available through `status`. `last-result.json` and
 `switch.log` contain aliases, stages, and result messages only; they never log
-emails or tokens.
+emails or tokens. A failed `last_result` includes a safe stage and reason such
+as `shutdown_timeout`, without raw process details or exception text.
 
 ## Troubleshooting
 
@@ -172,6 +175,9 @@ emails or tokens.
   those records non-interactively; register two accounts with distinct emails.
 - **A switch is already in progress:** wait for `status` to show a terminal
   result. Do not submit the task again.
+- **Status reports `shutdown_timeout`:** Codex did not fully stop within the
+  bounded graceful and forced shutdown windows. Authentication was not changed;
+  finish other Codex work, close the app, and retry once.
 - **The account switched but Codex did not reopen:** open Codex Desktop manually;
   status will report `launch_failed` rather than rolling back a verified switch.
 

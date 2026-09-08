@@ -66,7 +66,8 @@ function Write-Result {
         [Parameter(Mandatory = $true)][string]$TargetAlias,
         [Parameter(Mandatory = $true)][string]$Stage,
         [Parameter(Mandatory = $true)][string]$Status,
-        [Parameter(Mandatory = $true)][string]$Message
+        [Parameter(Mandatory = $true)][string]$Message,
+        [string]$Reason
     )
     $result = [ordered]@{
         timestamp = [DateTimeOffset]::Now.ToString('o')
@@ -75,6 +76,10 @@ function Write-Result {
         stage = $Stage
         status = $Status
         message = $Message
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Reason)) {
+        if ($Reason -notmatch '^[a-z][a-z0-9_]*$') { throw 'An unsafe result reason was rejected.' }
+        $result.reason = $Reason
     }
     Write-JsonAtomic -Path $script:ResultPath -Value $result
     Write-SafeLog -OperationId $OperationId -TargetAlias $TargetAlias -Stage $Stage -Status $Status
@@ -144,29 +149,209 @@ function Get-CodexPackage {
 }
 
 function Get-CodexPackageProcesses {
-    param([Parameter(Mandatory = $true)][string]$InstallLocation)
-    return @(Get-CimInstance Win32_Process | Where-Object {
+    param(
+        [Parameter(Mandatory = $true)][string]$InstallLocation,
+        [object[]]$Processes
+    )
+    if ($null -eq $Processes) { $Processes = @(Get-WindowsProcessSnapshot) }
+    return @($Processes | Where-Object {
         $null -ne $_.ExecutablePath -and (Test-PathUnderRoot -Candidate ([string]$_.ExecutablePath) -Root $InstallLocation)
     })
 }
 
+function Get-WindowsProcessSnapshot {
+    return @(Get-CimInstance Win32_Process)
+}
+
+function Get-ProcessCreationKey {
+    param([Parameter(Mandatory = $true)]$Process)
+    if ($null -eq $Process.CreationDate) { return '' }
+    if ($Process.CreationDate -is [DateTime]) {
+        return $Process.CreationDate.ToUniversalTime().Ticks.ToString([Globalization.CultureInfo]::InvariantCulture)
+    }
+    return [string]$Process.CreationDate
+}
+
+function New-ProcessIdentity {
+    param([Parameter(Mandatory = $true)]$Process, [bool]$IsPackageRoot = $false)
+    return [pscustomobject]@{
+        ProcessId = [int]$Process.ProcessId
+        ParentProcessId = [int]$Process.ParentProcessId
+        Name = [string]$Process.Name
+        ExecutablePath = [string]$Process.ExecutablePath
+        CreationKey = Get-ProcessCreationKey -Process $Process
+        IsPackageRoot = $IsPackageRoot
+    }
+}
+
+function Get-ProcessIdentityKey {
+    param([Parameter(Mandatory = $true)]$Process)
+    $creationKey = if ($null -ne $Process.PSObject.Properties['CreationKey']) { [string]$Process.CreationKey } else { Get-ProcessCreationKey -Process $Process }
+    return ('{0}|{1}' -f [int]$Process.ProcessId, $creationKey)
+}
+
+function Get-CodexProcessTreeSnapshot {
+    param(
+        [Parameter(Mandatory = $true)][string]$InstallLocation,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Processes
+    )
+    $packageProcesses = @(Get-CodexPackageProcesses -InstallLocation $InstallLocation -Processes $Processes)
+    $packageIds = @{}
+    foreach ($process in $packageProcesses) { $packageIds[[string][int]$process.ProcessId] = $true }
+
+    $rootProcesses = @($packageProcesses | Where-Object { -not $packageIds.ContainsKey([string][int]$_.ParentProcessId) })
+    $rootIds = @{}
+    $includedIds = @{}
+    foreach ($process in $rootProcesses) {
+        $id = [string][int]$process.ProcessId
+        $rootIds[$id] = $true
+        $includedIds[$id] = $true
+    }
+
+    $changed = $true
+    while ($changed) {
+        $changed = $false
+        foreach ($process in $Processes) {
+            $id = [string][int]$process.ProcessId
+            if (-not $includedIds.ContainsKey($id) -and $includedIds.ContainsKey([string][int]$process.ParentProcessId)) {
+                $includedIds[$id] = $true
+                $changed = $true
+            }
+        }
+    }
+
+    $treeProcesses = foreach ($process in $Processes) {
+        $id = [string][int]$process.ProcessId
+        if ($includedIds.ContainsKey($id)) { New-ProcessIdentity -Process $process -IsPackageRoot ($rootIds.ContainsKey($id)) }
+    }
+    $packageIdentities = foreach ($process in $packageProcesses) {
+        $id = [string][int]$process.ProcessId
+        New-ProcessIdentity -Process $process -IsPackageRoot ($rootIds.ContainsKey($id))
+    }
+    return [pscustomobject]@{
+        Roots = @($treeProcesses | Where-Object IsPackageRoot)
+        Processes = @($treeProcesses)
+        PackageProcesses = @($packageIdentities)
+    }
+}
+
+function Add-TrackedProcessIdentities {
+    param([Parameter(Mandatory = $true)][hashtable]$Tracked, [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Processes)
+    foreach ($process in $Processes) { $Tracked[(Get-ProcessIdentityKey -Process $process)] = $process }
+}
+
+function Get-AliveTrackedProcessIdentities {
+    param([Parameter(Mandatory = $true)][hashtable]$Tracked, [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Processes)
+    $currentKeys = @{}
+    foreach ($process in $Processes) { $currentKeys[(Get-ProcessIdentityKey -Process $process)] = $true }
+    return @($Tracked.GetEnumerator() | Where-Object { $currentKeys.ContainsKey([string]$_.Key) } | ForEach-Object { $_.Value })
+}
+
+function Get-CodexShutdownState {
+    param(
+        [Parameter(Mandatory = $true)][string]$InstallLocation,
+        [Parameter(Mandatory = $true)][hashtable]$Tracked,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Processes
+    )
+    $tree = Get-CodexProcessTreeSnapshot -InstallLocation $InstallLocation -Processes $Processes
+    Add-TrackedProcessIdentities -Tracked $Tracked -Processes $tree.Processes
+    return [pscustomobject]@{
+        Tree = $tree
+        AliveTracked = @(Get-AliveTrackedProcessIdentities -Tracked $Tracked -Processes $Processes)
+    }
+}
+
+function Invoke-CodexProcessTreeTermination {
+    param(
+        [Parameter(Mandatory = $true)]$Identity,
+        [Parameter(Mandatory = $true)][string]$InstallLocation,
+        [scriptblock]$ProcessProvider = { Get-WindowsProcessSnapshot },
+        [scriptblock]$TaskkillAction = {
+            param($path, $arguments)
+            $process = Start-Process -FilePath $path -ArgumentList $arguments -WindowStyle Hidden -PassThru
+            try {
+                if (-not $process.WaitForExit(2000)) {
+                    try { $process.Kill(); [void]$process.WaitForExit(500) } catch { }
+                    return 1
+                }
+                return [int]$process.ExitCode
+            }
+            finally { $process.Dispose() }
+        }
+    )
+    $current = @(& $ProcessProvider | Where-Object { [int]$_.ProcessId -eq [int]$Identity.ProcessId } | Select-Object -First 1)
+    if ($current.Count -eq 0) { return $false }
+    $currentIdentity = New-ProcessIdentity -Process $current[0] -IsPackageRoot ([bool]$Identity.IsPackageRoot)
+    if ([string]::IsNullOrWhiteSpace([string]$Identity.CreationKey) -or (Get-ProcessIdentityKey -Process $currentIdentity) -ne (Get-ProcessIdentityKey -Process $Identity)) { return $false }
+    if ([bool]$Identity.IsPackageRoot -and -not (Test-PathUnderRoot -Candidate ([string]$current[0].ExecutablePath) -Root $InstallLocation)) { return $false }
+    if ([int]$Identity.ProcessId -eq $PID) { throw 'The detached controller was unexpectedly included in the Codex process tree.' }
+
+    $taskkill = Join-Path $env:SystemRoot 'System32\taskkill.exe'
+    try {
+        $arguments = @('/PID', [string][int]$Identity.ProcessId, '/T', '/F')
+        $exitCode = & $TaskkillAction $taskkill $arguments
+        return ([int]$exitCode -eq 0)
+    }
+    catch { return $false }
+}
+
 function Stop-CodexPackage {
-    param([Parameter(Mandatory = $true)][string]$InstallLocation, [Parameter(Mandatory = $true)][int]$TimeoutSeconds)
-    $initial = @(Get-CodexPackageProcesses -InstallLocation $InstallLocation)
-    foreach ($item in $initial) {
+    param(
+        [Parameter(Mandatory = $true)][string]$InstallLocation,
+        [Parameter(Mandatory = $true)][int]$TimeoutSeconds,
+        [Parameter(Mandatory = $true)][int]$ForceTimeoutSeconds,
+        [int]$PollMilliseconds = 250,
+        [int]$QuietMilliseconds = 1000,
+        [scriptblock]$ProcessProvider = { Get-WindowsProcessSnapshot },
+        [scriptblock]$TerminateAction = { param($identity, $installLocation) Invoke-CodexProcessTreeTermination -Identity $identity -InstallLocation $installLocation },
+        [scriptblock]$Clock = { [DateTime]::UtcNow },
+        [scriptblock]$Delay = { param($milliseconds) Start-Sleep -Milliseconds $milliseconds }
+    )
+    $initialProcesses = @(& $ProcessProvider)
+    $initial = Get-CodexProcessTreeSnapshot -InstallLocation $InstallLocation -Processes $initialProcesses
+    if ($initial.PackageProcesses.Count -eq 0) { return $false }
+    $tracked = @{}
+    Add-TrackedProcessIdentities -Tracked $tracked -Processes $initial.Processes
+    foreach ($item in $initial.PackageProcesses) {
         $process = Get-Process -Id $item.ProcessId -ErrorAction SilentlyContinue
         if ($null -ne $process -and $process.MainWindowHandle -ne 0) { [void]$process.CloseMainWindow() }
     }
-    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
-    do {
-        $remaining = @(Get-CodexPackageProcesses -InstallLocation $InstallLocation)
-        if ($remaining.Count -eq 0) { return ($initial.Count -gt 0) }
-        Start-Sleep -Milliseconds 250
-    } while ([DateTime]::UtcNow -lt $deadline)
-    foreach ($item in @(Get-CodexPackageProcesses -InstallLocation $InstallLocation)) { Stop-Process -Id $item.ProcessId -Force -ErrorAction Stop }
-    Start-Sleep -Milliseconds 500
-    if (@(Get-CodexPackageProcesses -InstallLocation $InstallLocation).Count -ne 0) { throw 'The OpenAI.Codex package could not be stopped completely.' }
-    return ($initial.Count -gt 0)
+
+    $graceDeadline = (& $Clock).AddSeconds($TimeoutSeconds)
+    $quietSince = $null
+    while ($true) {
+        $processes = @(& $ProcessProvider)
+        $state = Get-CodexShutdownState -InstallLocation $InstallLocation -Tracked $tracked -Processes $processes
+        $now = & $Clock
+        if ($state.Tree.PackageProcesses.Count -eq 0 -and $state.AliveTracked.Count -eq 0) {
+            if ($null -eq $quietSince) { $quietSince = $now }
+            elseif (($now - $quietSince).TotalMilliseconds -ge $QuietMilliseconds) { return $true }
+        }
+        else { $quietSince = $null }
+        if ($now -ge $graceDeadline) { break }
+        & $Delay $PollMilliseconds
+    }
+
+    $forceDeadline = (& $Clock).AddSeconds($ForceTimeoutSeconds)
+    $quietSince = $null
+    while ($true) {
+        $processes = @(& $ProcessProvider)
+        $state = Get-CodexShutdownState -InstallLocation $InstallLocation -Tracked $tracked -Processes $processes
+        $now = & $Clock
+        if ($state.Tree.PackageProcesses.Count -eq 0 -and $state.AliveTracked.Count -eq 0) {
+            if ($null -eq $quietSince) { $quietSince = $now }
+            elseif (($now - $quietSince).TotalMilliseconds -ge $QuietMilliseconds) { return $true }
+        }
+        else {
+            $quietSince = $null
+            $identity = @($state.Tree.Roots | Select-Object -First 1)
+            if ($identity.Count -eq 0) { $identity = @($state.AliveTracked | Select-Object -First 1) }
+            if ($identity.Count -gt 0) { [void](& $TerminateAction $identity[0] $InstallLocation) }
+        }
+        if ((& $Clock) -ge $forceDeadline) { break }
+        & $Delay $PollMilliseconds
+    }
+    throw (New-Object System.TimeoutException('The OpenAI.Codex process tree could not be stopped completely.'))
 }
 
 function Start-CodexPackage {
@@ -268,7 +453,9 @@ function Test-Preflight {
         if ([string]::IsNullOrWhiteSpace($path)) { throw 'The runtime configuration is incomplete.' }
     }
     $wsl = Join-Path $env:SystemRoot 'System32\wsl.exe'
+    $taskkill = Join-Path $env:SystemRoot 'System32\taskkill.exe'
     if (-not (Test-Path -LiteralPath $wsl -PathType Leaf)) { throw 'WSL was not found.' }
+    if (-not (Test-Path -LiteralPath $taskkill -PathType Leaf)) { throw 'The Windows process-tree termination utility was not found.' }
     Test-CodexAuthRuntime -Config $Config
     return $package
 }
@@ -297,6 +484,8 @@ function Invoke-SwitchMain {
     $switchAttempted = $false
     $switchVerified = $false
     $preserveRollback = $false
+    $failureStage = 'preflight'
+    $failureReason = 'preflight_failed'
     try {
         $mutex = Enter-SwitchMutex
         $activeKey = Get-ActiveAccountKey -Config $config
@@ -316,12 +505,21 @@ function Invoke-SwitchMain {
         Start-Sleep -Seconds ([int]$config.startup_delay_seconds)
         $rollbackRoot = Copy-RollbackFiles -Config $config -OperationId $operationId
         $appWasRunning = (@(Get-CodexPackageProcesses -InstallLocation ([string]$package.InstallLocation)).Count -gt 0)
-        [void](Stop-CodexPackage -InstallLocation ([string]$package.InstallLocation) -TimeoutSeconds ([int]$config.graceful_timeout_seconds))
+        $forceTimeoutSeconds = 10
+        if ($null -ne $config.PSObject.Properties['force_timeout_seconds']) { $forceTimeoutSeconds = [int]$config.force_timeout_seconds }
+        $failureStage = 'shutdown'
+        $failureReason = 'shutdown_failed'
+        Write-Result -OperationId $operationId -TargetAlias $RequestedTarget -Stage 'shutdown' -Status 'running' -Message 'Codex Desktop is being stopped before authentication changes.'
+        [void](Stop-CodexPackage -InstallLocation ([string]$package.InstallLocation) -TimeoutSeconds ([int]$config.graceful_timeout_seconds) -ForceTimeoutSeconds $forceTimeoutSeconds)
+        $failureStage = 'switch'
+        $failureReason = 'auth_switch_failed'
         Write-Result -OperationId $operationId -TargetAlias $RequestedTarget -Stage 'switch' -Status 'running' -Message 'Codex Desktop stopped; authentication is being switched.'
         $switchAttempted = $true
         [void](Invoke-CodexAuthSwitch -Config $config -Selector ([string]$targetConfig.selector))
         if ((Get-ActiveAccountKey -Config $config) -ne [string]$targetConfig.account_key) { throw 'Active-account verification did not match the requested target.' }
         $switchVerified = $true
+        $failureStage = 'launch'
+        $failureReason = 'launch_failed'
         try { Start-CodexPackage -Package $package -AppId ([string]$config.app_id) }
         catch {
             Write-Result -OperationId $operationId -TargetAlias $RequestedTarget -Stage 'launch' -Status 'launch_failed' -Message 'The account switched, but Codex Desktop must be opened manually.'
@@ -331,10 +529,15 @@ function Invoke-SwitchMain {
     }
     catch {
         $safeMessage = 'The account switch failed before completion.'
+        if ($failureStage -eq 'shutdown' -and $_.Exception -is [System.TimeoutException]) {
+            $failureReason = 'shutdown_timeout'
+            $safeMessage = 'Codex Desktop could not be stopped completely; authentication was not changed.'
+        }
         if ($switchAttempted -and -not $switchVerified -and $null -ne $rollbackRoot) {
             try { Restore-RollbackFiles -Config $config -RollbackRoot $rollbackRoot; $safeMessage = 'The switch failed and the previous authentication was restored.' }
             catch {
                 $preserveRollback = $true
+                $failureReason = 'restore_failed'
                 $safeMessage = 'The switch and automatic restore both failed; do not retry before checking the local state.'
             }
         }
@@ -345,7 +548,7 @@ function Invoke-SwitchMain {
         if ($switchVerified -and (Test-Path -LiteralPath $script:ResultPath)) {
             try { $preserveLaunchFailure = ((Read-JsonFile -Path $script:ResultPath).status -eq 'launch_failed') } catch { }
         }
-        if (-not $preserveLaunchFailure) { Write-Result -OperationId $operationId -TargetAlias $RequestedTarget -Stage 'failed' -Status 'error' -Message $safeMessage }
+        if (-not $preserveLaunchFailure) { Write-Result -OperationId $operationId -TargetAlias $RequestedTarget -Stage $failureStage -Status 'error' -Message $safeMessage -Reason $failureReason }
         throw $safeMessage
     }
     finally {
