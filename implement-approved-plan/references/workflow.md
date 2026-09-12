@@ -32,6 +32,46 @@ Create each task once per plan, register its returned task ID immediately, and r
 
 Prompts must state the repository path, branch, plan path, `base_sha`, current phase, authorized files, required skill, lease owner, expected evidence, and prohibition on commits when applicable. The Coordinator is the sole communication hub: it acquires the named lease before dispatch, receives the result, inspects the working tree, and releases the lease only after that task is idle. Specialists never dispatch or coordinate with one another.
 
+## Commit message contract
+
+Before dispatching the Committer, inspect the repository instructions, recent relevant commit history, and available commit-message lint configuration. Preserve the observed type and scope convention, language, capitalization, tense, and naming. Resolve the effective maximum line length separately for the header, body, and footer; use 100 characters for any part without a repository-defined limit. Reflow prose at word boundaries without truncating, omitting, or replacing its content.
+
+Every commit created by this workflow requires a body with these three semantic fields. Translate both the labels and their content into the repository's observed commit language; the English labels below are the canonical example:
+
+```text
+type(scope): summary in the repository's observed style
+
+- Motivation: Explain why the change is needed.
+- Avoided: Name the concrete risk or undesirable outcome avoided.
+- Improvement: State what becomes better after the change.
+```
+
+Keep these bullets and their wrapped continuation lines in the body. Start the footer after a blank line and reserve it for actual trailers. For refactoring commits, append two more body fields:
+
+```text
+- Behavior preserved: Identify the public behavior that remains unchanged.
+- Validation: Name the evidence that verifies the preserved behavior.
+```
+
+This workflow-specific body requirement overrides `$commit-the-changes`' ordinary preference to omit bodies when similar repository commits do not use them.
+
+Classify every proposed commit as breaking or non-breaking. Use breaking markers only for a real incompatible behavior that requires consumers to migrate. When the repository uses Conventional Commits, a breaking commit requires both the `!` marker and the `BREAKING CHANGE:` trailer, even though the specification permits either marker independently:
+
+```text
+feat(scope)!: imperative summary
+
+- Motivation: Explain why the incompatible change is needed.
+- Avoided: Name the concrete risk or undesirable outcome avoided.
+- Improvement: State what becomes better after the change.
+
+BREAKING CHANGE: Explain the incompatible behavior and required migration.
+Continue the explanation on wrapped lines when necessary.
+```
+
+Treat `feat(scope)` as illustrative: use the type, optional scope, and subject style supported by the repository. Keep the `BREAKING CHANGE:` token in English so parsers recognize it, but write its explanation in the observed language. Non-breaking commits must contain neither `!` nor `BREAKING CHANGE:`. In repositories that do not use Conventional Commits, preserve their observed breaking-change convention instead of introducing these markers.
+
+Each Committer prompt must state the observed convention and language, the effective header/body/footer limits, that the body is required, the breaking classification, and the exact command available to validate the complete candidate message. If the repository provides commitlint, validate the complete message before committing and commit that same validated content. This pre-validation supplements normal Git hooks; never use `--no-verify`, `HUSKY=0`, or an equivalent bypass. If no candidate-message validation command is available, state that explicitly in the prompt instead of fabricating one.
+
 ## Focal mutation scope
 
 For every executed mutation attempt, compare `base_sha` with the commit being analyzed using rename detection. Select production files whose destination path is added, modified, or renamed. Exclude deleted paths, tests, fixtures, generated documentation, prose documentation, and anything outside the repository's production source roots. On a final rerun, recompute the complete target set from `base_sha`; do not mutate only the delta since the initial attempt and do not filter by changed lines.
@@ -55,16 +95,14 @@ If no configured mutation runner exists, record `not-applicable` with `runner-un
 1. Transition to `implementing`. Give the Implementer one behavior-focused assignment. It runs RED/GREEN/refactor cycles, the full relevant suite every cycle, and a public-path checkpoint at least every two cycles. After the assigned behavior and focused tests are green, release its lease and transition to `implemented`.
 2. Transition to `habit-checking`. Give the Habit Curator a quick check under its lease. Record one terminal result (`clean`, `ratcheted`, `snoozed`, or `not-applicable`). A `no-configured-files` observation unlocks only the initial checkpoint.
 3. Route Habit findings through the Coordinator. Only deterministic, low-risk, explicitly scoped corrections may return to the Habit Curator. Any source correction returns through `implementing` and repeats every downstream gate.
-4. Transition to `checkpoint-committing`. The Committer records the complete checkpoint as `implementation` or `correction`; then transition to `initial-validating`.
+4. Transition to `checkpoint-committing`. Under the commit message contract, the Committer records the complete checkpoint as `implementation` or `correction`; then transition to `initial-validating`.
 5. The Validator runs the repository's complete clean verification and normal Sonar analysis. Record current passed `initial-verify` and `initial-sonar` evidence.
 6. Transition to `mutation-testing`. The Mutation Analyst selects every production class changed from `base_sha`, computes the fingerprint, and records exactly one attempt. `structural-review` requires a current accepted `passed` or `not-applicable` result. A `failed`, incomplete, or actionable attempt blocks progress.
 7. Transition to `structural-review`. The Structural Reviewer independently applies `$refactor-design` and may make only behavior-preserving refactors authorized by the plan and Coordinator. It does not commit.
-8. Transition to `habit-rechecking` and record fresh terminal Habit evidence. If review produced a delta, use `final-committing` and record a `correction`, `habit-refactor`, or `structural-refactor` commit. Otherwise transition directly to `final-validating`.
+8. Transition to `habit-rechecking` and record fresh terminal Habit evidence. If review produced a delta, use `final-committing` and record a `correction`, `habit-refactor`, or `structural-refactor` commit under the commit message contract. Otherwise transition directly to `final-validating`.
 9. The Validator reruns clean verification and Sonar on the final commit. Record current passed `final-verify` and `final-sonar`, then always transition to `mutation-rechecking`.
 10. Recompute the focal target set and fingerprint against the same `base_sha`. If production targets, eligible tests, and runner configuration are identical to the latest accepted initial attempt, record `reused` with both analyzed SHAs and the shared fingerprint. If any input differs, execute the runner once against all production targets changed from `base_sha` and record a fresh `passed`, `failed`, or `not-applicable` attempt.
 11. Transition to `delivery-ready` only with current final `passed`, `reused`, or `not-applicable` mutation evidence. Follow [github-delivery.md](github-delivery.md) for human choices, pull request, CI, and cleanup.
-
-Refactoring commits require a body that states motivation, concrete risk removed, improvement, behavior preserved, and validation evidence, even if repository history normally prefers no body.
 
 ## Mutation classifications and routing
 
