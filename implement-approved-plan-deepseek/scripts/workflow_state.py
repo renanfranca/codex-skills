@@ -40,6 +40,8 @@ SPECIALISTS_BY_SCHEMA = {
     "structural-reviewer": ("deepseek/deepseek-v4.1-flash", "high"),
   },
 }
+# Schema v4 records the actual host-configured provider, model and effort per
+# role; these values are only the role set inherited from schema v3.
 SPECIALISTS_BY_SCHEMA[4] = dict.fromkeys(SPECIALISTS_BY_SCHEMA[3])
 SPECIALIST_ROLES = tuple(
   sorted({role for specialists in SPECIALISTS_BY_SCHEMA.values() for role in specialists})

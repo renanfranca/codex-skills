@@ -9,7 +9,10 @@ The `deepseek-web` profile uses an authored `deepseek-standard` preset copied fr
 Connection, credentials and default model are configured in `~/.dsh/settings.yaml`;
 profile overrides live in `~/.dsh/profiles/deepseek-web/cordis.patch.yml`. The Web
 model picker remains available. Specialist efforts come from the Host plugin's
-`roleReasoningEfforts` configuration; selections are recorded in the ledger.
+`roleReasoningEfforts` configuration: `implementer`, `committer` and
+`structural-reviewer` at `low`, and `validator`, `habit-curator` and
+`mutation-analyst` at `off`. The DSH default model also uses `low`. Selections
+are recorded in the ledger.
 Changing a configured selection is not an instruction to replace session IDs.
 Output per call is capped at 16384 tokens. Auxiliary title generation and the
 separate search provider remain disabled. HTTP web fetch remains available;

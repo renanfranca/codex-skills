@@ -10,8 +10,8 @@ import test_workflow_state as legacy
 
 
 EFFORTS = {
-  "implementer": "high", "committer": "low", "validator": "off",
-  "habit-curator": "off", "mutation-analyst": "off", "structural-reviewer": "high",
+  "implementer": "low", "committer": "low", "validator": "off",
+  "habit-curator": "off", "mutation-analyst": "off", "structural-reviewer": "low",
 }
 
 

@@ -4,10 +4,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
-import {NativeWorkflow,atomic,ROLES} from '../dsh-workflow-plugin.mjs';
+import {NativeWorkflow,atomic,ROLES,DEFAULT_ROLE_REASONING_EFFORTS} from '../dsh-workflow-plugin.mjs';
 
-const EFFORTS={implementer:'high',committer:'low',validator:'off','habit-curator':'off','mutation-analyst':'off','structural-reviewer':'high'};
-const DEFAULT={provider:'example-provider',model:'example-model',reasoningEffort:'high'};
+const EFFORTS={implementer:'low',committer:'low',validator:'off','habit-curator':'off','mutation-analyst':'off','structural-reviewer':'low'};
+const DEFAULT={provider:'example-provider',model:'example-model',reasoningEffort:'low'};
 
 function fixture(t) {
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'dsh-orchestration-test-'));
@@ -31,7 +31,7 @@ function fixture(t) {
     workspaceController:{create:async()=>({workspace:{workspaceId:'workspace'}})},
     sessionController:{
       create:async args=>{assert.ok(!(args.workspaceId&&args.cwd),'native create accepts workspaceId or cwd');created.push(args);return {sessionId:args.sessionId};},
-      resolveAgent:async id=>({agent:agents[id]}),selectModel:async args=>{models.push(args);const {sessionId,...selected}=args;defaultModel={...selected};return {selected};},rename:async()=>{},prompt:async args=>prompts.push(args)
+      resolveAgent:async id=>({agent:agents[id]}),selectModel:async args=>{models.push(args);const {sessionId,...selected}=args;await ctx.agentDefaultModel.saveSelection(selected);return {selected};},rename:async()=>{},prompt:async args=>prompts.push(args)
     }
   };
   const state={transport,ledger,repo:root,slug:'fixture',branch:'main',coordinator:'coordinator',sessions:Object.fromEntries(ROLES.map(role=>[role,role])),assignments:[],baseSha:git('rev-parse','HEAD')};
@@ -48,6 +48,23 @@ test('six ordinary sessions use the DSH default and role efforts without changin
   assert.ok(f.created.every(x=>x.agentPreset==='deepseek-standard'));
   assert.ok(f.models.every(x=>x.provider===DEFAULT.provider&&x.model===DEFAULT.model&&x.reasoningEffort===EFFORTS[x.sessionId]));
   assert.deepEqual(f.host.defaultSelection(),DEFAULT);
+});
+
+test('unconfigured roles use the shipped low-effort policy while host overrides still win',async t=>{
+  const f=fixture(t);
+  f.host.config.roleReasoningEfforts={};
+  await f.host.configureModels(f.coordinator,f.state);
+  assert.deepEqual(f.models.map(x=>x.sessionId),ROLES);
+  assert.deepEqual(f.models.map(x=>x.reasoningEffort),ROLES.map(role=>DEFAULT_ROLE_REASONING_EFFORTS[role]));
+  assert.deepEqual(DEFAULT_ROLE_REASONING_EFFORTS,{...EFFORTS});
+  assert.equal(DEFAULT_ROLE_REASONING_EFFORTS['implementer'],'low');
+  assert.equal(DEFAULT_ROLE_REASONING_EFFORTS['structural-reviewer'],'low');
+  assert.equal(DEFAULT_ROLE_REASONING_EFFORTS['validator'],'off');
+  f.models.length=0;
+  f.host.config.roleReasoningEfforts={implementer:'high'};
+  await f.host.configureModels(f.coordinator,f.state);
+  assert.equal(f.models.find(x=>x.sessionId==='implementer').reasoningEffort,'high');
+  assert.equal(f.models.find(x=>x.sessionId==='structural-reviewer').reasoningEffort,'low');
 });
 
 test('unauthorized edits to already dirty files are rejected and retain the lease',async t=>{
@@ -153,7 +170,7 @@ test('failed and cancelled turns cannot become accepted specialist gates',async 
 });
 
 
-test('a failed specialist selection restores the DSH default and leaves configuration retryable',async t=>{
+test('a failed specialist selection preserves the DSH default and leaves configuration retryable',async t=>{
   const f=fixture(t), select=f.host.ctx.sessionController.selectModel;
   f.host.ctx.sessionController.selectModel=async args=>{await select(args);if(args.sessionId==='validator') throw Error('model unavailable');return {selected:{provider:args.provider,model:args.model,reasoningEffort:args.reasoningEffort}};};
   await assert.rejects(f.host.configureModels(f.coordinator,f.state),/model unavailable/);
@@ -194,6 +211,38 @@ test('a distinct default selected by the user during configuration is retained',
     await f.host.ctx.agentDefaultModel.saveSelection(userChoice);
   });
   assert.deepEqual(f.host.defaultSelection(),userChoice);
+});
+
+test('a Web model choice between two specialist selections survives the remaining selections',async t=>{
+  const f=fixture(t),userChoice={provider:'user-provider',model:'user-model',reasoningEffort:'low'};
+  await f.host.withDefaultSelection(async(original,select)=>{
+    await select('validator',{...original,reasoningEffort:'off'});
+    await f.host.ctx.agentDefaultModel.saveSelection(userChoice);
+    await select('structural-reviewer',original);
+  });
+  assert.deepEqual(f.host.defaultSelection(),userChoice);
+});
+
+test('a Web choice made while native specialist selection is awaiting admission is preserved',async t=>{
+  const f=fixture(t),userChoice={provider:'user-provider',model:'user-model',reasoningEffort:'low'};
+  let admitted,release;
+  const admission=new Promise(resolve=>{admitted=resolve;}),gate=new Promise(resolve=>{release=resolve;});
+  const nativeSelect=f.host.ctx.sessionController.selectModel;
+  f.host.ctx.sessionController.selectModel=async args=>{admitted();await gate;return nativeSelect(args);};
+  const configured=f.host.configureModels(f.coordinator,f.state);
+  await admission;
+  await f.host.ctx.agentDefaultModel.saveSelection(userChoice);
+  release();await configured;
+  assert.deepEqual(f.host.defaultSelection(),userChoice);
+  assert.ok(f.models.every(selection=>selection.provider===DEFAULT.provider&&selection.model===DEFAULT.model));
+});
+
+test('unloading the workflow restores native default persistence',async t=>{
+  const f=fixture(t);
+  f.host.restoreDefaultWriter();
+  const requested={provider:'user-provider',model:'user-model',reasoningEffort:'low'};
+  await f.host.ctx.sessionController.selectModel({sessionId:'validator',...requested});
+  assert.deepEqual(f.host.defaultSelection(),requested);
 });
 
 test('resuming an idle workflow reuses its six identities without replaying introductions',async t=>{

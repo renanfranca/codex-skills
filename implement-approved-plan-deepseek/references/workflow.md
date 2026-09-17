@@ -27,8 +27,9 @@ Confirm Full access before creating any local session: `sandbox = "danger-full-a
 | `structural-reviewer` | Use `/refactor-design` for an independent exhaustive review of changed contracts and adjacent responsibilities; do not commit. |
 
 The Host reads the DSH default model and applies `roleReasoningEfforts` from its
-configuration. It registers the selections accepted by DSH and preserves the
-global default. Connection and model selection belong to DSH, not this skill.
+configuration, falling back to its shipped low-effort defaults per role when a
+role is not configured. It registers the selections accepted by DSH and preserves
+the global default. Connection and model selection belong to DSH, not this skill.
 
 Reserve all six session IDs durably once per plan, create them with those explicit IDs, register each returned ID immediately, and reuse them with native prompt follow-ups. Create all six before implementation begins. If DSH rejects a configured selection, stop without fallback or fabricated metadata.
 

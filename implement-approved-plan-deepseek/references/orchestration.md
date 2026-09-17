@@ -36,9 +36,11 @@ loading, user questions and workflow status are available without checkout work.
 Coordinator management tools do not grant checkout access to other sessions.
 Model calls use DSH adapters and configured selections; the plugin does not
 restrict a global provider or reasoning level. Specialist model configuration
-uses the DSH default plus per-role effort, and restores the global default after
-selection, including failures. Role and file contracts are checked again against
-actual Git deltas after the specialist is idle.
+uses the DSH default plus per-role effort. Its native selection calls suppress
+only their own default-setting write through an async scope; Web model choices
+keep native persistence, even when they overlap configuration or a failure.
+The plugin restores the original default writer on unload. Role and file
+contracts are checked again against actual Git deltas after the specialist is idle.
 
 Full Access is official unrestricted tool execution at the OS user's existing
 privilege level. Trusted sessions share that identity; contracts and leases are

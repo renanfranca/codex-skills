@@ -2,10 +2,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {execFileSync} from 'node:child_process';
+import {AsyncLocalStorage} from 'node:async_hooks';
 import {createRequire} from 'node:module';
 import {pathToFileURL, fileURLToPath} from 'node:url';
 
 export const ROLES = Object.freeze(['implementer','committer','validator','habit-curator','mutation-analyst','structural-reviewer']);
+// Shipped specialist policy: no role runs above `low` thinking. The host
+// `roleReasoningEfforts` configuration still overrides any individual role.
+export const DEFAULT_ROLE_REASONING_EFFORTS = Object.freeze({
+  'implementer':'low', 'committer':'low', 'validator':'off',
+  'habit-curator':'off', 'mutation-analyst':'off', 'structural-reviewer':'low'
+});
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const read = p => JSON.parse(fs.readFileSync(p,'utf8'));
 const digest = s => crypto.createHash('sha256').update(s).digest('hex');
@@ -53,6 +60,21 @@ export class NativeWorkflow {
     this.registry=fs.existsSync(this.registryPath)?read(this.registryPath):{version:1,sessions:{},approvals:{}};
     this.busy=new Map(); this.watching=new Set();
     this.selectionQueue=Promise.resolve();
+    // Native selectModel also saves a global default. Suppress only that write
+    // in our async call chain; concurrent Web selections retain native behavior.
+    this.modelSelectionScope=new AsyncLocalStorage();
+    const defaults=ctx.agentDefaultModel,save=defaults.saveSelection,scope=this.modelSelectionScope;
+    const descriptor=Object.getOwnPropertyDescriptor(defaults,'saveSelection');
+    const preserveDefault=function(...args) {
+      if(scope.getStore()===true) return Promise.resolve();
+      return save.apply(this,args);
+    };
+    defaults.saveSelection=preserveDefault;
+    this.restoreDefaultWriter=()=>{
+      if(Object.getOwnPropertyDescriptor(defaults,'saveSelection')?.value!==preserveDefault) return;
+      if(descriptor) Object.defineProperty(defaults,'saveSelection',descriptor);
+      else delete defaults.saveSelection;
+    };
   }
   async exclusive(agent,operation) {
     const key=agent.session.id,previous=this.busy.get(key)??Promise.resolve();
@@ -110,7 +132,7 @@ export class NativeWorkflow {
     return {...selection};
   }
   roleEffort(role) {
-    const effort=this.config.roleReasoningEfforts?.[role];
+    const effort=this.config.roleReasoningEfforts?.[role] ?? DEFAULT_ROLE_REASONING_EFFORTS[role];
     if(!['off','low','high','max'].includes(effort)) throw Error('Configure roleReasoningEfforts for '+role);
     return effort;
   }
@@ -119,24 +141,13 @@ export class NativeWorkflow {
     let done;
     this.selectionQueue=new Promise(resolve=>{done=resolve;});
     await previous;
-    let original,last;
     try {
-      original=this.defaultSelection();
+      const original=this.defaultSelection();
       return await operation(original,async(sessionId,selection)=>{
-        last={...selection};
-        const {selected}=await this.ctx.sessionController.selectModel({sessionId,...selection});
-        last={...selected};
+        const {selected}=await this.modelSelectionScope.run(true,()=>this.ctx.sessionController.selectModel({sessionId,...selection}));
         return selected;
       });
-    } finally {
-      try {
-        // Do not replace a distinct default the user selected during this operation.
-        const current=this.ctx.agentDefaultModel.currentSelection();
-        if(original && last && current.provider===last.provider && current.model===last.model && current.reasoningEffort===last.reasoningEffort) {
-          await this.ctx.agentDefaultModel.saveSelection(original);
-        }
-      } finally { done(); }
-    }
+    } finally { done(); }
   }
   async configureModels(coordinator,t,{includeCoordinator=false,deferActive=false}={}) {
     return this.withDefaultSelection(async(original,select)=>{
@@ -440,7 +451,7 @@ export async function apply(ctx,config) {
   const require=createRequire(path.join(config.runtimeRoot,'package.json'));
   const {defineTool}=await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-tools')).href);
   const host=new NativeWorkflow(ctx,config);
-  ctx.effect(()=>()=>{host.stopped=true;});
+  ctx.effect(()=>()=>{host.stopped=true;host.restoreDefaultWriter();});
   ctx.tools.guard(execution=>host.guard(execution));
   ctx.on('agent/created',({agent})=>host.attach(agent));
   const str=(description,required=true)=>({type:'string',description,...(required?{required:true}:{})});
