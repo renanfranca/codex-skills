@@ -1,0 +1,130 @@
+# Serialized specialist workflow
+
+## Startup
+
+1. Read the approved plan and repository instructions completely.
+2. Read [github-delivery.md](github-delivery.md) and inspect prior ledgers before creating or reusing a branch. Clean only plans whose recorded pull requests GitHub confirms as `MERGED`.
+3. Require a clean checkout apart from ignored `.agent/tmp` state. Do not stash, discard, or absorb unrelated changes.
+4. Create or reuse the plan's clean feature branch from its declared base. Never delete a branch automatically.
+5. Resolve the base once with `git rev-parse --verify '<base>^{commit}'`, retain the full 40-character SHA as `base_sha`, and do not refresh it if the base ref later moves.
+6. Add `/.agent/tmp/` to `.git/info/exclude` if absent. Do not alter `.gitignore` for local workflow state.
+7. Store the approved plan verbatim at `.agent/tmp/<slug>.md`, initialize `.agent/tmp/<slug>.dsh-workflow.json`, and use the ledger for every subsequent gate.
+8. Create and register every specialist below. The ledger rejects the first `implementing` transition until all six IDs and actual provider/model/effort selections are present.
+
+## Exact specialist sessions
+
+Resolve the DSH workspace first. The initial top-level session is Coordinator. Create six ordinary top-level sessions through workflow_start in this workspace and checkout; do not use subagents. All session APIs are provided by the persistent Host plugin described in orchestration.md.
+
+Confirm Full access before creating any local session: `sandbox = "danger-full-access"` and `approval = "never"`. A prompt cannot grant permissions. If that exact profile is unavailable, stop before session creation and ask the user to enable it.
+
+| Ledger role | Task contract |
+| --- | --- |
+| `implementer` | Use `/tdd-behavior-autonomous-quiet`; implement only assigned behavior; do not commit. |
+| `committer` | Use `/commit-the-changes`; inspect history and status; stage and commit only the assigned delta. |
+| `validator` | Run the complete clean gate and supported Sonar analysis; do not edit source. |
+| `habit-curator` | Run Habit quick checks, classify results, and report evidence. Never use `/refactor-design` or self-authorize work. Edit only deterministic, low-risk corrections explicitly assigned by the Coordinator with authorized files and expected evidence; never commit. |
+| `mutation-analyst` | Select the focal scope, run at most one configured mutation runner per attempt, classify results, and persist complete output under `.agent/tmp`; never edit code, install tools, or commit. |
+| `structural-reviewer` | Use `/refactor-design` for an independent exhaustive review of changed contracts and adjacent responsibilities; do not commit. |
+
+The Host reads the DSH default model and applies `roleReasoningEfforts` from its
+configuration. It registers the selections accepted by DSH and preserves the
+global default. Connection and model selection belong to DSH, not this skill.
+
+Reserve all six session IDs durably once per plan, create them with those explicit IDs, register each returned ID immediately, and reuse them with native prompt follow-ups. Create all six before implementation begins. If DSH rejects a configured selection, stop without fallback or fabricated metadata.
+
+Prompts must state the repository path, branch, plan path, `base_sha`, current phase, authorized files, required skill, lease owner, expected evidence, and prohibition on commits when applicable. The Coordinator is the sole communication hub: it acquires the named lease before dispatch, receives the result, inspects the working tree, and releases the lease only after that task is idle. Specialists never dispatch or coordinate with one another.
+
+## Commit message contract
+
+Before dispatching the Committer, inspect the repository instructions, recent relevant commit history, and available commit-message lint configuration. Preserve the observed type and scope convention, language, capitalization, tense, and naming. Resolve the effective maximum line length separately for the header, body, and footer; use 100 characters for any part without a repository-defined limit. Reflow prose at word boundaries without truncating, omitting, or replacing its content.
+
+Every commit created by this workflow requires a body with these three semantic fields. Translate both the labels and their content into the repository's observed commit language; the English labels below are the canonical example:
+
+```text
+type(scope): summary in the repository's observed style
+
+- Motivation: Explain why the change is needed.
+- Avoided: Name the concrete risk or undesirable outcome avoided.
+- Improvement: State what becomes better after the change.
+```
+
+Keep these bullets and their wrapped continuation lines in the body. Start the footer after a blank line and reserve it for actual trailers. For refactoring commits, append two more body fields:
+
+```text
+- Behavior preserved: Identify the public behavior that remains unchanged.
+- Validation: Name the evidence that verifies the preserved behavior.
+```
+
+This workflow-specific body requirement overrides `/commit-the-changes`' ordinary preference to omit bodies when similar repository commits do not use them.
+
+Classify every proposed commit as breaking or non-breaking. Use breaking markers only for a real incompatible behavior that requires consumers to migrate. When the repository uses Conventional Commits, a breaking commit requires both the `!` marker and the `BREAKING CHANGE:` trailer, even though the specification permits either marker independently:
+
+```text
+feat(scope)!: imperative summary
+
+- Motivation: Explain why the incompatible change is needed.
+- Avoided: Name the concrete risk or undesirable outcome avoided.
+- Improvement: State what becomes better after the change.
+
+BREAKING CHANGE: Explain the incompatible behavior and required migration.
+Continue the explanation on wrapped lines when necessary.
+```
+
+Treat `feat(scope)` as illustrative: use the type, optional scope, and subject style supported by the repository. Keep the `BREAKING CHANGE:` token in English so parsers recognize it, but write its explanation in the observed language. Non-breaking commits must contain neither `!` nor `BREAKING CHANGE:`. In repositories that do not use Conventional Commits, preserve their observed breaking-change convention instead of introducing these markers.
+
+Each Committer prompt must state the observed convention and language, the effective header/body/footer limits, that the body is required, the breaking classification, and the exact command available to validate the complete candidate message. If the repository provides commitlint, validate the complete message before committing and commit that same validated content. This pre-validation supplements normal Git hooks; never use `--no-verify`, `HUSKY=0`, or an equivalent bypass. If no candidate-message validation command is available, state that explicitly in the prompt instead of fabricating one.
+
+## Focal mutation scope
+
+For every executed mutation attempt, compare `base_sha` with the commit being analyzed using rename detection. Select production files whose destination path is added, modified, or renamed. Exclude deleted paths, tests, fixtures, generated documentation, prose documentation, and anything outside the repository's production source roots. On a final rerun, recompute the complete target set from `base_sha`; do not mutate only the delta since the initial attempt and do not filter by changed lines.
+
+For PIT, map each selected Java source to its package-qualified top-level class and append `*`, for example `com.example.OrderService*`. Pass those globs through `targetClasses`; do not narrow `targetTests`, so every eligible test can kill the selected mutants. The [PIT Maven quickstart](https://pitest.org/quickstart/maven/) documents `targetClasses` globs and explains that the final `*` includes inner classes.
+
+Before running, write a canonical, deterministically ordered input manifest to the attempt log. Hash it with SHA-256. The manifest includes:
+
+- each selected production path and its blob SHA at `analyzed_sha`;
+- every test eligible to exercise the targets in their affected modules, with path and blob SHA;
+- mutation-runner configuration, plugin/version inputs, profiles, and the exact normalized runner command.
+
+This digest is the attempt `fingerprint`. For PIT, all tests eligible in the affected Maven modules belong in the manifest because only `targetClasses` is narrowed. If repository-specific configuration makes a smaller test set genuinely eligible, record that rule and evidence in the log.
+
+The Mutation Analyst performs one runner invocation per attempt and redirects complete stdout/stderr plus the manifest to `.agent/tmp`. Copy every generated report there before recording evidence. Its response to the Coordinator contains only analyzed SHA and scope, fingerprint, metrics, classifications, result, and artifact paths; it does not paste raw runner output into chat.
+
+If no configured mutation runner exists, record `not-applicable` with `runner-unavailable`. If no changed production class exists, record `not-applicable` with `no-production-changes`. Never install a runner automatically, describe absence as `passed`, or create a synthetic green report.
+
+## Main sequence
+
+1. Transition to `implementing`. Give the Implementer one behavior-focused assignment. It runs RED/GREEN/refactor cycles, the full relevant suite every cycle, and a public-path checkpoint at least every two cycles. After the assigned behavior and focused tests are green, release its lease and transition to `implemented`.
+2. Transition to `habit-checking`. Give the Habit Curator a quick check under its lease. Record one terminal result (`clean`, `ratcheted`, `snoozed`, or `not-applicable`). A `no-configured-files` observation unlocks only the initial checkpoint.
+3. Route Habit findings through the Coordinator. Only deterministic, low-risk, explicitly scoped corrections may return to the Habit Curator. Any source correction returns through `implementing` and repeats every downstream gate.
+4. Transition to `checkpoint-committing`. Under the commit message contract, the Committer records the complete checkpoint as `implementation` or `correction`; then transition to `initial-validating`.
+5. The Validator runs the repository's complete clean verification and normal Sonar analysis. Record current passed `initial-verify` and `initial-sonar` evidence.
+6. Transition to `mutation-testing`. The Mutation Analyst selects every production class changed from `base_sha`, computes the fingerprint, and records exactly one attempt. `structural-review` requires a current accepted `passed` or `not-applicable` result. A `failed`, incomplete, or actionable attempt blocks progress.
+7. Transition to `structural-review`. The Structural Reviewer independently applies `/refactor-design` and may make only behavior-preserving refactors authorized by the plan and Coordinator. It does not commit.
+8. Transition to `habit-rechecking` and record fresh terminal Habit evidence. If review produced a delta, use `final-committing` and record a `correction`, `habit-refactor`, or `structural-refactor` commit under the commit message contract. Otherwise transition directly to `final-validating`.
+9. The Validator reruns clean verification and Sonar on the final commit. Record current passed `final-verify` and `final-sonar`, then always transition to `mutation-rechecking`.
+10. Recompute the focal target set and fingerprint against the same `base_sha`. If production targets, eligible tests, and runner configuration are identical to the latest accepted initial attempt, record `reused` with both analyzed SHAs and the shared fingerprint. If any input differs, execute the runner once against all production targets changed from `base_sha` and record a fresh `passed`, `failed`, or `not-applicable` attempt.
+11. Transition to `delivery-ready` only with current final `passed`, `reused`, or `not-applicable` mutation evidence. Follow [github-delivery.md](github-delivery.md) for human choices, pull request, CI, and cleanup.
+
+## Mutation classifications and routing
+
+Every `survived` or `no-coverage` mutant in a completed run must have one unique ID, one classification, and a concrete justification. The mutation gate is accepted only when the runner has no execution error, killed/surviving/uncovered metrics account for every generated mutant, every survivor or uncovered mutant is classified exactly once, and actionable findings equal zero. An interrupted environmental failure may preserve partial metrics without pretending its unfinished mutants were classified.
+
+- `behavior-gap`: actionable; return to the Implementer through the behavior-focused TDD path.
+- `dead-code` or `redundant-code`: actionable; the Coordinator assigns the correction to the registered Structural Reviewer while the ledger returns through `implementing`. The formal `structural-review` phase remains blocked until a repeated mutation attempt is accepted.
+- `equivalent`: non-actionable only with a concrete explanation of why no observable test can distinguish it.
+- Environmental runner failure: record `failed` with diagnostic evidence and no code change; return diagnosis to the Coordinator.
+
+Every correction uses a non-empty Coordinator routing note, returns to `implementing`, creates only additional commits, and repeats Habit, checkpoint commit, clean validation, mutation testing, structural review, final Habit, final commit when needed, final validation, and mutation recheck. Never amend or rebase corrective work.
+
+## Habit evidence
+
+- `clean`: raw finding count is zero.
+- `ratcheted`: a previously user-authorized baseline is unchanged and active finding count is zero.
+- `snoozed`: the user explicitly authorized the already-existing snoozed state. Never create or modify snooze state in this workflow.
+- `not-applicable`: the Habit tool is genuinely unavailable and that observation is recorded.
+
+`no-configured-files` means Habit ran but scanned nothing. It is not a terminal status, does not mean `clean`, and does not mean the tool is unavailable. It may unlock only `checkpoint-committing`; final Habit, delivery, and pull request still require a terminal Habit result.
+
+## Native authority
+Only the Coordinator calls workflow_control to operate this ledger. Specialists return evidence; they do not operate leases, modify the ledger, contact other sessions, or dispatch assignments. The Host plugin validates the caller session identity and active lease. Direct human conversation with a specialist is informational; any new checkout action requires a Coordinator assignment.
