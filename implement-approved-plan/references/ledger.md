@@ -6,7 +6,7 @@ Use `scripts/workflow_state.py` with Python's standard library. Keep the plan, l
 python3 <skill>/scripts/workflow_state.py --state .agent/tmp/<slug>.workflow.json <command> ...
 ```
 
-New ledgers use schema v3. Existing schema-v1 and schema-v2 ledgers remain readable and retain their original validation, transitions, evidence, pull-request, and cleanup rules. Reading an old ledger does not migrate, normalize, or rewrite it. The script uses atomic replacement and rejects corrupt state, conflicting identities, invalid transitions, conflicting leases, specialist fallback, incomplete mutation classifications, unjustified reuse, premature pull requests, repeated transient CI retries, and cleanup without a matching GitHub `MERGED` confirmation.
+New ledgers use schema v4. Existing schema-v1, schema-v2, and schema-v3 ledgers remain readable and retain their original model validation, transitions, evidence, pull-request, and cleanup rules. Reading an old ledger does not migrate, normalize, or rewrite it. The script uses atomic replacement and rejects corrupt state, conflicting identities, invalid transitions, conflicting leases, specialist fallback, incomplete mutation classifications, unjustified reuse, premature pull requests, repeated transient CI retries, and cleanup without a matching GitHub `MERGED` confirmation.
 
 ## Initialize and inspect
 
@@ -17,33 +17,34 @@ base_sha=$(git rev-parse --verify '<base>^{commit}')
 python3 <skill>/scripts/workflow_state.py \
   --state .agent/tmp/<slug>.workflow.json \
   init --slug <slug> --plan .agent/tmp/<slug>.md \
-  --repo <absolute-repo> --branch <branch> --base <base> --base-sha "$base_sha"
+  --repo <absolute-repo> --branch <branch> --base <base> --base-sha "$base_sha" \
+  [--model role=model:effort]...
 python3 <skill>/scripts/workflow_state.py \
   --state .agent/tmp/<slug>.workflow.json show
 ```
 
-`base` preserves the plan's branch/ref name; `base_sha` is a 40-character immutable comparison point and is part of the ledger identity. `init` is idempotent only for the same slug, paths, repository, branch, base, and `base_sha`.
+`base` preserves the plan's branch/ref name; `base_sha` is a 40-character immutable comparison point and is part of the ledger identity. Repeat `--model` only for roles changed from the defaults in [workflow.md](workflow.md), including `coordinator` when needed. `init` stores all seven resolved pairs in `model_selection` and is idempotent only for the same plan identity and model selection. The selection cannot be changed after initialization.
 
 ## Register and serialize specialists
 
 ```text
-register-chat --role <role> --thread-id <id> --model <exact-model> --effort xhigh
+register-chat --role <role> --thread-id <id> --model <selected-model> --effort <selected-effort>
 acquire --owner <coordinator-or-role>
 release --owner <same-owner>
 ```
 
 Acquire before dispatching any task that reads or mutates the checkout. A second owner is rejected. CI and GitHub status queries do not need the checkout lease; source-changing corrections do.
 
-Schema v3 requires these exact registrations before the first `implementing` transition:
+Schema v4 requires the six registrations to match its recorded `model_selection` before the first `implementing` transition. The defaults are:
 
 | Role | Model | Effort |
 | --- | --- | --- |
-| `implementer` | `gpt-5.6-sol` | `xhigh` |
-| `committer` | `gpt-5.6-terra` | `xhigh` |
-| `validator` | `gpt-5.6-luna` | `xhigh` |
-| `habit-curator` | `gpt-5.6-luna` | `xhigh` |
-| `mutation-analyst` | `gpt-5.6-luna` | `xhigh` |
-| `structural-reviewer` | `gpt-5.6-sol` | `xhigh` |
+| `implementer` | `gpt-6-sol` | `medium` |
+| `committer` | `gpt-6-luna` | `xhigh` |
+| `validator` | `gpt-6-luna` | `xhigh` |
+| `habit-curator` | `gpt-6-luna` | `xhigh` |
+| `mutation-analyst` | `gpt-6-luna` | `xhigh` |
+| `structural-reviewer` | `gpt-6-sol` | `medium` |
 
 Every task ID must be non-empty. Register each role once and reuse it. Roles and leases introduced by v3 are rejected by v1/v2 ledgers.
 
@@ -60,9 +61,9 @@ record-habit --status not-applicable --details <evidence> --tool-unavailable
 record-habit-observation --kind no-configured-files --details <evidence> [--reclassify-current]
 ```
 
-Commit recording requires the `committer` lease; clean-verification and Sonar gate recording require `validator`; terminal Habit recording requires `habit-curator`; Habit observation and pull-request recording require `coordinator`. Terminal Habit stage is inferred from `habit-checking` or `habit-rechecking`. Legacy freeze controls remain rejected for schema v3.
+Commit recording requires the `committer` lease; clean-verification and Sonar gate recording require `validator`; terminal Habit recording requires `habit-curator`; Habit observation and pull-request recording require `coordinator`. Terminal Habit stage is inferred from `habit-checking` or `habit-rechecking`. Legacy freeze controls remain rejected for schemas v3 and v4.
 
-The schema-v3 forward phases are:
+The schema-v3/v4 forward phases are:
 
 ```text
 initialized -> implementing -> implemented -> habit-checking
@@ -78,7 +79,7 @@ Current quick Habit evidence is required before the checkpoint, a current checkp
 
 ## Record mutation attempts
 
-`record-mutation` is schema-v3-only and requires the `mutation-analyst` lease during `mutation-testing` or `mutation-rechecking`. The phase infers `stage` as `initial` or `final`.
+`record-mutation` requires schema v3 or v4 and the `mutation-analyst` lease during `mutation-testing` or `mutation-rechecking`. The phase infers `stage` as `initial` or `final`.
 
 An executed attempt records one runner invocation:
 

@@ -19,13 +19,13 @@ This is a human gate. Never infer whether the pull request should close the issu
 
 ## Create the pull request
 
-Before creation, confirm the schema-v3 ledger is `delivery-ready`, the branch is pushed, and the checkout has no uncommitted delivery delta. Require all of:
+Before creation, confirm the schema-v3/v4 ledger is `delivery-ready`, the branch is pushed, and the checkout has no uncommitted delivery delta. Require all of:
 
 - current passed `final-verify` and `final-sonar` attempts;
 - final Habit evidence of `clean`, `ratcheted`, explicitly user-authorized `snoozed`, or genuinely unavailable `not-applicable`;
 - current final mutation evidence of `passed`, `reused`, or `not-applicable`.
 
-Mutation `failed`, actionable findings, incomplete classifications, missing evidence, or stale evidence block pull-request creation. `not-applicable` must name `runner-unavailable` or `no-production-changes`; never describe it as a green mutation run. A schema-v3 pull request does not require a Habit baseline commit.
+Mutation `failed`, actionable findings, incomplete classifications, missing evidence, or stale evidence block pull-request creation. `not-applicable` must name `runner-unavailable` or `no-production-changes`; never describe it as a green mutation run. A schema-v3/v4 pull request does not require a Habit baseline commit.
 
 Create a pull request ready for review, never a draft, against the base named by the plan. The body must explain intent and observable behavior, list validation commands and observed results, state coverage/Sonar/Habit evidence, and summarize mutation scope, target classes, metrics, classification outcome, fingerprint, result, and log/report paths. For `reused`, include initial and final analyzed SHAs and the shared fingerprint. For `not-applicable`, include the explicit reason. Disclose known risks and include the selected issue reference.
 

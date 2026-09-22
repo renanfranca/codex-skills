@@ -9,24 +9,25 @@
 5. Resolve the base once with `git rev-parse --verify '<base>^{commit}'`, retain the full 40-character SHA as `base_sha`, and do not refresh it if the base ref later moves.
 6. Add `/.agent/tmp/` to `.git/info/exclude` if absent. Do not alter `.gitignore` for local workflow state.
 7. Store the approved plan verbatim at `.agent/tmp/<slug>.md`, initialize `.agent/tmp/<slug>.workflow.json`, and use the ledger for every subsequent gate.
-8. Create and register every specialist below. The ledger rejects the first `implementing` transition until all six IDs and exact model/effort values are present.
+8. Create and register every specialist below with the resolved model selection. The ledger rejects the first `implementing` transition until all six IDs and exact selected model/effort values are present.
 
-## Exact specialist tasks
+## Model selection and specialist tasks
 
-Resolve the saved project first. Create tasks in its existing checkout with the exact settings below; using the saved project directly is intentional because the ledger serializes one checkout.
+Resolve the saved project first. Before creating the Coordinator, show this table and ask the user to accept all defaults or specify overrides by role, model, and effort. Display the effective complete selection before task creation. For a resumed plan with an existing ledger, use its recorded selection without asking again. Create tasks in the saved project's existing checkout; the ledger serializes one checkout.
 
 Confirm Full access before creating any local task: `sandbox_mode = "danger-full-access"` and `approval_policy = "never"`. A prompt cannot grant permissions. If that exact profile is unavailable, stop before task creation and ask the user to enable it.
 
-| Ledger role | Model | Effort | Task contract |
+| Role | Default model | Default effort | Task contract |
 | --- | --- | --- | --- |
-| `implementer` | `gpt-5.6-sol` | `xhigh` | Use `$tdd-behavior-autonomous-quiet`; implement only assigned behavior; do not commit. |
-| `committer` | `gpt-5.6-terra` | `xhigh` | Use `$commit-the-changes`; inspect history and status; stage and commit only the assigned delta. |
-| `validator` | `gpt-5.6-luna` | `xhigh` | Run the complete clean gate and supported Sonar analysis; do not edit source. |
-| `habit-curator` | `gpt-5.6-luna` | `xhigh` | Run Habit quick checks, classify results, and report evidence. Never use `$refactor-design` or self-authorize work. Edit only deterministic, low-risk corrections explicitly assigned by the Coordinator with authorized files and expected evidence; never commit. |
-| `mutation-analyst` | `gpt-5.6-luna` | `xhigh` | Select the focal scope, run at most one configured mutation runner per attempt, classify results, and persist complete output under `.agent/tmp`; never edit code, install tools, or commit. |
-| `structural-reviewer` | `gpt-5.6-sol` | `xhigh` | Use `$refactor-design` for an independent exhaustive review of changed contracts and adjacent responsibilities; do not commit. |
+| `coordinator` | `gpt-6-sol` | `medium` | Own assignments, ledger leases, gates, and delivery; do not create another Coordinator. |
+| `implementer` | `gpt-6-sol` | `medium` | Use `$tdd-behavior-autonomous-quiet`; implement only assigned behavior; do not commit. |
+| `committer` | `gpt-6-luna` | `xhigh` | Use `$commit-the-changes`; inspect history and status; stage and commit only the assigned delta. |
+| `validator` | `gpt-6-luna` | `xhigh` | Run the complete clean gate and supported Sonar analysis; do not edit source. |
+| `habit-curator` | `gpt-6-luna` | `xhigh` | Run Habit quick checks, classify results, and report evidence. Never use `$refactor-design` or self-authorize work. Edit only deterministic, low-risk corrections explicitly assigned by the Coordinator with authorized files and expected evidence; never commit. |
+| `mutation-analyst` | `gpt-6-luna` | `xhigh` | Select the focal scope, run at most one configured mutation runner per attempt, classify results, and persist complete output under `.agent/tmp`; never edit code, install tools, or commit. |
+| `structural-reviewer` | `gpt-6-sol` | `medium` | Use `$refactor-design` for an independent exhaustive review of changed contracts and adjacent responsibilities; do not commit. |
 
-The deliberate Luna choice is supported by the [official OpenAI model page](https://developers.openai.com/api/docs/models/gpt-5.6-luna), which lists `xhigh` and positions the model for cost-sensitive, high-volume workloads.
+At startup, verify that the selected model/effort pair is callable for every role. Do not silently substitute another pair. Initialize a schema-v4 ledger with any overrides using `init --model role=model:effort`; its `model_selection` records the resolved seven-role table. Pass the same selection from the bootstrap task to the Coordinator. Once initialized, neither the selection nor registered task identities may change during this run.
 
 Create each task once per plan, register its returned task ID immediately, and reuse it with follow-up prompts. Create all six before implementation begins. If exact model/effort task creation is rejected or unavailable, stop without fallback or fabricated metadata.
 

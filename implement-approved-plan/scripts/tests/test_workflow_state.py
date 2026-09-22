@@ -20,6 +20,15 @@ V3_SPECIALISTS = {
   **V2_SPECIALISTS,
   "mutation-analyst": ("gpt-5.6-luna", "xhigh"),
 }
+V4_MODELS = {
+  "coordinator": ("gpt-6-sol", "medium"),
+  "implementer": ("gpt-6-sol", "medium"),
+  "committer": ("gpt-6-luna", "xhigh"),
+  "validator": ("gpt-6-luna", "xhigh"),
+  "habit-curator": ("gpt-6-luna", "xhigh"),
+  "mutation-analyst": ("gpt-6-luna", "xhigh"),
+  "structural-reviewer": ("gpt-6-sol", "medium"),
+}
 BASE_SHA = "a" * 40
 
 
@@ -84,6 +93,10 @@ class WorkflowStateCliTest(unittest.TestCase):
       BASE_SHA,
     )
     self.assertEqual(0, result.returncode, result.stderr)
+    ledger = json.loads(state.read_text(encoding="utf-8"))
+    ledger["schema_version"] = 3
+    del ledger["model_selection"]
+    state.write_text(json.dumps(ledger, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return state
 
   def register_specialists(
@@ -624,7 +637,11 @@ class WorkflowStateCliTest(unittest.TestCase):
 
       self.assertEqual(0, result.returncode, result.stderr)
       ledger = json.loads(state.read_text(encoding="utf-8"))
-      self.assertEqual(3, ledger["schema_version"])
+      self.assertEqual(4, ledger["schema_version"])
+      self.assertEqual(
+        {role: {"model": model, "effort": effort} for role, (model, effort) in V4_MODELS.items()},
+        ledger["model_selection"],
+      )
       self.assertEqual("demo", ledger["slug"])
       self.assertEqual(str(plan.resolve()), ledger["plan_path"])
       self.assertEqual(str(root.resolve()), ledger["repository"])
@@ -672,6 +689,122 @@ class WorkflowStateCliTest(unittest.TestCase):
       self.assertEqual(0, first.returncode, first.stderr)
       self.assertEqual(0, second.returncode, second.stderr)
       self.assertEqual(before, state.read_text(encoding="utf-8"))
+
+  def test_schema_v4_records_overrides_and_requires_matching_specialists(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      plan = root / "demo.md"
+      state = root / "demo.workflow.json"
+      plan.write_text("# Approved plan\n", encoding="utf-8")
+      initialized = self.run_cli(
+        state,
+        "init", "--slug", "demo", "--plan", str(plan), "--repo", str(root),
+        "--branch", "codex/demo", "--base", "main", "--base-sha", BASE_SHA,
+        "--model", "coordinator=gpt-6-astra:high",
+        "--model", "implementer=gpt-6-luna:xhigh",
+      )
+      self.assertEqual(0, initialized.returncode, initialized.stderr)
+      ledger = json.loads(state.read_text(encoding="utf-8"))
+      self.assertEqual({"model": "gpt-6-astra", "effort": "high"}, ledger["model_selection"]["coordinator"])
+      self.assertEqual({"model": "gpt-6-luna", "effort": "xhigh"}, ledger["model_selection"]["implementer"])
+      self.assertEqual({"model": "gpt-6-sol", "effort": "medium"}, ledger["model_selection"]["structural-reviewer"])
+
+      rejected = self.run_cli(
+        state, "register-chat", "--role", "implementer", "--thread-id", "implementer-thread",
+        "--model", "gpt-6-sol", "--effort", "medium",
+      )
+      self.assertEqual(2, rejected.returncode)
+      before = state.read_text(encoding="utf-8")
+      incomplete = self.run_cli(state, "transition", "--to", "implementing")
+      self.assertEqual(2, incomplete.returncode)
+      self.assertEqual(before, state.read_text(encoding="utf-8"))
+
+      specialists = {role: pair for role, pair in V4_MODELS.items() if role != "coordinator"}
+      specialists["implementer"] = ("gpt-6-luna", "xhigh")
+      self.register_specialists(state, specialists=specialists)
+      transitioned = self.run_cli(state, "transition", "--to", "implementing")
+      self.assertEqual(0, transitioned.returncode, transitioned.stderr)
+
+  def test_schema_v4_rejects_invalid_or_changed_model_selection(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      plan = root / "demo.md"
+      state = root / "demo.workflow.json"
+      plan.write_text("# Approved plan\n", encoding="utf-8")
+      base_args = (
+        "init", "--slug", "demo", "--plan", str(plan),
+        "--repo", str(root), "--branch", "codex/demo", "--base", "main",
+        "--base-sha", BASE_SHA,
+      )
+      for override in (
+        "missing=gpt-6-sol:medium", "implementer=gpt-6-sol:invalid",
+        "implementer=:medium", "malformed",
+      ):
+        with self.subTest(override=override):
+          result = self.run_cli(state, *base_args, "--model", override)
+          self.assertEqual(2, result.returncode)
+          self.assertFalse(state.exists())
+      duplicate = self.run_cli(
+        state, *base_args, "--model", "validator=gpt-6-sol:medium",
+        "--model", "validator=gpt-6-luna:xhigh",
+      )
+      self.assertEqual(2, duplicate.returncode)
+      self.assertFalse(state.exists())
+
+      created = self.run_cli(state, *base_args, "--model", "validator=gpt-6-sol:high")
+      self.assertEqual(0, created.returncode, created.stderr)
+      before = state.read_text(encoding="utf-8")
+      repeated = self.run_cli(state, *base_args, "--model", "validator=gpt-6-sol:high")
+      changed = self.run_cli(state, *base_args, "--model", "validator=gpt-6-sol:medium")
+      self.assertEqual(0, repeated.returncode, repeated.stderr)
+      self.assertEqual(2, changed.returncode)
+      self.assertEqual(before, state.read_text(encoding="utf-8"))
+
+      ledger = json.loads(before)
+      del ledger["model_selection"]["coordinator"]
+      corrupt = json.dumps(ledger, indent=2, sort_keys=True) + "\n"
+      state.write_text(corrupt, encoding="utf-8")
+      shown = self.run_cli(state, "show")
+      self.assertEqual(2, shown.returncode)
+      self.assertEqual(corrupt, state.read_text(encoding="utf-8"))
+
+  def test_schema_v4_reaches_mutation_gate_with_selected_models(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      plan = root / "demo.md"
+      state = root / "demo.workflow.json"
+      plan.write_text("# Approved plan\n", encoding="utf-8")
+      created = self.run_cli(
+        state, "init", "--slug", "demo", "--plan", str(plan), "--repo", str(root),
+        "--branch", "codex/demo", "--base", "main", "--base-sha", BASE_SHA,
+      )
+      self.assertEqual(0, created.returncode, created.stderr)
+      self.register_specialists(
+        state, specialists={role: pair for role, pair in V4_MODELS.items() if role != "coordinator"},
+      )
+      for phase in ("implementing", "implemented", "habit-checking"):
+        result = self.run_cli(state, "transition", "--to", phase)
+        self.assertEqual(0, result.returncode, result.stderr)
+      self.assertEqual(0, self.run_cli(state, "acquire", "--owner", "habit-curator").returncode)
+      habit = self.run_cli(state, "record-habit", "--status", "clean", "--details", "zero findings")
+      self.assertEqual(0, habit.returncode, habit.stderr)
+      self.assertEqual(0, self.run_cli(state, "release", "--owner", "habit-curator").returncode)
+      self.assertEqual(0, self.run_cli(state, "transition", "--to", "checkpoint-committing").returncode)
+      self.assertEqual(0, self.run_cli(state, "acquire", "--owner", "committer").returncode)
+      commit = self.run_cli(
+        state, "record-commit", "--sha", "b" * 40, "--kind", "implementation",
+        "--subject", "feat(demo): implement behavior",
+      )
+      self.assertEqual(0, commit.returncode, commit.stderr)
+      self.assertEqual(0, self.run_cli(state, "release", "--owner", "committer").returncode)
+      self.assertEqual(0, self.run_cli(state, "transition", "--to", "initial-validating").returncode)
+      self.assertEqual(0, self.run_cli(state, "acquire", "--owner", "validator").returncode)
+      for name in ("initial-verify", "initial-sonar"):
+        gate = self.run_cli(state, "record-gate", "--name", name, "--status", "passed", "--details", "passed")
+        self.assertEqual(0, gate.returncode, gate.stderr)
+      self.assertEqual(0, self.run_cli(state, "release", "--owner", "validator").returncode)
+      mutation = self.run_cli(state, "transition", "--to", "mutation-testing")
+      self.assertEqual(0, mutation.returncode, mutation.stderr)
 
   def test_show_rejects_a_corrupt_ledger_without_changing_it(self):
     with tempfile.TemporaryDirectory() as directory:
