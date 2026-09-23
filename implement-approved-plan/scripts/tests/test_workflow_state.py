@@ -41,6 +41,25 @@ class WorkflowStateCliTest(unittest.TestCase):
       check=False,
     )
 
+  def validation_plan(self, root, *, active=("verify", "sonar", "mutation", "habit")):
+    owners = {
+      "verify": "validator", "sonar": "validator",
+      "mutation": "mutation-analyst", "habit": "habit-curator",
+    }
+    checks = []
+    for kind, owner in owners.items():
+      selected = kind in active
+      checks.append({
+        "id": kind, "kind": kind, "status": "selected" if selected else "skipped",
+        "execution": "local" if selected else "none",
+        "command": f"run-{kind}" if selected else "",
+        "source": "project configuration", "owner": owner,
+        "reason": "not configured" if not selected else "",
+      })
+    path = root / "validation.json"
+    path.write_text(json.dumps({"checks": checks}), encoding="utf-8")
+    return path
+
   def initialize_v2(self, root, slug="demo"):
     plan = root / f"{slug}.md"
     state = root / f"{slug}.workflow.json"
@@ -91,12 +110,38 @@ class WorkflowStateCliTest(unittest.TestCase):
       "main",
       "--base-sha",
       BASE_SHA,
+      "--validation-plan",
+      str(self.validation_plan(root)),
     )
     self.assertEqual(0, result.returncode, result.stderr)
     ledger = json.loads(state.read_text(encoding="utf-8"))
     ledger["schema_version"] = 3
     del ledger["model_selection"]
+    del ledger["validation_plan"]
+    del ledger["validation_history"]
     state.write_text(json.dumps(ledger, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return state
+
+  def initialize_v5(self, root, *, active=(), ci_sonar=False):
+    root.mkdir(parents=True, exist_ok=True)
+    plan = root / "demo.md"
+    state = root / "demo.workflow.json"
+    plan.write_text("# Approved plan\n", encoding="utf-8")
+    validation = self.validation_plan(root, active=active)
+    if ci_sonar:
+      data = json.loads(validation.read_text(encoding="utf-8"))
+      sonar = next(check for check in data["checks"] if check["kind"] == "sonar")
+      sonar.update({
+        "status": "selected", "execution": "ci", "command": "",
+        "owner": "coordinator", "reason": "",
+      })
+      validation.write_text(json.dumps(data), encoding="utf-8")
+    result = self.run_cli(
+      state, "init", "--slug", "demo", "--plan", str(plan), "--repo", str(root),
+      "--branch", "codex/demo", "--base", "main", "--base-sha", BASE_SHA,
+      "--validation-plan", str(validation),
+    )
+    self.assertEqual(0, result.returncode, result.stderr)
     return state
 
   def register_specialists(
@@ -633,11 +678,14 @@ class WorkflowStateCliTest(unittest.TestCase):
         "main",
         "--base-sha",
         BASE_SHA,
+        "--validation-plan",
+        str(self.validation_plan(root)),
       )
 
       self.assertEqual(0, result.returncode, result.stderr)
       ledger = json.loads(state.read_text(encoding="utf-8"))
-      self.assertEqual(4, ledger["schema_version"])
+      self.assertEqual(5, ledger["schema_version"])
+      self.assertEqual(4, len(ledger["validation_plan"]["checks"]))
       self.assertEqual(
         {role: {"model": model, "effort": effort} for role, (model, effort) in V4_MODELS.items()},
         ledger["model_selection"],
@@ -680,6 +728,8 @@ class WorkflowStateCliTest(unittest.TestCase):
         "main",
         "--base-sha",
         BASE_SHA,
+        "--validation-plan",
+        str(self.validation_plan(root)),
       )
       first = self.run_cli(state, *arguments)
       before = state.read_text(encoding="utf-8")
@@ -690,7 +740,7 @@ class WorkflowStateCliTest(unittest.TestCase):
       self.assertEqual(0, second.returncode, second.stderr)
       self.assertEqual(before, state.read_text(encoding="utf-8"))
 
-  def test_schema_v4_records_overrides_and_requires_matching_specialists(self):
+  def test_schema_v5_records_overrides_and_requires_matching_specialists(self):
     with tempfile.TemporaryDirectory() as directory:
       root = Path(directory)
       plan = root / "demo.md"
@@ -700,6 +750,7 @@ class WorkflowStateCliTest(unittest.TestCase):
         state,
         "init", "--slug", "demo", "--plan", str(plan), "--repo", str(root),
         "--branch", "codex/demo", "--base", "main", "--base-sha", BASE_SHA,
+        "--validation-plan", str(self.validation_plan(root)),
         "--model", "coordinator=gpt-6-astra:high",
         "--model", "implementer=gpt-6-luna:xhigh",
       )
@@ -725,7 +776,7 @@ class WorkflowStateCliTest(unittest.TestCase):
       transitioned = self.run_cli(state, "transition", "--to", "implementing")
       self.assertEqual(0, transitioned.returncode, transitioned.stderr)
 
-  def test_schema_v4_rejects_invalid_or_changed_model_selection(self):
+  def test_schema_v5_rejects_invalid_or_changed_model_selection(self):
     with tempfile.TemporaryDirectory() as directory:
       root = Path(directory)
       plan = root / "demo.md"
@@ -734,7 +785,7 @@ class WorkflowStateCliTest(unittest.TestCase):
       base_args = (
         "init", "--slug", "demo", "--plan", str(plan),
         "--repo", str(root), "--branch", "codex/demo", "--base", "main",
-        "--base-sha", BASE_SHA,
+        "--base-sha", BASE_SHA, "--validation-plan", str(self.validation_plan(root)),
       )
       for override in (
         "missing=gpt-6-sol:medium", "implementer=gpt-6-sol:invalid",
@@ -768,7 +819,7 @@ class WorkflowStateCliTest(unittest.TestCase):
       self.assertEqual(2, shown.returncode)
       self.assertEqual(corrupt, state.read_text(encoding="utf-8"))
 
-  def test_schema_v4_reaches_mutation_gate_with_selected_models(self):
+  def test_schema_v5_reaches_mutation_gate_with_selected_models(self):
     with tempfile.TemporaryDirectory() as directory:
       root = Path(directory)
       plan = root / "demo.md"
@@ -777,6 +828,7 @@ class WorkflowStateCliTest(unittest.TestCase):
       created = self.run_cli(
         state, "init", "--slug", "demo", "--plan", str(plan), "--repo", str(root),
         "--branch", "codex/demo", "--base", "main", "--base-sha", BASE_SHA,
+        "--validation-plan", str(self.validation_plan(root)),
       )
       self.assertEqual(0, created.returncode, created.stderr)
       self.register_specialists(
@@ -805,6 +857,221 @@ class WorkflowStateCliTest(unittest.TestCase):
       self.assertEqual(0, self.run_cli(state, "release", "--owner", "validator").returncode)
       mutation = self.run_cli(state, "transition", "--to", "mutation-testing")
       self.assertEqual(0, mutation.returncode, mutation.stderr)
+      artifacts = root / ".agent" / "tmp"
+      artifacts.mkdir(parents=True)
+      log = artifacts / "mutation.log"
+      log.write_text("No production changes\n", encoding="utf-8")
+      self.assertEqual(0, self.run_cli(state, "acquire", "--owner", "mutation-analyst").returncode)
+      unavailable = self.run_cli(
+        state, "record-mutation", "--runner", "pit", "--result", "not-applicable",
+        "--analyzed-sha", "b" * 40, "--fingerprint", "c" * 64,
+        "--not-applicable-reason", "runner-unavailable", "--log", str(log),
+        "--details", "runner missing",
+      )
+      self.assertEqual(2, unavailable.returncode)
+      no_sources = self.run_cli(
+        state, "record-mutation", "--runner", "pit", "--result", "not-applicable",
+        "--analyzed-sha", "b" * 40, "--fingerprint", "c" * 64,
+        "--not-applicable-reason", "no-production-changes", "--log", str(log),
+        "--details", "No changed production sources",
+      )
+      self.assertEqual(0, no_sources.returncode, no_sources.stderr)
+      self.assertEqual(0, self.run_cli(state, "release", "--owner", "mutation-analyst").returncode)
+      review = self.run_cli(state, "transition", "--to", "structural-review")
+      self.assertEqual(0, review.returncode, review.stderr)
+
+  def prepare_v5_without_optional_tools(self, root, *, ci_sonar=False):
+    state = self.initialize_v5(root, ci_sonar=ci_sonar)
+    self.register_specialists(
+      state,
+      specialists={
+        role: V4_MODELS[role]
+        for role in ("implementer", "committer", "validator", "structural-reviewer")
+      },
+    )
+    inactive = self.run_cli(
+      state, "register-chat", "--role", "mutation-analyst",
+      "--thread-id", "unneeded", "--model", "gpt-6-luna", "--effort", "xhigh",
+    )
+    self.assertEqual(2, inactive.returncode)
+    for phase in ("implementing", "implemented"):
+      result = self.run_cli(state, "transition", "--to", phase)
+      self.assertEqual(0, result.returncode, result.stderr)
+    skipped = self.run_cli(state, "transition", "--to", "habit-checking")
+    self.assertEqual(2, skipped.returncode)
+    checkpoint = self.run_cli(state, "transition", "--to", "checkpoint-committing")
+    self.assertEqual(0, checkpoint.returncode, checkpoint.stderr)
+    self.assertEqual(0, self.run_cli(state, "acquire", "--owner", "committer").returncode)
+    commit = self.run_cli(
+      state, "record-commit", "--sha", "b" * 40, "--kind", "implementation",
+      "--subject", "feat(demo): implement behavior",
+    )
+    self.assertEqual(0, commit.returncode, commit.stderr)
+    self.assertEqual(0, self.run_cli(state, "release", "--owner", "committer").returncode)
+    initial = self.run_cli(state, "transition", "--to", "initial-validating")
+    self.assertEqual(0, initial.returncode, initial.stderr)
+    return state
+
+  def test_schema_v5_skips_unconfigured_tools_without_fake_passes(self):
+    with tempfile.TemporaryDirectory() as directory:
+      state = self.prepare_v5_without_optional_tools(Path(directory))
+      blocked = self.run_cli(state, "transition", "--to", "structural-review")
+      self.assertEqual(2, blocked.returncode)
+      self.assertEqual(0, self.run_cli(state, "acquire", "--owner", "validator").returncode)
+      fake = self.run_cli(
+        state, "record-gate", "--name", "initial-verify", "--status", "passed",
+        "--details", "no project checks",
+      )
+      self.assertEqual(2, fake.returncode)
+      absent = self.run_cli(
+        state, "record-gate", "--name", "initial-verify", "--status", "not-applicable",
+        "--details", "No automated local checks configured",
+      )
+      self.assertEqual(0, absent.returncode, absent.stderr)
+      sonar = self.run_cli(
+        state, "record-gate", "--name", "initial-sonar", "--status", "passed",
+        "--details", "not configured",
+      )
+      self.assertEqual(2, sonar.returncode)
+      self.assertEqual(0, self.run_cli(state, "release", "--owner", "validator").returncode)
+      for phase in ("structural-review", "final-validating"):
+        result = self.run_cli(state, "transition", "--to", phase)
+        self.assertEqual(0, result.returncode, result.stderr)
+      self.assertEqual(0, self.run_cli(state, "acquire", "--owner", "validator").returncode)
+      final = self.run_cli(
+        state, "record-gate", "--name", "final-verify", "--status", "not-applicable",
+        "--details", "No automated local checks configured",
+      )
+      self.assertEqual(0, final.returncode, final.stderr)
+      self.assertEqual(0, self.run_cli(state, "release", "--owner", "validator").returncode)
+      delivery = self.run_cli(state, "transition", "--to", "delivery-ready")
+      self.assertEqual(0, delivery.returncode, delivery.stderr)
+      self.assertEqual(0, self.run_cli(state, "acquire", "--owner", "coordinator").returncode)
+      pr = self.run_cli(
+        state, "record-pr", "--repo", "example/demo", "--number", "12",
+        "--url", "https://example.test/pull/12", "--status", "OPEN",
+      )
+      self.assertEqual(0, pr.returncode, pr.stderr)
+
+  def test_schema_v5_adds_a_new_specialist_after_confirmed_reassessment(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      state = self.initialize_v5(root)
+      self.register_specialists(
+        state,
+        specialists={
+          role: V4_MODELS[role]
+          for role in ("implementer", "committer", "validator", "structural-reviewer")
+        },
+      )
+      self.assertEqual(0, self.run_cli(state, "transition", "--to", "implementing").returncode)
+      changed = self.validation_plan(root, active=("mutation",))
+      premature = self.run_cli(
+        state, "update-validation-plan", "--file", str(changed), "--note", "confirmed new runner",
+      )
+      self.assertEqual(2, premature.returncode)
+      self.assertEqual(0, self.run_cli(state, "acquire", "--owner", "coordinator").returncode)
+      missing_note = self.run_cli(
+        state, "update-validation-plan", "--file", str(changed), "--note", "",
+      )
+      self.assertEqual(2, missing_note.returncode)
+      updated = self.run_cli(
+        state, "update-validation-plan", "--file", str(changed),
+        "--note", "User confirmed configured mutation runner",
+      )
+      self.assertEqual(0, updated.returncode, updated.stderr)
+      self.assertEqual(0, self.run_cli(state, "release", "--owner", "coordinator").returncode)
+      incomplete = self.run_cli(state, "transition", "--to", "implemented")
+      self.assertEqual(2, incomplete.returncode)
+      analyst = self.run_cli(
+        state, "register-chat", "--role", "mutation-analyst",
+        "--thread-id", "mutation-thread", "--model", "gpt-6-luna", "--effort", "xhigh",
+      )
+      self.assertEqual(0, analyst.returncode, analyst.stderr)
+      self.assertEqual(0, self.run_cli(state, "transition", "--to", "implemented").returncode)
+      ledger = json.loads(state.read_text(encoding="utf-8"))
+      self.assertEqual(2, len(ledger["validation_history"]))
+
+  def test_schema_v5_requires_each_selected_ci_check_before_merge_readiness(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      state = self.prepare_v5_without_optional_tools(root, ci_sonar=True)
+      self.assertEqual(0, self.run_cli(state, "acquire", "--owner", "validator").returncode)
+      initial = self.run_cli(
+        state, "record-gate", "--name", "initial-verify", "--status", "not-applicable",
+        "--details", "No local checks",
+      )
+      self.assertEqual(0, initial.returncode, initial.stderr)
+      self.assertEqual(0, self.run_cli(state, "release", "--owner", "validator").returncode)
+      for phase in ("structural-review", "final-validating"):
+        self.assertEqual(0, self.run_cli(state, "transition", "--to", phase).returncode)
+      self.assertEqual(0, self.run_cli(state, "acquire", "--owner", "validator").returncode)
+      final = self.run_cli(
+        state, "record-gate", "--name", "final-verify", "--status", "not-applicable",
+        "--details", "No local checks",
+      )
+      self.assertEqual(0, final.returncode, final.stderr)
+      self.assertEqual(0, self.run_cli(state, "release", "--owner", "validator").returncode)
+      self.assertEqual(0, self.run_cli(state, "transition", "--to", "delivery-ready").returncode)
+      self.assertEqual(0, self.run_cli(state, "acquire", "--owner", "coordinator").returncode)
+      pr = self.run_cli(
+        state, "record-pr", "--repo", "example/demo", "--number", "12",
+        "--url", "https://example.test/pull/12", "--status", "OPEN",
+      )
+      self.assertEqual(0, pr.returncode, pr.stderr)
+      self.assertEqual(0, self.run_cli(state, "transition", "--to", "pr-open").returncode)
+      self.assertEqual(0, self.run_cli(state, "release", "--owner", "coordinator").returncode)
+      self.assertEqual(0, self.run_cli(state, "transition", "--to", "ci-monitoring").returncode)
+      aggregate = self.run_cli(
+        state, "record-ci", "--status", "passed", "--run-id", "1",
+        "--url", "https://example.test/ci/1", "--details", "other checks passed",
+      )
+      self.assertEqual(0, aggregate.returncode, aggregate.stderr)
+      blocked = self.run_cli(state, "transition", "--to", "ready-for-merge")
+      self.assertEqual(2, blocked.returncode)
+      sonar = self.run_cli(
+        state, "record-ci", "--status", "passed", "--run-id", "2",
+        "--url", "https://example.test/ci/2", "--details", "Sonar passed",
+        "--check-id", "sonar",
+      )
+      self.assertEqual(0, sonar.returncode, sonar.stderr)
+      ready = self.run_cli(state, "transition", "--to", "ready-for-merge")
+      self.assertEqual(0, ready.returncode, ready.stderr)
+
+  def test_schema_v5_rejects_incomplete_validation_inventory(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      state = root / "demo.workflow.json"
+      plan = root / "demo.md"
+      plan.write_text("# Approved plan\n", encoding="utf-8")
+      validation = self.validation_plan(root)
+      data = json.loads(validation.read_text(encoding="utf-8"))
+      data["checks"] = [check for check in data["checks"] if check["kind"] != "sonar"]
+      validation.write_text(json.dumps(data), encoding="utf-8")
+      invalid = self.run_cli(
+        state, "init", "--slug", "demo", "--plan", str(plan), "--repo", str(root),
+        "--branch", "codex/demo", "--base", "main", "--base-sha", BASE_SHA,
+        "--validation-plan", str(validation),
+      )
+      self.assertEqual(2, invalid.returncode)
+      self.assertFalse(state.exists())
+
+  def test_schema_v4_ledger_remains_readable_with_fixed_specialists(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      state = self.initialize_v5(root)
+      ledger = json.loads(state.read_text(encoding="utf-8"))
+      ledger["schema_version"] = 4
+      del ledger["validation_plan"]
+      del ledger["validation_history"]
+      legacy = json.dumps(ledger, indent=2, sort_keys=True) + "\n"
+      state.write_text(legacy, encoding="utf-8")
+      shown = self.run_cli(state, "show")
+      self.assertEqual(0, shown.returncode, shown.stderr)
+      self.assertEqual(legacy, state.read_text(encoding="utf-8"))
+      skipped_specialist = self.run_cli(state, "transition", "--to", "implementing")
+      self.assertEqual(2, skipped_specialist.returncode)
+      self.assertIn("mutation-analyst", skipped_specialist.stderr)
 
   def test_show_rejects_a_corrupt_ledger_without_changing_it(self):
     with tempfile.TemporaryDirectory() as directory:
@@ -2794,6 +3061,8 @@ json.load = coordinated_load
         "main",
         "--base-sha",
         BASE_SHA,
+        "--validation-plan",
+        str(self.validation_plan(root)),
       )
 
       self.assertEqual(2, result.returncode)

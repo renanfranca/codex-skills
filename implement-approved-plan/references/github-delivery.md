@@ -19,15 +19,15 @@ This is a human gate. Never infer whether the pull request should close the issu
 
 ## Create the pull request
 
-Before creation, confirm the schema-v3/v4 ledger is `delivery-ready`, the branch is pushed, and the checkout has no uncommitted delivery delta. Require all of:
+Before creation, confirm the ledger is `delivery-ready`, the branch is pushed, and the checkout has no uncommitted delivery delta. For schema v5, require current evidence for every selected local validation. Older ledgers retain their original requirements. In particular:
 
-- current passed `final-verify` and `final-sonar` attempts;
-- final Habit evidence of `clean`, `ratcheted`, explicitly user-authorized `snoozed`, or genuinely unavailable `not-applicable`;
-- current final mutation evidence of `passed`, `reused`, or `not-applicable`.
+- current passed `final-verify` for selected local checks, or documented `not-applicable` when no local verification applies; `final-sonar` only when local Sonar was selected;
+- final Habit evidence of `clean`, `ratcheted`, or explicitly user-authorized `snoozed` only when local Habit was selected;
+- current final mutation evidence of `passed`, `reused`, or `no-production-changes` `not-applicable` only when local mutation was selected.
 
-Mutation `failed`, actionable findings, incomplete classifications, missing evidence, or stale evidence block pull-request creation. `not-applicable` must name `runner-unavailable` or `no-production-changes`; never describe it as a green mutation run. A schema-v3/v4 pull request does not require a Habit baseline commit.
+Mutation `failed`, actionable findings, incomplete classifications, missing evidence, or stale evidence block pull-request creation. Older ledgers retain `runner-unavailable` evidence when applicable; schema v5 blocks a selected runner that becomes unavailable. Never describe absence as a green mutation run. A schema-v3/v4/v5 pull request does not require a Habit baseline commit.
 
-Create a pull request ready for review, never a draft, against the base named by the plan. The body must explain intent and observable behavior, list validation commands and observed results, state coverage/Sonar/Habit evidence, and summarize mutation scope, target classes, metrics, classification outcome, fingerprint, result, and log/report paths. For `reused`, include initial and final analyzed SHAs and the shared fingerprint. For `not-applicable`, include the explicit reason. Disclose known risks and include the selected issue reference.
+Create a pull request ready for review, never a draft, against the base named by the plan. The body must explain intent and observable behavior; list the confirmed validation inventory, selected commands and observed results; identify excluded and CI-only checks; and summarize mutation scope and evidence when mutation was selected. For `reused`, include initial and final analyzed SHAs and the shared fingerprint. For `not-applicable`, include the explicit reason. Disclose known risks and include the selected issue reference.
 
 Apply only the selected existing labels. Record repository, number, URL, status, reference kind, and labels in the ledger, then transition to `pr-open` and `ci-monitoring`.
 
@@ -35,7 +35,7 @@ Do not merge the pull request and do not delete either branch.
 
 ## Monitor CI
 
-Follow every required check to a terminal result. Record run identifiers, URLs, and diagnostic evidence.
+Follow every required check to a terminal result. For schema v5, record each selected CI-only inventory check with `record-ci --check-id`, including its run identifier, URL, and diagnostic evidence. The ledger requires a current pass for every such check before `ready-for-merge`.
 
 - Route a code failure back through `implementing`, produce an additional commit, push, and repeat Habit, clean validation, mutation testing, structural review, final Habit, final validation, and mutation recheck as applicable.
 - Route an environment failure to the Validator; mutation-runner environment failures remain diagnostic work for the Mutation Analyst and Coordinator and do not authorize code changes.

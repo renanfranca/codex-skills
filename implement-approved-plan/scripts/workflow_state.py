@@ -52,7 +52,17 @@ DEFAULT_MODELS = {
 SPECIALISTS_BY_SCHEMA[4] = {
   role: settings for role, settings in DEFAULT_MODELS.items() if role != "coordinator"
 }
+SPECIALISTS_BY_SCHEMA[5] = SPECIALISTS_BY_SCHEMA[4]
 MODEL_EFFORTS = ("low", "medium", "high", "xhigh", "max", "ultra")
+VALIDATION_KINDS = ("verify", "sonar", "mutation", "habit", "ci")
+OPTIONAL_VALIDATION_KINDS = ("sonar", "mutation", "habit")
+VALIDATION_OWNERS = {
+  "verify": "validator",
+  "sonar": "validator",
+  "mutation": "mutation-analyst",
+  "habit": "habit-curator",
+  "ci": "coordinator",
+}
 SPECIALIST_ROLES = tuple(
   sorted({role for specialists in SPECIALISTS_BY_SCHEMA.values() for role in specialists})
 )
@@ -132,6 +142,16 @@ V3_TRANSITIONS = {
   "ready-for-merge": {"merged"},
   "merged": set(),
 }
+V5_SKIP_EDGES = {
+  ("implemented", "checkpoint-committing"): "habit",
+  ("initial-validating", "structural-review"): "mutation",
+  ("structural-review", "final-committing"): "habit",
+  ("structural-review", "final-validating"): "habit",
+  ("final-validating", "delivery-ready"): "mutation",
+}
+V5_TRANSITIONS = {phase: set(destinations) for phase, destinations in V3_TRANSITIONS.items()}
+for (source, destination) in V5_SKIP_EDGES:
+  V5_TRANSITIONS[source].add(destination)
 V2_CORRECTIVE_TRANSITIONS = {
   ("habit-checking", "implementing"),
   ("checkpoint-committing", "implementing"),
@@ -161,8 +181,9 @@ CORRECTIVE_TRANSITIONS_BY_SCHEMA = {
   2: V2_CORRECTIVE_TRANSITIONS,
   3: V3_CORRECTIVE_TRANSITIONS,
   4: V3_CORRECTIVE_TRANSITIONS,
+  5: V3_CORRECTIVE_TRANSITIONS,
 }
-TRANSITIONS_BY_SCHEMA = {1: V1_TRANSITIONS, 2: V2_TRANSITIONS, 3: V3_TRANSITIONS, 4: V3_TRANSITIONS}
+TRANSITIONS_BY_SCHEMA = {1: V1_TRANSITIONS, 2: V2_TRANSITIONS, 3: V3_TRANSITIONS, 4: V3_TRANSITIONS, 5: V5_TRANSITIONS}
 ALL_PHASES = tuple(
   sorted(V1_TRANSITIONS.keys() | V2_TRANSITIONS.keys() | V3_TRANSITIONS.keys())
 )
@@ -180,7 +201,7 @@ V2_GATE_NAMES = (
   "final-verify",
   "final-sonar",
 )
-GATE_NAMES_BY_SCHEMA = {1: V1_GATE_NAMES, 2: V2_GATE_NAMES, 3: V2_GATE_NAMES, 4: V2_GATE_NAMES}
+GATE_NAMES_BY_SCHEMA = {1: V1_GATE_NAMES, 2: V2_GATE_NAMES, 3: V2_GATE_NAMES, 4: V2_GATE_NAMES, 5: V2_GATE_NAMES}
 ALL_GATE_NAMES = tuple(sorted(set(V1_GATE_NAMES + V2_GATE_NAMES)))
 GATE_STATUSES = ("passed", "failed", "not-applicable")
 V1_HABIT_STATUSES = ("active", "curated", "frozen", "not-applicable")
@@ -250,18 +271,109 @@ def model_selection_is_valid(selection):
   )
 
 
+def validation_plan_is_valid(plan):
+  if not fields_match(plan, {"checks": list}) or set(plan) != {"checks"}:
+    return False
+  checks = plan["checks"]
+  if not all(
+    fields_match(
+      check,
+      {
+        "id": str,
+        "kind": str,
+        "status": str,
+        "execution": str,
+        "command": str,
+        "source": str,
+        "owner": str,
+        "reason": str,
+      },
+    )
+    and set(check) == {
+      "id", "kind", "status", "execution", "command", "source", "owner", "reason"
+    }
+    and bool(check["id"].strip())
+    and check["kind"] in VALIDATION_KINDS
+    and check["status"] in ("selected", "skipped")
+    and bool(check["source"].strip())
+    and (
+      (
+        check["status"] == "skipped"
+        and check["execution"] == "none"
+        and not check["command"]
+        and bool(check["reason"].strip())
+        and check["owner"] == VALIDATION_OWNERS[check["kind"]]
+      )
+      or (
+        check["status"] == "selected"
+        and check["execution"] in ("local", "ci")
+        and (check["execution"] == "ci" or bool(check["command"].strip()))
+        and not check["reason"]
+        and check["owner"] == (
+          "coordinator" if check["execution"] == "ci"
+          else VALIDATION_OWNERS[check["kind"]]
+        )
+      )
+    )
+    and (check["kind"] != "ci" or check["execution"] == "ci")
+    for check in checks
+  ):
+    return False
+  if len({check["id"] for check in checks}) != len(checks):
+    return False
+  if any(
+    sum(check["kind"] == kind for check in checks) != 1
+    for kind in OPTIONAL_VALIDATION_KINDS
+  ):
+    return False
+  verify = [check for check in checks if check["kind"] == "verify"]
+  return bool(verify) and (
+    all(check["status"] == "selected" for check in verify)
+    or len(verify) == 1 and verify[0]["status"] == "skipped"
+  )
+
+
+def load_validation_plan(path):
+  try:
+    with path.open(encoding="utf-8") as stream:
+      plan = json.load(stream)
+  except (OSError, json.JSONDecodeError) as error:
+    raise WorkflowError(f"Invalid validation plan at {path}: {error}") from error
+  if not validation_plan_is_valid(plan):
+    raise WorkflowError(f"Invalid validation plan at {path}: invalid checks")
+  return plan
+
+
+def selected_local_check(ledger, kind):
+  return any(
+    check["kind"] == kind
+    and check["status"] == "selected"
+    and check["execution"] == "local"
+    for check in ledger["validation_plan"]["checks"]
+  )
+
+
 def required_specialists(ledger):
-  if ledger["schema_version"] == 4:
+  if ledger["schema_version"] in (4, 5):
     return {
       role: (settings["model"], settings["effort"])
       for role, settings in ledger["model_selection"].items()
       if role != "coordinator"
+      and (
+        ledger["schema_version"] == 4
+        or role not in ("mutation-analyst", "habit-curator")
+        or selected_local_check(ledger, "mutation" if role == "mutation-analyst" else "habit")
+      )
     }
   return SPECIALISTS_BY_SCHEMA[ledger["schema_version"]]
 
 
 def nested_records_are_valid(ledger):
-  specialists = required_specialists(ledger)
+  specialists = (
+    {role: (settings["model"], settings["effort"])
+     for role, settings in ledger["model_selection"].items() if role != "coordinator"}
+    if ledger["schema_version"] == 5 else required_specialists(ledger)
+  )
   transitions = TRANSITIONS_BY_SCHEMA[ledger["schema_version"]]
   chats_valid = all(
     role in specialists
@@ -461,8 +573,23 @@ def nested_records_are_valid(ledger):
         },
       )
       and event["status"] in CI_STATUSES
+      and (
+        ledger["schema_version"] != 5
+        or isinstance(event.get("check_id"), (str, type(None)))
+      )
       for event in ci["events"]
     )
+  )
+  validation_valid = ledger["schema_version"] != 5 or (
+    validation_plan_is_valid(ledger["validation_plan"])
+    and isinstance(ledger["validation_history"], list)
+    and bool(ledger["validation_history"])
+    and all(
+      fields_match(event, {"at": str, "note": str, "plan": dict})
+      and validation_plan_is_valid(event["plan"])
+      for event in ledger["validation_history"]
+    )
+    and ledger["validation_history"][-1]["plan"] == ledger["validation_plan"]
   )
   return all(
     (
@@ -476,6 +603,7 @@ def nested_records_are_valid(ledger):
       mutation_attempts_valid,
       pull_request_valid,
       ci_valid,
+      validation_valid,
     )
   )
 
@@ -684,7 +812,7 @@ def load_ledger(path):
       ledger = json.load(stream)
   except (OSError, json.JSONDecodeError) as error:
     raise WorkflowError(f"Corrupt ledger at {path}: {error}") from error
-  if not isinstance(ledger, dict) or ledger.get("schema_version") not in (1, 2, 3, 4):
+  if not isinstance(ledger, dict) or ledger.get("schema_version") not in (1, 2, 3, 4, 5):
     raise WorkflowError(f"Corrupt ledger at {path}: unsupported structure")
   invalid_fields = [
     name
@@ -698,7 +826,7 @@ def load_ledger(path):
     if name not in ledger or (ledger[name] is not None and not isinstance(ledger[name], dict))
   )
   transitions = TRANSITIONS_BY_SCHEMA[ledger["schema_version"]]
-  if ledger["schema_version"] in (3, 4):
+  if ledger["schema_version"] in (3, 4, 5):
     if (
       not isinstance(ledger.get("base_sha"), str)
       or re.fullmatch(r"[0-9a-f]{40}", ledger["base_sha"]) is None
@@ -706,10 +834,15 @@ def load_ledger(path):
       invalid_fields.append("base_sha")
     if not isinstance(ledger.get("mutation_attempts"), list):
       invalid_fields.append("mutation_attempts")
-  if ledger["schema_version"] == 4 and not model_selection_is_valid(
+  if ledger["schema_version"] in (4, 5) and not model_selection_is_valid(
     ledger.get("model_selection")
   ):
     invalid_fields.append("model_selection")
+  if ledger["schema_version"] == 5:
+    if not validation_plan_is_valid(ledger.get("validation_plan")):
+      invalid_fields.append("validation_plan")
+    if not isinstance(ledger.get("validation_history"), list):
+      invalid_fields.append("validation_history")
   if invalid_fields or ledger["phase"] not in transitions:
     fields = ", ".join(sorted(set(invalid_fields))) or "phase"
     raise WorkflowError(f"Corrupt ledger at {path}: invalid fields: {fields}")
@@ -727,8 +860,11 @@ def command_init(args):
   plan_path = Path(args.plan).resolve()
   repository = Path(args.repo).resolve()
   if not re.fullmatch(r"[0-9a-fA-F]{40}", args.base_sha):
-    raise WorkflowError("Schema v4 requires a full 40-character hexadecimal base SHA")
+    raise WorkflowError("Schema v5 requires a full 40-character hexadecimal base SHA")
   base_sha = args.base_sha.lower()
+  if args.validation_plan is None:
+    raise WorkflowError("New ledgers require --validation-plan")
+  validation_plan = load_validation_plan(args.validation_plan)
   model_selection = {
     role: {"model": model, "effort": effort}
     for role, (model, effort) in DEFAULT_MODELS.items()
@@ -755,6 +891,7 @@ def command_init(args):
       "base": args.base,
       "base_sha": base_sha,
       "model_selection": model_selection,
+      "validation_plan": validation_plan,
     }
     if all(existing.get(key) == value for key, value in identity.items()):
       print(json.dumps(existing, sort_keys=True))
@@ -762,7 +899,7 @@ def command_init(args):
     raise WorkflowError("State path already belongs to a different plan identity")
   timestamp = now()
   ledger = {
-    "schema_version": 4,
+    "schema_version": 5,
     "slug": args.slug,
     "plan_path": str(plan_path),
     "repository": str(repository),
@@ -770,6 +907,10 @@ def command_init(args):
     "base": args.base,
     "base_sha": base_sha,
     "model_selection": model_selection,
+    "validation_plan": validation_plan,
+    "validation_history": [
+      {"at": timestamp, "note": "confirmed before startup", "plan": validation_plan}
+    ],
     "phase": "initialized",
     "chats": {},
     "commits": [],
@@ -796,6 +937,26 @@ def command_init(args):
 
 def command_show(args):
   print(json.dumps(load_ledger(args.state), indent=2, sort_keys=True))
+
+
+def command_update_validation_plan(args):
+  ledger = load_ledger(args.state)
+  if ledger["schema_version"] != 5:
+    raise WorkflowError("Validation plan updates require schema v5")
+  require_lease(ledger, "coordinator")
+  if ledger["phase"] not in ("initialized", "implementing"):
+    raise WorkflowError("Return to implementing before changing the validation plan")
+  plan = load_validation_plan(args.file)
+  if plan == ledger["validation_plan"]:
+    print(json.dumps(ledger["validation_history"][-1], sort_keys=True))
+    return
+  if not args.note.strip():
+    raise WorkflowError("A changed validation plan requires a confirmation note")
+  event = {"at": now(), "note": args.note, "plan": plan}
+  ledger["validation_plan"] = plan
+  ledger["validation_history"].append(event)
+  persist(args, ledger)
+  print(json.dumps(event, sort_keys=True))
 
 
 def command_register_chat(args):
@@ -863,6 +1024,21 @@ def command_release(args):
   print(json.dumps({"released": args.owner}, sort_keys=True))
 
 
+def v5_skip_transition_allowed(ledger, current, destination):
+  kind = V5_SKIP_EDGES.get((current, destination))
+  return kind is not None and not selected_local_check(ledger, kind)
+
+
+def v5_disabled_phase(ledger, phase):
+  kind = {
+    "habit-checking": "habit",
+    "habit-rechecking": "habit",
+    "mutation-testing": "mutation",
+    "mutation-rechecking": "mutation",
+  }.get(phase)
+  return kind is not None and not selected_local_check(ledger, kind)
+
+
 def command_transition(args):
   ledger = load_ledger(args.state)
   transitions = TRANSITIONS_BY_SCHEMA[ledger["schema_version"]]
@@ -876,7 +1052,15 @@ def command_transition(args):
   if args.to not in transitions.get(current, set()):
     raise WorkflowError(f"Invalid transition from {current} to {args.to}")
   if (
-    ledger["schema_version"] in (2, 3, 4)
+    ledger["schema_version"] == 5
+    and (current, args.to) in V5_SKIP_EDGES
+    and not v5_skip_transition_allowed(ledger, current, args.to)
+  ):
+    raise WorkflowError(f"Cannot skip selected validation in {current}")
+  if ledger["schema_version"] == 5 and v5_disabled_phase(ledger, args.to):
+    raise WorkflowError(f"Phase {args.to} is excluded by the validation plan")
+  if (
+    ledger["schema_version"] in (2, 3, 4, 5)
     and (current, args.to)
     in CORRECTIVE_TRANSITIONS_BY_SCHEMA[ledger["schema_version"]]
     and (args.note is None or not args.note.strip())
@@ -884,28 +1068,30 @@ def command_transition(args):
     raise WorkflowError(
       "Corrective transition requires a Coordinator authorization note"
     )
-  if ledger["schema_version"] in (2, 3, 4) and args.to == "implementing":
+  if (
+    ledger["schema_version"] in (2, 3, 4, 5) and args.to == "implementing"
+  ) or (ledger["schema_version"] == 5 and args.to == "implemented"):
     require_registered_specialists(ledger)
   if (
-    ledger["schema_version"] in (2, 3, 4)
+    ledger["schema_version"] in (2, 3, 4, 5)
     and current == "habit-checking"
     and args.to == "checkpoint-committing"
   ):
     require_current_quick_habit_evidence(ledger)
   if (
-    ledger["schema_version"] in (2, 3, 4)
+    ledger["schema_version"] in (2, 3, 4, 5)
     and current == "checkpoint-committing"
     and args.to == "initial-validating"
   ):
     require_current_commit(ledger, "checkpoint-committing", "checkpoint")
   if (
-    ledger["schema_version"] in (2, 3, 4)
+    ledger["schema_version"] in (2, 3, 4, 5)
     and current == "habit-rechecking"
     and args.to in ("final-committing", "final-validating")
   ):
     require_current_habit_evidence(ledger, "final")
   if (
-    ledger["schema_version"] in (2, 3, 4)
+    ledger["schema_version"] in (2, 3, 4, 5)
     and current == "final-committing"
     and args.to == "final-validating"
   ):
@@ -925,17 +1111,22 @@ def command_transition(args):
       "initial-validating",
     )
   if (
-    ledger["schema_version"] in (3, 4)
+    ledger["schema_version"] in (3, 4, 5)
     and current == "initial-validating"
     and args.to == "mutation-testing"
   ):
-    require_current_gates(
-      ledger,
-      ("initial-verify", "initial-sonar"),
-      "initial-validating",
-    )
+    if ledger["schema_version"] == 5:
+      require_current_v5_gates(ledger, "initial")
+    else:
+      require_current_gates(
+        ledger,
+        ("initial-verify", "initial-sonar"),
+        "initial-validating",
+      )
+  if ledger["schema_version"] == 5 and current == "initial-validating" and args.to == "structural-review":
+    require_current_v5_gates(ledger, "initial")
   if (
-    ledger["schema_version"] in (3, 4)
+    ledger["schema_version"] in (3, 4, 5)
     and current == "mutation-testing"
     and args.to == "structural-review"
   ):
@@ -951,23 +1142,28 @@ def command_transition(args):
       "final-validating",
     )
   if (
-    ledger["schema_version"] in (3, 4)
+    ledger["schema_version"] in (3, 4, 5)
     and current == "final-validating"
     and args.to == "mutation-rechecking"
   ):
-    require_current_gates(
-      ledger,
-      ("final-verify", "final-sonar"),
-      "final-validating",
-    )
+    if ledger["schema_version"] == 5:
+      require_current_v5_gates(ledger, "final")
+    else:
+      require_current_gates(
+        ledger,
+        ("final-verify", "final-sonar"),
+        "final-validating",
+      )
+  if ledger["schema_version"] == 5 and current == "final-validating" and args.to == "delivery-ready":
+    require_current_v5_gates(ledger, "final")
   if (
-    ledger["schema_version"] in (3, 4)
+    ledger["schema_version"] in (3, 4, 5)
     and current == "mutation-rechecking"
     and args.to == "delivery-ready"
   ):
     require_current_mutation_evidence(ledger, "final")
   if (
-    ledger["schema_version"] in (2, 3, 4)
+    ledger["schema_version"] in (2, 3, 4, 5)
     and current == "ci-monitoring"
     and args.to == "ready-for-merge"
   ):
@@ -1050,6 +1246,30 @@ def require_current_gates(ledger, names, phase):
     raise WorkflowError(f"Transition requires passed current gates: {', '.join(missing)}")
 
 
+def require_current_v5_gates(ledger, stage):
+  phase = f"{stage}-validating"
+  phase_started_at = next(
+    event["at"] for event in reversed(ledger["history"]) if event["to"] == phase
+  )
+  required = {
+    f"{stage}-verify": "passed" if selected_local_check(ledger, "verify") else "not-applicable"
+  }
+  if selected_local_check(ledger, "sonar"):
+    required[f"{stage}-sonar"] = "passed"
+  missing = []
+  for name, status in required.items():
+    attempts = ledger["gates"].get(name, [])
+    if (
+      not attempts
+      or attempts[-1].get("phase") != phase
+      or attempts[-1]["status"] != status
+      or attempts[-1]["recorded_at"] < phase_started_at
+    ):
+      missing.append(f"{name} ({status})")
+  if missing:
+    raise WorkflowError(f"Transition requires current validation evidence: {', '.join(missing)}")
+
+
 def require_current_passed_ci(ledger):
   ci = ledger["ci"]
   phase_started_at = ledger["history"][-1]["at"]
@@ -1060,6 +1280,18 @@ def require_current_passed_ci(ledger):
     or ci["events"][-1]["recorded_at"] < phase_started_at
   ):
     raise WorkflowError("Transition requires current passed CI evidence")
+  if ledger["schema_version"] == 5:
+    selected_ci = {
+      check["id"] for check in ledger["validation_plan"]["checks"]
+      if check["status"] == "selected" and check["execution"] == "ci"
+    }
+    for check_id in selected_ci:
+      events = [
+        event for event in ci["events"]
+        if event.get("check_id") == check_id and event["recorded_at"] >= phase_started_at
+      ]
+      if not events or events[-1]["status"] != "passed":
+        raise WorkflowError(f"CI check {check_id} requires current passed evidence")
 
 
 def require_current_mutation_evidence(ledger, stage):
@@ -1089,7 +1321,7 @@ def require_lease(ledger, owner):
 def command_record_commit(args):
   ledger = load_ledger(args.state)
   require_lease(ledger, "committer")
-  if ledger["schema_version"] in (2, 3, 4):
+  if ledger["schema_version"] in (2, 3, 4, 5):
     allowed_kinds_by_phase = {
       "checkpoint-committing": ("implementation", "correction"),
       "final-committing": (
@@ -1107,7 +1339,7 @@ def command_record_commit(args):
     "kind": args.kind,
     "subject": args.subject,
   }
-  if ledger["schema_version"] in (2, 3, 4):
+  if ledger["schema_version"] in (2, 3, 4, 5):
     commit["phase"] = ledger["phase"]
   existing = next((item for item in ledger["commits"] if item["sha"] == args.sha), None)
   if existing is not None:
@@ -1129,18 +1361,27 @@ def command_record_gate(args):
     raise WorkflowError(
       f"Gate {args.name} is not supported by schema v{ledger['schema_version']}"
     )
-  if ledger["schema_version"] in (2, 3, 4):
+  if ledger["schema_version"] in (2, 3, 4, 5):
     required_phase = (
       "initial-validating" if args.name.startswith("initial-") else "final-validating"
     )
     if ledger["phase"] != required_phase:
       raise WorkflowError(f"Gate {args.name} requires phase {required_phase}")
+  if ledger["schema_version"] == 5:
+    kind = "sonar" if args.name.endswith("-sonar") else "verify"
+    if kind == "sonar" and not selected_local_check(ledger, "sonar"):
+      raise WorkflowError("Sonar is excluded from local validation")
+    if kind == "verify" and not selected_local_check(ledger, "verify"):
+      if args.status != "not-applicable" or not args.details.strip():
+        raise WorkflowError("No local verification requires documented not-applicable evidence")
+    elif args.status == "not-applicable":
+      raise WorkflowError("A selected local validation cannot be not-applicable")
   gate = {
     "status": args.status,
     "details": args.details,
     "url": args.url,
   }
-  if ledger["schema_version"] in (2, 3, 4):
+  if ledger["schema_version"] in (2, 3, 4, 5):
     gate["phase"] = ledger["phase"]
   attempts = ledger["gates"].setdefault(args.name, [])
   if attempts:
@@ -1160,6 +1401,10 @@ def command_record_gate(args):
 
 def command_record_habit(args):
   ledger = load_ledger(args.state)
+  if ledger["schema_version"] == 5 and not selected_local_check(ledger, "habit"):
+    raise WorkflowError("Habit is excluded from local validation")
+  if ledger["schema_version"] == 5 and args.status == "not-applicable":
+    raise WorkflowError("Selected Habit cannot be not-applicable; revise the validation plan")
   require_lease(ledger, "habit-curator")
   allowed_statuses = (
     V1_HABIT_STATUSES if ledger["schema_version"] == 1 else V2_HABIT_STATUSES
@@ -1168,7 +1413,7 @@ def command_record_habit(args):
     raise WorkflowError(
       f"Habit status {args.status} is not supported by schema v{ledger['schema_version']}"
     )
-  if ledger["schema_version"] in (2, 3, 4):
+  if ledger["schema_version"] in (2, 3, 4, 5):
     if args.snoozed_until_changed or args.pruned:
       raise WorkflowError("Schema v2 rejects legacy Habit freeze controls")
     if args.finding_count < 0 or args.active_finding_count < 0:
@@ -1256,7 +1501,9 @@ def legacy_habit_record(args):
 
 def command_record_habit_observation(args):
   ledger = load_ledger(args.state)
-  if ledger["schema_version"] not in (2, 3, 4):
+  if ledger["schema_version"] == 5:
+    raise WorkflowError("Reassess the validation plan instead of recording an empty Habit scan")
+  if ledger["schema_version"] not in (2, 3, 4, 5):
     raise WorkflowError("Habit observations require schema v2 or later")
   require_lease(ledger, "coordinator")
   if ledger["phase"] != "habit-checking":
@@ -1395,8 +1642,12 @@ def validate_completed_mutation_attempt(attempt):
 
 def command_record_mutation(args):
   ledger = load_ledger(args.state)
-  if ledger["schema_version"] not in (3, 4):
+  if ledger["schema_version"] not in (3, 4, 5):
     raise WorkflowError("Mutation evidence requires schema v3 or later")
+  if ledger["schema_version"] == 5 and not selected_local_check(ledger, "mutation"):
+    raise WorkflowError("Mutation is excluded from local validation")
+  if ledger["schema_version"] == 5 and args.not_applicable_reason == "runner-unavailable":
+    raise WorkflowError("Selected mutation runner cannot be unavailable")
   require_lease(ledger, "mutation-analyst")
   stage_by_phase = {
     "mutation-testing": "initial",
@@ -1571,22 +1822,42 @@ def require_v1_pull_request_evidence(ledger):
 def require_v2_pull_request_evidence(ledger):
   if ledger["phase"] != "delivery-ready":
     raise WorkflowError("Pull request creation requires the delivery-ready phase")
-  require_current_gates(
-    ledger,
-    ("final-verify", "final-sonar"),
-    "final-validating",
-  )
-  habit = ledger["habit"]
-  if habit is None or habit["stage"] != "final":
-    raise WorkflowError("Pull request creation requires final Habit evidence")
-  if ledger["schema_version"] in (3, 4):
-    require_current_mutation_evidence(ledger, "final")
+  if ledger["schema_version"] == 5:
+    require_current_v5_gates(ledger, "final")
+    if selected_local_check(ledger, "habit"):
+      habit = ledger["habit"]
+      habit_started_at = next(
+        event["at"] for event in reversed(ledger["history"])
+        if event["to"] == "habit-rechecking"
+      )
+      if habit is None or habit["stage"] != "final" or habit["recorded_at"] < habit_started_at:
+        raise WorkflowError("Pull request creation requires current final Habit evidence")
+    if selected_local_check(ledger, "mutation"):
+      require_current_mutation_evidence(ledger, "final")
+  else:
+    require_current_gates(
+      ledger,
+      ("final-verify", "final-sonar"),
+      "final-validating",
+    )
+    habit = ledger["habit"]
+    if habit is None or habit["stage"] != "final":
+      raise WorkflowError("Pull request creation requires final Habit evidence")
+    if ledger["schema_version"] in (3, 4):
+      require_current_mutation_evidence(ledger, "final")
 
 
 def command_record_ci(args):
   ledger = load_ledger(args.state)
   if ledger["pull_request"] is None:
     raise WorkflowError("CI cannot be recorded before a pull request")
+  if ledger["schema_version"] == 5 and args.check_id is not None:
+    selected_ci = {
+      check["id"] for check in ledger["validation_plan"]["checks"]
+      if check["status"] == "selected" and check["execution"] == "ci"
+    }
+    if args.check_id not in selected_ci:
+      raise WorkflowError(f"CI check {args.check_id} is not in the validation plan")
   ci = ledger["ci"] or {"events": [], "transient_retries": 0}
   candidate = {
     "status": args.status,
@@ -1594,6 +1865,8 @@ def command_record_ci(args):
     "url": args.url,
     "details": args.details,
   }
+  if ledger["schema_version"] == 5:
+    candidate["check_id"] = args.check_id
   existing = next(
     (
       event
@@ -1650,11 +1923,17 @@ def build_parser():
   initialize.add_argument("--branch", required=True)
   initialize.add_argument("--base", required=True)
   initialize.add_argument("--base-sha", required=True)
+  initialize.add_argument("--validation-plan", type=Path)
   initialize.add_argument("--model", action="append", default=[], metavar="ROLE=MODEL:EFFORT")
   initialize.set_defaults(handler=command_init)
 
   show = subparsers.add_parser("show")
   show.set_defaults(handler=command_show)
+
+  update_validation = subparsers.add_parser("update-validation-plan")
+  update_validation.add_argument("--file", required=True, type=Path)
+  update_validation.add_argument("--note", required=True)
+  update_validation.set_defaults(handler=command_update_validation_plan)
 
   register_chat = subparsers.add_parser("register-chat")
   register_chat.add_argument("--role", required=True, choices=sorted(SPECIALIST_ROLES))
@@ -1751,6 +2030,7 @@ def build_parser():
   record_ci.add_argument("--run-id", required=True)
   record_ci.add_argument("--url", required=True)
   record_ci.add_argument("--details", required=True)
+  record_ci.add_argument("--check-id")
   record_ci.set_defaults(handler=command_record_ci)
 
   cleanup = subparsers.add_parser("cleanup")

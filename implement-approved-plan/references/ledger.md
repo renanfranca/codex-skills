@@ -6,7 +6,7 @@ Use `scripts/workflow_state.py` with Python's standard library. Keep the plan, l
 python3 <skill>/scripts/workflow_state.py --state .agent/tmp/<slug>.workflow.json <command> ...
 ```
 
-New ledgers use schema v4. Existing schema-v1, schema-v2, and schema-v3 ledgers remain readable and retain their original model validation, transitions, evidence, pull-request, and cleanup rules. Reading an old ledger does not migrate, normalize, or rewrite it. The script uses atomic replacement and rejects corrupt state, conflicting identities, invalid transitions, conflicting leases, specialist fallback, incomplete mutation classifications, unjustified reuse, premature pull requests, repeated transient CI retries, and cleanup without a matching GitHub `MERGED` confirmation.
+New ledgers use schema v5. Existing schema-v1 through schema-v4 ledgers remain readable and retain their original model validation, transitions, evidence, pull-request, and cleanup rules. Reading an old ledger does not migrate, normalize, or rewrite it. The script uses atomic replacement and rejects corrupt state, conflicting identities, invalid transitions, conflicting leases, specialist fallback, incomplete mutation classifications, unjustified reuse, premature pull requests, repeated transient CI retries, and cleanup without a matching GitHub `MERGED` confirmation.
 
 ## Initialize and inspect
 
@@ -18,12 +18,21 @@ python3 <skill>/scripts/workflow_state.py \
   --state .agent/tmp/<slug>.workflow.json \
   init --slug <slug> --plan .agent/tmp/<slug>.md \
   --repo <absolute-repo> --branch <branch> --base <base> --base-sha "$base_sha" \
+  --validation-plan .agent/tmp/<slug>.validation.json \
   [--model role=model:effort]...
 python3 <skill>/scripts/workflow_state.py \
   --state .agent/tmp/<slug>.workflow.json show
 ```
 
-`base` preserves the plan's branch/ref name; `base_sha` is a 40-character immutable comparison point and is part of the ledger identity. Repeat `--model` only for roles changed from the defaults in [workflow.md](workflow.md), including `coordinator` when needed. `init` stores all seven resolved pairs in `model_selection` and is idempotent only for the same plan identity and model selection. The selection cannot be changed after initialization.
+`base` preserves the plan's branch/ref name; `base_sha` is a 40-character immutable comparison point and is part of the ledger identity. The validation file contains the user-confirmed inventory described in [workflow.md](workflow.md). Repeat `--model` only for roles changed from the defaults, including `coordinator` when needed. `init` stores all seven resolved pairs in `model_selection` and the inventory in `validation_plan`; it is idempotent only for the same plan identity and both selections. Models cannot be changed after initialization.
+
+For a confirmed change in project validation configuration, first return to `implementing` with a Coordinator note, then acquire its lease and run:
+
+```text
+update-validation-plan --file .agent/tmp/<slug>.validation.json --note <user-confirmed-delta>
+```
+
+The command appends the previous and new plans to `validation_history`. It accepts changes only in `initialized` or `implementing`; a newly selected Habit or mutation check requires its specialist registration before `implemented`. A configured check that cannot run is blocked by the preflight, not marked skipped merely to satisfy the ledger.
 
 ## Register and serialize specialists
 
@@ -35,7 +44,7 @@ release --owner <same-owner>
 
 Acquire before dispatching any task that reads or mutates the checkout. A second owner is rejected. CI and GitHub status queries do not need the checkout lease; source-changing corrections do.
 
-Schema v4 requires the six registrations to match its recorded `model_selection` before the first `implementing` transition. The defaults are:
+Schema v5 requires Implementer, Committer, Validator, and Structural Reviewer registrations before `implementing`. Habit Curator and Mutation Analyst are required only for selected local checks; a later inventory revision can require their registration before `implemented`. All registered tasks must match `model_selection`. The defaults are:
 
 | Role | Model | Effort |
 | --- | --- | --- |
@@ -46,7 +55,7 @@ Schema v4 requires the six registrations to match its recorded `model_selection`
 | `mutation-analyst` | `gpt-6-luna` | `xhigh` |
 | `structural-reviewer` | `gpt-6-sol` | `medium` |
 
-Every task ID must be non-empty. Register each role once and reuse it. Roles and leases introduced by v3 are rejected by v1/v2 ledgers.
+Every task ID must be non-empty. Register each role once and reuse it. Inactive specialists cannot be registered or leased. Previously registered specialists remain in the ledger if a later confirmed revision excludes their check. Roles and leases introduced by v3 are rejected by v1/v2 ledgers.
 
 ## Phases and ordinary evidence
 
@@ -58,7 +67,7 @@ record-habit --status clean --details <evidence> --finding-count 0
 record-habit --status ratcheted --details <evidence> --finding-count N --active-finding-count 0 --baseline-authorized --baseline-unchanged
 record-habit --status snoozed --details <evidence> --finding-count N --user-authorized-snooze
 record-habit --status not-applicable --details <evidence> --tool-unavailable
-record-habit-observation --kind no-configured-files --details <evidence> [--reclassify-current]
+record-habit-observation --kind no-configured-files --details <evidence> [--reclassify-current]  # schemas v2-v4 only
 ```
 
 Commit recording requires the `committer` lease; clean-verification and Sonar gate recording require `validator`; terminal Habit recording requires `habit-curator`; Habit observation and pull-request recording require `coordinator`. Terminal Habit stage is inferred from `habit-checking` or `habit-rechecking`. Legacy freeze controls remain rejected for schemas v3 and v4.
@@ -73,13 +82,15 @@ initialized -> implementing -> implemented -> habit-checking
 -> delivery-ready -> pr-open -> ci-monitoring -> ready-for-merge -> merged
 ```
 
-Use `final-committing` only when post-review work changed the checkout; the direct `habit-rechecking -> final-validating` path means no delivery delta. Any correction returns to `implementing` with a non-empty Coordinator note and repeats all downstream gates. Schema v3 intentionally has no corrective shortcut from final validation to Habit or structural review.
+Schema v5 follows the same order but skips `habit-checking` and `habit-rechecking` when local Habit is excluded, and skips `mutation-testing` and `mutation-rechecking` when local mutation is excluded. `initial-verify` and `final-verify` require `passed` for selected local verification or documented `not-applicable` when none exists. Sonar gates exist only for selected local Sonar. CI-only checks are recorded under their inventory IDs after the pull request.
 
-Current quick Habit evidence is required before the checkpoint, a current checkpoint commit before initial validation, current passed clean/Sonar gates before each mutation phase, fresh terminal Habit evidence after review, and a current final commit when the reviewed tree has a delta. Earlier attempts cannot satisfy a repeated phase.
+Use `final-committing` only when post-review work changed the checkout; the direct path to `final-validating` means no delivery delta. Any correction returns to `implementing` with a non-empty Coordinator note and repeats all selected downstream gates. Schemas v3 through v5 have no corrective shortcut from final validation to Habit or structural review.
+
+Current quick Habit evidence is required before the checkpoint when Habit is selected, a current checkpoint commit before initial validation, current selected validation gates before structural review and final delivery, fresh terminal Habit evidence after review when selected, and a current final commit when the reviewed tree has a delta. Earlier attempts cannot satisfy a repeated phase.
 
 ## Record mutation attempts
 
-`record-mutation` requires schema v3 or v4 and the `mutation-analyst` lease during `mutation-testing` or `mutation-rechecking`. The phase infers `stage` as `initial` or `final`.
+`record-mutation` requires schema v3 or later and the `mutation-analyst` lease during a selected `mutation-testing` or `mutation-rechecking` phase. The phase infers `stage` as `initial` or `final`.
 
 An executed attempt records one runner invocation:
 
@@ -124,7 +135,7 @@ record-mutation \
   --log .agent/tmp/<attempt>.log --details <explicit-reason>
 ```
 
-`runner-unavailable` may retain the selected targets to show what could not run. `no-production-changes` requires an empty target list. Both require zero metrics, no classifications, and no runner reports. The workflow never installs a missing tool.
+For schemas v3/v4, `runner-unavailable` may retain selected targets to show what could not run. Schema v5 excludes an unconfigured runner during discovery and rejects `runner-unavailable` for a selected runner. `no-production-changes` requires an empty target list. Both absence results require zero metrics, no classifications, and no runner reports. The workflow never installs a missing tool.
 
 Record an environmental execution failure without editing code:
 
@@ -161,10 +172,10 @@ The initial gate accepts only current `passed` or `not-applicable` evidence. The
 
 ```text
 record-pr --repo <owner/name> --number N --url <url> --status OPEN [--issue-reference <see|closes>] [--label <existing-label>]...
-record-ci --status <queued|running|passed|code-failed|environment-failed|transient-failed|retrying> --run-id <id> --url <url> --details <evidence>
+record-ci --status <queued|running|passed|code-failed|environment-failed|transient-failed|retrying> --run-id <id> --url <url> --details <evidence> [--check-id <selected-ci-id>]
 cleanup --github-status MERGED --repo <recorded-owner/name> --number <recorded-number>
 ```
 
-Pull-request recording requires `delivery-ready`, current passed `final-verify` and `final-sonar`, fresh terminal Habit evidence, and current accepted final mutation evidence. Current passed CI is required before `ready-for-merge`. One transient retry is allowed for the recorded CI flow.
+For schema v5, pull-request recording requires `delivery-ready` and current final evidence for each selected local check. Missing local verification is documented as `not-applicable`; excluded Sonar, Habit, and mutation checks require no fabricated gate. Existing ledgers keep their original requirements. Current passed CI is required before `ready-for-merge`; schema v5 additionally requires a current passed event for each selected CI inventory ID, recorded with `record-ci --check-id <id>`. One transient retry is allowed for the recorded CI flow.
 
-Protected cleanup runs only after the exact recorded pull request is authoritatively observed as `MERGED` with an unambiguous merge timestamp. It removes only `.agent/tmp/<slug>.md` and its matching ledger for schemas v1, v2, or v3. Mutation artifacts remain available for repository-specific cleanup policy; the command never deletes branches or unrelated files.
+Protected cleanup runs only after the exact recorded pull request is authoritatively observed as `MERGED` with an unambiguous merge timestamp. It removes only `.agent/tmp/<slug>.md` and its matching ledger for schemas v1 through v5. Validation inventory and mutation artifacts remain available for repository-specific cleanup policy; the command never deletes branches or unrelated files.
