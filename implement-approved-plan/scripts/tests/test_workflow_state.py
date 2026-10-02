@@ -92,56 +92,37 @@ class WorkflowStateCliTest(unittest.TestCase):
     return state
 
   def initialize_v3(self, root, slug="demo"):
-    plan = root / f"{slug}.md"
-    state = root / f"{slug}.workflow.json"
-    plan.write_text("# Approved plan\n", encoding="utf-8")
-    result = self.run_cli(
-      state,
-      "init",
-      "--slug",
-      slug,
-      "--plan",
-      str(plan),
-      "--repo",
-      str(root),
-      "--branch",
-      f"codex/{slug}",
-      "--base",
-      "main",
-      "--base-sha",
-      BASE_SHA,
-      "--validation-plan",
-      str(self.validation_plan(root)),
-    )
-    self.assertEqual(0, result.returncode, result.stderr)
+    state = self.initialize_v2(root, slug)
     ledger = json.loads(state.read_text(encoding="utf-8"))
-    ledger["schema_version"] = 3
-    del ledger["model_selection"]
-    del ledger["validation_plan"]
-    del ledger["validation_history"]
+    ledger.update({"schema_version": 3, "base_sha": BASE_SHA, "mutation_attempts": []})
     state.write_text(json.dumps(ledger, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return state
 
-  def initialize_v5(self, root, *, active=(), ci_sonar=False):
+  def initialize_v5(self, root, *, active=(), ci_sonar=False, models=None):
     root.mkdir(parents=True, exist_ok=True)
-    plan = root / "demo.md"
-    state = root / "demo.workflow.json"
-    plan.write_text("# Approved plan\n", encoding="utf-8")
+    state = self.initialize_v3(root)
+    ledger = json.loads(state.read_text(encoding="utf-8"))
     validation = self.validation_plan(root, active=active)
+    data = json.loads(validation.read_text(encoding="utf-8"))
     if ci_sonar:
-      data = json.loads(validation.read_text(encoding="utf-8"))
       sonar = next(check for check in data["checks"] if check["kind"] == "sonar")
       sonar.update({
         "status": "selected", "execution": "ci", "command": "",
         "owner": "coordinator", "reason": "",
       })
       validation.write_text(json.dumps(data), encoding="utf-8")
-    result = self.run_cli(
-      state, "init", "--slug", "demo", "--plan", str(plan), "--repo", str(root),
-      "--branch", "codex/demo", "--base", "main", "--base-sha", BASE_SHA,
-      "--validation-plan", str(validation),
-    )
-    self.assertEqual(0, result.returncode, result.stderr)
+    ledger.update({
+      "schema_version": 5,
+      "model_selection": {
+        role: {"model": model, "effort": effort}
+        for role, (model, effort) in (models or V4_MODELS).items()
+      },
+      "validation_plan": data,
+      "validation_history": [{
+        "at": ledger["created_at"], "note": "confirmed before startup", "plan": data,
+      }],
+    })
+    state.write_text(json.dumps(ledger, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return state
 
   def register_specialists(
@@ -684,11 +665,11 @@ class WorkflowStateCliTest(unittest.TestCase):
 
       self.assertEqual(0, result.returncode, result.stderr)
       ledger = json.loads(state.read_text(encoding="utf-8"))
-      self.assertEqual(5, ledger["schema_version"])
+      self.assertEqual(6, ledger["schema_version"])
       self.assertEqual(4, len(ledger["validation_plan"]["checks"]))
       self.assertEqual(
-        {role: {"model": model, "effort": effort} for role, (model, effort) in V4_MODELS.items()},
-        ledger["model_selection"],
+        {"implementation", "quality", "structural-review"},
+        set(ledger["worker_selection"]),
       )
       self.assertEqual("demo", ledger["slug"])
       self.assertEqual(str(plan.resolve()), ledger["plan_path"])
@@ -697,7 +678,7 @@ class WorkflowStateCliTest(unittest.TestCase):
       self.assertEqual("main", ledger["base"])
       self.assertEqual(BASE_SHA, ledger["base_sha"])
       self.assertEqual("initialized", ledger["phase"])
-      self.assertEqual({}, ledger["chats"])
+      self.assertEqual({}, ledger["workers"])
       self.assertEqual([], ledger["commits"])
       self.assertEqual({}, ledger["gates"])
       self.assertIsNone(ledger["habit"])
@@ -746,6 +727,8 @@ class WorkflowStateCliTest(unittest.TestCase):
       plan = root / "demo.md"
       state = root / "demo.workflow.json"
       plan.write_text("# Approved plan\n", encoding="utf-8")
+      models = {**V4_MODELS, "coordinator": ("gpt-6-astra", "high"), "implementer": ("gpt-6-luna", "xhigh")}
+      state = self.initialize_v5(root, active=("verify", "sonar", "mutation", "habit"), models=models)
       initialized = self.run_cli(
         state,
         "init", "--slug", "demo", "--plan", str(plan), "--repo", str(root),
@@ -787,6 +770,9 @@ class WorkflowStateCliTest(unittest.TestCase):
         "--repo", str(root), "--branch", "codex/demo", "--base", "main",
         "--base-sha", BASE_SHA, "--validation-plan", str(self.validation_plan(root)),
       )
+      state = self.initialize_v5(root, active=("verify", "sonar", "mutation", "habit"),
+                                 models={**V4_MODELS, "validator": ("gpt-6-sol", "high")})
+      original = state.read_bytes()
       for override in (
         "missing=gpt-6-sol:medium", "implementer=gpt-6-sol:invalid",
         "implementer=:medium", "malformed",
@@ -794,13 +780,13 @@ class WorkflowStateCliTest(unittest.TestCase):
         with self.subTest(override=override):
           result = self.run_cli(state, *base_args, "--model", override)
           self.assertEqual(2, result.returncode)
-          self.assertFalse(state.exists())
+          self.assertEqual(original, state.read_bytes())
       duplicate = self.run_cli(
         state, *base_args, "--model", "validator=gpt-6-sol:medium",
         "--model", "validator=gpt-6-luna:xhigh",
       )
       self.assertEqual(2, duplicate.returncode)
-      self.assertFalse(state.exists())
+      self.assertEqual(original, state.read_bytes())
 
       created = self.run_cli(state, *base_args, "--model", "validator=gpt-6-sol:high")
       self.assertEqual(0, created.returncode, created.stderr)
@@ -825,6 +811,7 @@ class WorkflowStateCliTest(unittest.TestCase):
       plan = root / "demo.md"
       state = root / "demo.workflow.json"
       plan.write_text("# Approved plan\n", encoding="utf-8")
+      state = self.initialize_v5(root, active=("verify", "sonar", "mutation", "habit"))
       created = self.run_cli(
         state, "init", "--slug", "demo", "--plan", str(plan), "--repo", str(root),
         "--branch", "codex/demo", "--base", "main", "--base-sha", BASE_SHA,

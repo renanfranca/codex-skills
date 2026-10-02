@@ -1,7 +1,7 @@
 interface:
   display_name: "Implement Approved Plan"
-  short_description: "Coordinate approved plans through guarded specialist gates"
-  default_prompt: "Use $implement-approved-plan to execute this approved repository plan through guarded specialist chats, validation, review, and pull request delivery."
+  short_description: "Run approved plans with configurable workers and role gates"
+  default_prompt: "Use $implement-approved-plan to execute this approved repository plan through configurable persistent workers, role-scoped leases, validation, review, and pull request delivery."
 
 policy:
   allow_implicit_invocation: false
