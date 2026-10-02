@@ -1,15 +1,15 @@
-# Serialized specialist workflow
+# Serialized role and worker workflow
 
 ## Startup
 
-1. Read the approved plan and target repository instructions completely. Before creating a Coordinator, branch, ledger, or specialist, inspect the repository's build/test scripts, manifests, analysis configuration, hooks, and CI workflows. Resolve which checks are explicitly required by the plan.
+1. Read the approved plan and target repository instructions completely. Before creating a worker, branch, or ledger, inspect the repository's build/test scripts, manifests, analysis configuration, hooks, and CI workflows. Resolve which checks are explicitly required by the plan.
 2. Build the validation inventory below. Check local command and service availability without installing tools or changing tracked files. Treat a configured check that cannot run in its intended environment as a startup blocker; show the failed prerequisite and command. CI-only checks require a configured CI workflow, not a local executable.
-3. Show the inventory, exclusions, owners, and model defaults for all seven roles, marking optional specialists as inactive. Obtain the user's confirmation of checks and model overrides, including any desired model for a role activated later. If the user changes the inventory, resolve it before task creation. For a resumed schema-v5 ledger, use the recorded inventory and reassess before the next validation gate; older ledgers retain their original rules.
+3. Show the inventory, exclusions, role owners and resulting worker distribution, marking every optional role active or inactive. Use one initial confirmation for checks, grouping and model/effort pairs, including inactive workers. Resolve requested changes before task creation. For a resumed schema-v5/v6 ledger, use the recorded inventory and reassess before the next validation gate; older ledgers retain their original rules.
 4. Read [github-delivery.md](github-delivery.md) and inspect prior ledgers before creating or reusing a branch. Clean only plans whose recorded pull requests GitHub confirms as `MERGED`.
 5. Require a clean checkout apart from ignored `.agent/tmp` state. Do not stash, discard, or absorb unrelated changes. Create or reuse the plan's clean feature branch from its declared base; never delete a branch automatically.
 6. Resolve the base once with `git rev-parse --verify '<base>^{commit}'`, retain the full 40-character SHA as `base_sha`, and do not refresh it if the base ref later moves.
-7. Add `/.agent/tmp/` to `.git/info/exclude` if absent. Store the plan verbatim at `.agent/tmp/<slug>.md`, the confirmed inventory at `.agent/tmp/<slug>.validation.json`, and initialize the schema-v5 ledger. Do not alter `.gitignore` for local workflow state.
-8. Create and register the four always active specialists. Create the Habit Curator and Mutation Analyst only when their local checks are selected. The ledger rejects `implementing` or `implemented` until every currently required task has its exact selected model/effort pair.
+7. Add `/.agent/tmp/` to `.git/info/exclude` if absent. Store the plan verbatim at `.agent/tmp/<slug>.md`, the confirmed inventory at `.agent/tmp/<slug>.validation.json`, and the internally generated confirmed worker JSON at `.agent/tmp/<slug>.workers.json`. Initialize the schema-v6 ledger. Do not alter `.gitignore` for local workflow state.
+8. Register the worker containing Coordinator and create/register each worker containing an always active role (Implementer, Committer, Validator or Structural Reviewer). Create workers containing only Habit Curator and/or Mutation Analyst when their local checks are selected. Reuse any worker already registered for another role. The ledger rejects `implementing` or `implemented` until every currently required worker has its exact pair.
 
 ## Validation discovery and routing
 
@@ -17,29 +17,51 @@ Use repository configuration and the approved plan as sources of truth. Installe
 
 The inventory is a JSON object with a `checks` array. Every entry has string fields `id`, `kind` (`verify`, `sonar`, `mutation`, `habit`, or `ci`), `status` (`selected` or `skipped`), `execution` (`local`, `ci`, or `none`), `command`, `source`, `owner`, and `reason`. Use a unique `id` and a concrete configuration path or plan clause in `source`. Selected local checks require an executable `command` and empty `reason`; selected CI checks use `execution: ci`, may leave `command` empty, and have `owner: coordinator`. Skipped checks use `execution: none`, an empty command, and a concrete reason. Include exactly one Sonar, mutation, and Habit entry each, selected or skipped. Include one or more selected verification entries, or one skipped verification entry explaining why no automated local or CI verification applies. General CI checks may have `kind: ci`. This inventory is confirmed evidence, not a request to install or configure missing tools.
 
-Reinspect the configuration before initial and final validation. If it changed, show the delta and obtain confirmation. Return through `implementing` with a Coordinator note, update the inventory under its lease, create any newly required specialist once, and repeat downstream gates. A check required by the approved plan cannot be silently removed. If a selected check becomes unavailable, block with diagnostic evidence; do not relabel it `not-applicable` or claim a pass. A selected check without applicable production changes may still record the existing `no-production-changes` mutation result. After a pull request, monitor every selected CI check by its inventory ID.
+Reinspect the configuration before initial and final validation. If it changed, show the delta and obtain confirmation. Return through `implementing` with a Coordinator note, update the inventory under its lease, reuse its registered worker or create/register a newly required optional worker once, and repeat downstream gates. A check required by the approved plan cannot be silently removed. If a selected check becomes unavailable, block with diagnostic evidence; do not relabel it `not-applicable` or claim a pass. A selected check without applicable production changes may still record the existing `no-production-changes` mutation result. After a pull request, monitor every selected CI check by its inventory ID.
 
-## Model selection and specialist tasks
+## Conversational worker selection
 
-Resolve the saved project first. Before creating the Coordinator, show this table for all seven roles with active/inactive status and ask the user to accept all defaults or specify overrides by role, model, and effort. Display the effective selection before task creation. For a resumed plan with an existing ledger, use its recorded selection without asking again. Create tasks in the saved project's existing checkout; the ledger serializes one checkout.
+Resolve the saved project before worker creation. Roles describe contracts; workers are persistent chats that execute those roles sequentially. Suggest this distribution for every new plan:
 
-Confirm Full access before creating any local task: `sandbox_mode = "danger-full-access"` and `approval_policy = "never"`. A prompt cannot grant permissions. If that exact profile is unavailable, stop before task creation and ask the user to enable it.
-
-| Role | Default model | Default effort | Task contract |
+| Worker | Roles | Model | Effort |
 | --- | --- | --- | --- |
-| `coordinator` | `gpt-6-sol` | `medium` | Own assignments, ledger leases, gates, and delivery; do not create another Coordinator. |
-| `implementer` | `gpt-6-sol` | `medium` | Use `$tdd-behavior-autonomous-quiet`; implement only assigned behavior; do not commit. |
-| `committer` | `gpt-6-luna` | `xhigh` | Use `$commit-the-changes`; inspect history and status; stage and commit only the assigned delta. |
-| `validator` | `gpt-6-luna` | `xhigh` | Run selected local verification and Sonar checks; record the absence of local checks when applicable; do not edit source. |
-| `habit-curator` | `gpt-6-luna` | `xhigh` | When local Habit hooks are selected, run quick checks, classify results, and report evidence. Never use `$refactor-design` or self-authorize work. Edit only deterministic, low-risk corrections explicitly assigned by the Coordinator with authorized files and expected evidence; never commit. |
-| `mutation-analyst` | `gpt-6-luna` | `xhigh` | When local mutation testing is selected, run at most one configured runner per attempt, classify results, and persist complete output under `.agent/tmp`; never edit code, install tools, or commit. |
-| `structural-reviewer` | `gpt-6-sol` | `medium` | Use `$refactor-design` for an independent exhaustive review of changed contracts and adjacent responsibilities; do not commit. |
+| `implementation` | Coordinator + Implementer | `gpt-6-sol` | `medium` |
+| `quality` | Committer + Validator + Mutation Analyst + Habit Curator | `gpt-6-luna` | `high` |
+| `structural-review` | Structural Reviewer | `gpt-6-sol` | `medium` |
 
-At startup, verify that the selected model/effort pair is callable for all seven roles, including inactive roles that may become active later. Do not silently substitute another pair. Initialize a schema-v5 ledger with `init --validation-plan .agent/tmp/<slug>.validation.json` and any `--model role=model:effort` overrides. Its `model_selection` retains all seven selections so a later specialist can be created without changing its model. Pass both selections from the bootstrap task to the Coordinator. Registered task identities never change during a run.
+Accept ordinary conversational edits; the user need not write a configuration file. Every one of the seven roles must belong to exactly one worker, each worker must have at least one role and a unique kebab-case ID, and each worker has one model/effort pair. Splitting roles creates workers inheriting the source pair unless the user specifies otherwise. A fusion of workers with different pairs requires resolving which pair to use before the initial confirmation. Never silently choose a pair. Changing a pair applies to all roles in that worker; if the user wants a role-specific pair, separate that role first.
 
-Create each required task once per plan, register its returned task ID immediately, and reuse it with follow-up prompts. Optional specialists may be created later only when a confirmed inventory revision activates their local check. If exact model/effort task creation is rejected or unavailable, stop without fallback or fabricated metadata.
+Examples of selection before confirmation:
 
-Prompts must state the repository path, branch, plan path, `base_sha`, current phase, authorized files, required skill, lease owner, expected evidence, and prohibition on commits when applicable. The Coordinator is the sole communication hub: it acquires the named lease before dispatch, receives the result, inspects the working tree, and releases the lease only after that task is idle. Specialists never dispatch or coordinate with one another.
+- “Separe Mutation Analyst do quality”: keep `quality` with Committer, Validator and Habit Curator; add `mutation-analysis` with Mutation Analyst, inheriting `gpt-6-luna`/`high`.
+- “Um worker para cada papel”: create `coordinator`, `implementer`, `committer`, `validator`, `mutation-analyst`, `habit-curator` and `structural-reviewer`; each inherits its source worker's pair.
+- “Junte tudo em all-roles com gpt-6-sol/medium”: put all seven roles in that worker with the explicit pair. Explain that implementation, validation and review share context.
+- “Junte quality e structural-review”: their pairs differ; ask which pair the merged worker should use, then present the resolved distribution for the existing initial confirmation.
+- “Use gpt-6-astra/high em quality”: change the pair for all four roles there, including inactive Mutation Analyst or Habit Curator.
+
+Show the final distribution alongside the validation inventory, marking optional roles active or inactive, even inside an otherwise active worker. Recommend separate contexts when independence matters. Explain any reduced independence once in this presentation, without requesting a separate approval or rejecting a grouping. Validation or review performed in the implementation worker cannot be described as independent. The suggested distribution still gives Validator a separate context from Implementer, but shares Validator's context with Habit Curator.
+
+Before changing files or creating workers, verify every selected pair is callable, including wholly inactive workers. Never substitute models or efforts. Confirm Full access (`sandbox_mode = "danger-full-access"`, `approval_policy = "never"`) before creating any local worker; a prompt cannot grant it. If a pair or the profile is unavailable, stop with the concrete limitation and ask the user.
+
+Generate `.agent/tmp/<slug>.workers.json` from the confirmed conversation and initialize with `init --worker-plan` as described in [ledger.md](ledger.md). Distribution and pairs are immutable for that execution. Resume v6 using `worker_selection` and `workers` without selecting again. Resume v1–v5 with their existing per-role chats, defaults and `model_selection` where applicable; do not migrate them or introduce the v6 suggestion.
+
+## Role contracts and persistent workers
+
+| Active role | Contract |
+| --- | --- |
+| `coordinator` | Own assignments, ledger leases, gates and delivery; do not create another worker containing Coordinator. |
+| `implementer` | Use `$tdd-behavior-autonomous-quiet`; implement only assigned behavior; do not commit. |
+| `committer` | Use `$commit-the-changes`; inspect history and status; stage and commit only the assigned delta. |
+| `validator` | Run selected local verification and Sonar checks; record absence of local checks when applicable; do not edit source. |
+| `habit-curator` | Run selected local Habit hooks, classify findings and report evidence. Never use `$refactor-design`, self-authorize work or commit. If sharing a worker with Validator, route every code correction to Implementer. Otherwise edit only deterministic, low-risk corrections explicitly assigned by Coordinator, with authorized files and expected evidence. |
+| `mutation-analyst` | Run at most one configured runner per attempt, classify results and persist complete output under `.agent/tmp`; never edit code, install tools or commit. |
+| `structural-reviewer` | Use `$refactor-design` for exhaustive review of changed contracts and adjacent responsibilities; do not commit. Claim independence only when its worker differs from Implementer's. |
+
+Create one chat per required worker in the saved project's existing checkout and register its returned thread ID immediately with `register-worker`. The worker containing Coordinator conducts the workflow and executes any of its other roles locally, without messages to itself. Register Coordinator's worker and all mandatory workers before `implementing`. Create a wholly optional worker only when its local check is selected. On later activation, reuse an existing worker that already contains the role or register its configured worker before leaving `implementing`. Reuse each chat across phases; never create extra chats per role, change a registered identity, model or effort, or let workers coordinate with one another.
+
+Coordinator is the sole communication hub and lease operator. Before each assignment, load that role's required skill and the references relevant to the current phase; state the active role, repository path, branch, plan path, `base_sha`, phase, authorized files, lease owner and expected evidence. A worker's earlier instructions remain in history: distinguish role-local restrictions from workflow-wide prohibitions explicitly. For example, Validator's “do not edit source” applies while acting as Validator; switching to Committer requires a released Validator lease and an explicit Committer assignment. Switching roles never relaxes human authorization or scope boundaries.
+
+Acquire `--owner <role>` before checkout work, dispatch only that role, wait until it is idle, inspect its result and working tree, and release before the next role. For local roles, apply the same contract and lease sequence without dispatch. Leases remain exclusive even for two roles in the same worker; a Validator lease cannot record Committer, Habit or mutation evidence. Keep every gate and artifact attributed to its logical role regardless of grouping.
 
 ## Commit message contract
 
@@ -97,17 +119,17 @@ This digest is the attempt `fingerprint`. For PIT, all tests eligible in the aff
 
 The Mutation Analyst performs one runner invocation per attempt and redirects complete stdout/stderr plus the manifest to `.agent/tmp`. Copy every generated report there before recording evidence. Its response to the Coordinator contains only analyzed SHA and scope, fingerprint, metrics, classifications, result, and artifact paths; it does not paste raw runner output into chat.
 
-For a new schema-v5 run, exclude mutation testing during discovery when no configured runner exists; the inventory records the reason and both mutation phases are skipped. If a selected runner has no changed production class, record `not-applicable` with `no-production-changes`. A selected runner that becomes unavailable blocks the gate. Never install a runner automatically, describe absence as `passed`, or create a synthetic green report. Older ledgers keep their original `runner-unavailable` evidence rule.
+For a new schema-v6 run, exclude mutation testing during discovery when no configured runner exists; the inventory records the reason and both mutation phases are skipped. If a selected runner has no changed production class, record `not-applicable` with `no-production-changes`. A selected runner that becomes unavailable blocks the gate. Never install a runner automatically, describe absence as `passed`, or create a synthetic green report. Schemas v3/v4 keep their original `runner-unavailable` evidence rule; v5 already uses inventory exclusions.
 
 ## Main sequence
 
 1. Transition to `implementing`. Give the Implementer one behavior-focused assignment. It runs RED/GREEN/refactor cycles, the full relevant suite every cycle, and a public-path checkpoint at least every two cycles. After the assigned behavior and focused tests are green, release its lease and transition to `implemented`.
 2. If local Habit hooks were selected, transition to `habit-checking`, give the Habit Curator a quick check under its lease, and record terminal evidence. If no files are configured, reassess the inventory and route back through `implementing`. Otherwise go directly to `checkpoint-committing`.
-3. Route Habit findings through the Coordinator. Only deterministic, low-risk, explicitly scoped corrections may return to the Habit Curator. Any source correction returns through `implementing` and repeats every downstream gate.
+3. Route Habit findings through the Coordinator. When Habit Curator shares a worker with Validator, assign every code correction to Implementer. When their workers differ, only deterministic, low-risk, explicitly scoped corrections may return to Habit Curator. Any source correction returns through `implementing` and repeats every downstream gate.
 4. Transition to `checkpoint-committing`. Under the commit message contract, the Committer records the complete checkpoint as `implementation` or `correction`; then transition to `initial-validating`.
 5. Reassess the inventory. The Validator runs every selected local verification and local Sonar check. Record `initial-verify` as `passed` only if all selected local verification commands pass, otherwise record a documented `not-applicable` when there are none. Record `initial-sonar` only when local Sonar is selected. CI-only checks wait for CI.
 6. If local mutation testing was selected, transition to `mutation-testing`. The Mutation Analyst selects every production class changed from `base_sha`, computes the fingerprint, and records exactly one attempt. `structural-review` requires a current accepted `passed` or `not-applicable` result. If mutation was excluded, transition directly to `structural-review`. A failed, incomplete, or actionable selected attempt blocks progress.
-7. Transition to `structural-review`. The Structural Reviewer independently applies `$refactor-design` and may make only behavior-preserving refactors authorized by the plan and Coordinator. It does not commit.
+7. Transition to `structural-review`. The Structural Reviewer applies `$refactor-design` and may make only behavior-preserving refactors authorized by the plan and Coordinator. It does not commit.
 8. If local Habit hooks were selected, transition to `habit-rechecking` and record fresh terminal evidence; otherwise skip that phase. If review produced a delta, use `final-committing` and record a `correction`, `habit-refactor`, or `structural-refactor` commit under the commit message contract. Otherwise transition directly to `final-validating`.
 9. Reassess the inventory. The Validator reruns all selected local verification and Sonar checks on the final commit and records current `final-verify` plus `final-sonar` when selected.
 10. If local mutation testing was selected, transition to `mutation-rechecking`. Recompute the focal target set and fingerprint against the same `base_sha`. Reuse accepted initial evidence only when all inputs match; otherwise run the configured runner once against all selected production targets. If mutation was excluded, transition directly to `delivery-ready` after final validation.
@@ -129,6 +151,6 @@ Every correction uses a non-empty Coordinator routing note, returns to `implemen
 - `clean`: raw finding count is zero.
 - `ratcheted`: a previously user-authorized baseline is unchanged and active finding count is zero.
 - `snoozed`: the user explicitly authorized the already-existing snoozed state. Never create or modify snooze state in this workflow.
-- `not-applicable`: retained for older ledgers when the Habit tool is genuinely unavailable. Schema v5 excludes unconfigured Habit hooks during discovery and blocks a selected hook that becomes unavailable.
+- `not-applicable`: retained for older ledgers when the Habit tool is genuinely unavailable. Schemas v5/v6 exclude unconfigured Habit hooks during discovery and blocks a selected hook that becomes unavailable.
 
-`no-configured-files` means Habit ran but scanned nothing. For schema v5, reassess the inventory and return through `implementing`; do not record a synthetic clean result. Older ledgers retain their original observation and gate rules.
+`no-configured-files` means Habit ran but scanned nothing. For schemas v5/v6, reassess the inventory and return through `implementing`; do not record a synthetic clean result. Older ledgers retain their original observation and gate rules.
