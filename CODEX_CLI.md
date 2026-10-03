@@ -123,6 +123,7 @@ The [README catalog](README.md#skill-catalog) is the canonical active skill list
 | --- | --- | --- |
 | Audit or restructure an existing documentation system | [`restructure-documentation`](restructure-documentation/SKILL.md), [metadata](restructure-documentation/agents/openai.yaml) | Target repository |
 | Plan and execute a substantial repository change | [`implement-execplan`](implement-execplan/SKILL.md), [metadata](implement-execplan/agents/openai.yaml) | Target repository |
+| Execute an already approved repository plan in the invoking chat | [`implement-approved-plan`](implement-approved-plan/SKILL.md), [validation executor](implement-approved-plan/references/validation-runner.md), [metadata](implement-approved-plan/agents/openai.yaml) | Target repository |
 | Explicitly guide a repository change through a declared ExecPlan and TDD profile | [`execplan-tdd`](execplan-tdd/SKILL.md), [metadata](execplan-tdd/agents/openai.yaml) | Target repository |
 | Review a completed green implementation for design risks | [`refactor-design`](refactor-design/SKILL.md), [metadata](refactor-design/agents/openai.yaml) | Target repository |
 | Implement behavior through autonomous quiet TDD | [`tdd-behavior-autonomous-quiet`](tdd-behavior-autonomous-quiet/SKILL.md), [metadata](tdd-behavior-autonomous-quiet/agents/openai.yaml) | Target repository |
@@ -147,6 +148,8 @@ For TDD, state behavior through public contracts. For design review, say that be
 ```text
 Use $skill-name to inspect <repository state> and perform <commit or worktree outcome>. Include only <exact scope>. Preserve <protected state>. Do not push or remove anything outside that scope.
 ```
+
+The approved-plan workflow activates only through an explicit `$implement-approved-plan` invocation. It uses the current chat and its actual model/effort by default; GPT-6.1 Sol medium is a recommendation. Its initial confirmation covers validation inventory and worker distribution, and separate chats require explicit selection. Same-context validation/review is disclosed. Existing v1–v6 executions retain their recorded configuration.
 
 The two commit skills create commits but never imply a push. Use `commit-staged-change` only when the exact intended diff is already staged. Use `commit-the-changes` when Codex is authorized to decide which current changes belong together and stage them.
 

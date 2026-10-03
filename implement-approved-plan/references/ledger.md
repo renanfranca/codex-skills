@@ -19,7 +19,7 @@ python3 <skill>/scripts/workflow_state.py \
   init --slug <slug> --plan .agent/tmp/<slug>.md \
   --repo <absolute-repo> --branch <branch> --base <base> --base-sha "$base_sha" \
   --validation-plan .agent/tmp/<slug>.validation.json \
-  [--worker-plan .agent/tmp/<slug>.workers.json]
+  --worker-plan .agent/tmp/<slug>.workers.json
 python3 <skill>/scripts/workflow_state.py \
   --state .agent/tmp/<slug>.workflow.json show
 ```
@@ -28,25 +28,15 @@ python3 <skill>/scripts/workflow_state.py \
 
 ```json
 {
-  "implementation": {
-    "roles": ["coordinator", "implementer"],
-    "model": "gpt-6-sol",
-    "effort": "medium"
-  },
-  "quality": {
-    "roles": ["committer", "validator", "mutation-analyst", "habit-curator"],
-    "model": "gpt-6-luna",
-    "effort": "high"
-  },
-  "structural-review": {
-    "roles": ["structural-reviewer"],
-    "model": "gpt-6-sol",
-    "effort": "medium"
+  "primary": {
+    "roles": ["coordinator", "implementer", "committer", "validator", "mutation-analyst", "habit-curator", "structural-reviewer"],
+    "model": "<actual-current-model>",
+    "effort": "<actual-current-effort>"
   }
 }
 ```
 
-Without `--worker-plan`, a new ledger uses this suggestion. `worker_selection` stores the complete immutable partition, including inactive roles. Each of the seven role IDs must appear exactly once. Worker IDs use lowercase kebab-case (`[a-z][a-z0-9]*(?:-[a-z0-9]+)*`), each worker has a non-empty role list, a non-empty model and one effort from `low`, `medium`, `high`, `xhigh`, `max`, or `ultra`. Availability of the exact model/effort pairs is verified by the executing skill before startup; the offline script validates structure and pair consistency.
+The skill always supplies `--worker-plan` with the confirmed distribution, normally `primary`. Replace the placeholders with the actual invoking chat settings; `gpt-6.1-sol`/`medium` is only a recommendation. Register `primary` with the current chat ID and execute locally, without creating a replacement chat. For existing CLI callers only, omitting `--worker-plan` on a new ledger retains its prior three-worker default: `implementation` (`gpt-6-sol`/`medium`, Coordinator + Implementer), `quality` (`gpt-6-luna`/`high`, Committer + Validator + Mutation Analyst + Habit Curator), and `structural-review` (`gpt-6-sol`/`medium`, Structural Reviewer). `worker_selection` stores the complete immutable partition, including inactive roles. Each of the seven role IDs must appear exactly once. Worker IDs use lowercase kebab-case (`[a-z][a-z0-9]*(?:-[a-z0-9]+)*`), each worker has a non-empty role list, a non-empty model and one effort from `low`, `medium`, `high`, `xhigh`, `max`, or `ultra`. Availability of the exact model/effort pairs is verified by the executing skill before startup; the offline script validates structure and pair consistency.
 
 Schema v6 stores actual chats in `workers`, mapping each worker ID to exactly `thread_id`, `model` and `effort`. The executor of a role is derived from `worker_selection`; there is no v6 `chats` or `model_selection`. No command changes worker topology or selected pairs after initialization. Repeating identical initialization or worker registration is idempotent and does not rewrite the ledger. Reinitialization with a changed identity, partition or pair fails; a v6 resume without a worker file reuses its recorded selection.
 
@@ -73,6 +63,8 @@ Register the worker containing Coordinator and all workers containing Implemente
 `acquire --owner <role>` requires that role to be active and its configured worker to be registered. The lease stores `owner`, `worker` and `acquired_at`. Acquire before checkout work, including local execution by Coordinator's worker. A second role is rejected until the previous role releases, even when both roles share a worker. An existing same-role lease is idempotent. Release only after the role is idle and its evidence has been inspected. Switching from Validator to Committer requires release and a new explicit assignment and lease; neither shared chat identity nor a different role's lease authorizes evidence recording. GitHub and CI status queries do not need the checkout lease; source-changing corrections do.
 
 V1–v5 use `register-chat --role <role> --thread-id <id> --model <model> --effort <effort>`. Their leases retain `owner` and `acquired_at` without a worker field. V5 requires the four mandatory specialists before `implementing`; optional specialists can be registered/leased only when selected locally, while earlier registrations remain readable after exclusion. V1–v4 retain their original required specialists and gates. Mutation Analyst is rejected by v1/v2. Legacy behavior is not changed by v6 registration rules.
+
+The validation executor reads the unchanged inventory plus complementary collector configuration under `.agent/tmp`; it never updates this ledger. The active chat evaluates [validation evidence](validation-runner.md) and records gates with the commands below. A zero process exit is not a semantic pass.
 
 ## Phases and ordinary evidence
 

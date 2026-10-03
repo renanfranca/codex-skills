@@ -1,39 +1,38 @@
 ---
 name: approved-plan-title-bootstrap
-description: $implement-approved-plan bootstrap that gives the bootstrap chat and configurable worker chats exact shared-prefix titles. Apply only when a message explicitly invokes $implement-approved-plan from its bootstrap task; do not use for an existing Coordinator or for unrelated title changes.
+description: $implement-approved-plan bootstrap that names the invoking chat primary by default or gives explicitly delegated workers exact shared-prefix titles and hands off. Apply only when a message explicitly invokes $implement-approved-plan from its bootstrap task; do not use for an existing Coordinator or unrelated title changes.
 ---
 
 # Bootstrap Approved-Plan Titles
 
-Add only the title bootstrap described here, then follow `$implement-approved-plan` without changing its models, efforts, sequence, responsibilities, authorization boundaries, or Git behavior.
+Add this title contract, then follow `$implement-approved-plan` without changing its model/effort choices, roles, gates, authorization boundaries or Git behavior.
 
-## Resolve and apply the prefix first
+## Resolve the prefix
 
-Complete this section before starting the base workflow or creating its Coordinator worker.
+Before initializing a new workflow, inspect the current task title. If it matches exactly `^[a-z]+-[a-z]+-(boot|primary)$`, reuse the two-term prefix unchanged. Otherwise derive exactly two unambiguous lowercase ASCII terms from the approved specification: `<area-or-language>-<capability>`, such as `java-nesting`. Retain only ASCII letters in each term. If no clear prefix follows from the specification, ask for the exact prefix and wait.
 
-1. Inspect the current root task title. If it matches exactly `^[a-z]+-[a-z]+-boot$`, remove the `-boot` suffix and reuse the remaining two-term prefix unchanged.
-2. Otherwise, derive exactly two unambiguous lowercase ASCII terms from the approved specification: `<area-or-language>-<capability>`, such as `java-nesting`. Prefer the specification's own terminology and retain only ASCII letters in each term.
-3. If the specification does not yield one clear two-term prefix, ask the user for the exact prefix and wait. Never invent an ambiguous label or silently choose among plausible alternatives.
-4. Rename the current task to exactly `<prefix>-boot` with the task-title tool. Verify the successful result and tell the user the exact resulting title.
+Start the base skill's inventory and worker selection. Its existing initial confirmation fixes the distribution. Resolve titles from that selection; do not force a separate Coordinator or change the invoking chat's actual model/effort.
 
-If renaming fails or the exact result cannot be confirmed, stop before starting `$implement-approved-plan` or creating any workflow task.
+## Name the single current chat
 
-## Carry the prefix into the workflow
+For the default new schema-v6 distribution, rename the invoking task to exactly `<prefix>-primary` with the title tool. Verify success and report that exact title before initializing/registering `primary` with this same chat's ID. Continue implementation and all subsequent roles here. Do not create a bootstrap replacement, create another Coordinator or message this chat.
 
-After the verified root rename, start `$implement-approved-plan`. Resolve and confirm the worker distribution through the base workflow, then pass the prefix, schema version, confirmed worker selection and complete title contract in the initial context of the worker containing Coordinator. Do not derive the prefix again or send the title contract only in a follow-up.
+A custom confirmed single current-chat worker uses `<prefix>-<worker-id>`. Every role transition preserves the title, chat identity and recorded model/effort.
 
-For a new schema-v6 execution, every worker chat has the exact title `<prefix>-<worker-id>`, including the worker containing Coordinator. With the suggested distribution, the titles are:
+## Name explicitly delegated workers and hand off
 
-- `<prefix>-implementation`
-- `<prefix>-quality`
-- `<prefix>-structural-review`
+Only when the user confirms a delegated distribution, name the bootstrap `<prefix>-boot` and verify success before creating workflow chats. Every new v6 worker gets exactly `<prefix>-<worker-id>`, including the one containing Coordinator. For example, `implementation`, `quality` and `structural-review` get those suffixes. Seven separate workers get seven worker titles; do not add titles per role or a separate `-coordinator` when its role is grouped elsewhere.
 
-Use the confirmed kebab-case worker IDs for custom distributions: seven separate workers produce seven chats; all roles in `all-roles` produce one `<prefix>-all-roles` chat. Keep `<prefix>-boot` for the bootstrap. Do not create additional chats or titles per role, and do not create a separate `-coordinator` chat when Coordinator belongs to another worker.
+Pass the prefix, schema version, confirmed worker selection and complete title contract in the Coordinator worker's initial context. Do not derive the prefix again or send the contract only in a follow-up. The Coordinator verifies its own title and each created worker title before assignments, reuses them across phases, and gives later activated optional workers the same contract.
 
-The Coordinator role must verify every created worker title before dispatching work. If an exact title cannot be applied or verified, stop. Reuse each registered worker and title across phases; an optional worker created after reassessment gets the same `<prefix>-<worker-id>` contract.
+After successful handoff to the Coordinator worker, end bootstrap work. The bootstrap does not continue implementing, issuing leases or coordinating alongside that worker. If the invoking chat is already the confirmed Coordinator worker, execute locally and do not hand off to itself.
 
-When this skill is discovered inside the worker already containing Coordinator, do not repeat the root bootstrap or rename it to `-boot`. Use the supplied prefix, verify its own `<prefix>-<worker-id>` title against `worker_selection`, and continue the base workflow.
+If any required exact rename fails or cannot be verified, stop before initializing or dispatching workflow work.
 
-For resumed v1–v5 executions, preserve the recorded Coordinator and per-role chats and their existing titles, including legacy `<prefix>-coordinator`, `<prefix>-implementer`, `<prefix>-committer`, `<prefix>-validator`, `<prefix>-habit-curator`, `<prefix>-mutation-analyst`, and `<prefix>-structural-reviewer` when present. Do not rename them to v6 worker titles or create a new topology. Apply the legacy per-role contract only when a previously absent optional chat must be created under its schema's rules.
+## Resume recorded executions
 
-Do not create or rename branches, perform Git operations, or modify `$implement-approved-plan` on behalf of this bootstrap; those concerns remain governed by the base workflow and approved plan.
+When already inside the recorded Coordinator worker, do not repeat bootstrap or rename it to `-boot`. Use the supplied prefix and verify its recorded v6 `<prefix>-<worker-id>` title. Existing v6 distributions keep registered identities and titles; do not collapse them to `primary`.
+
+For resumed v1–v5 ledgers, preserve recorded Coordinator/per-role chats and their existing titles, including legacy `<prefix>-coordinator`, `<prefix>-implementer`, `<prefix>-committer`, `<prefix>-validator`, `<prefix>-habit-curator`, `<prefix>-mutation-analyst` and `<prefix>-structural-reviewer` when present. Apply the legacy per-role contract only when an absent optional chat must be created under its schema's rules. Never migrate their topology or title contract to v6.
+
+Branch creation, Git actions, ledger and delivery remain governed by the base skill and approved plan.
