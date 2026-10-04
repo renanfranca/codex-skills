@@ -108,6 +108,28 @@ class WorkerCliTest(unittest.TestCase):
         next(iter(changed.values()))["effort"] = "ultra"
         self.reject(state, *self.init_args(root, changed))
 
+  def test_primary_registers_invoking_chat_and_resumes_without_replacing_current_pair(self):
+    for model, effort in (("gpt-6.1-sol", "medium"), ("gpt-6-astra", "ultra")):
+      with self.subTest(model=model, effort=effort), tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        settings = {"roles": list(separate_workers()), "model": model, "effort": effort}
+        state = self.initialize(root, {"primary": settings}, active=("verify", "mutation", "habit"))
+        self.register(state, "primary", settings, thread="invoking-chat")
+
+        self.ok(state, "transition", "--to", "implementing")
+        for role in settings["roles"]:
+          lease = self.ok(state, "acquire", "--owner", role)
+          ledger = self.ok(state, "show")
+          self.assertEqual("primary", lease["worker"])
+          self.assertEqual("invoking-chat", ledger["workers"]["primary"]["thread_id"])
+          self.ok(state, "release", "--owner", role)
+        before = state.read_bytes()
+        self.ok(state, *self.init_args(root, active=("verify", "mutation", "habit")))
+
+        self.assertEqual(before, state.read_bytes())
+        self.assertEqual({"primary": settings}, self.ok(state, "show")["worker_selection"])
+        self.reject(state, *self.init_args(root, DEFAULT_WORKERS, active=("verify", "mutation", "habit")))
+
   def test_invalid_partitions_are_rejected_before_state_creation(self):
     invalid = [None, [], {}, {"Bad_ID": DEFAULT_WORKERS["implementation"]}]
     for edit in ("missing", "duplicate", "unknown", "empty", "model", "effort", "extra", "roles-type"):

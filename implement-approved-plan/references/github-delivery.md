@@ -19,6 +19,8 @@ This is a human gate. Never infer whether the pull request should close the issu
 
 ## Create the pull request
 
+Consolidate acceptance documentation and available validation evidence before the last commit and final gates in [workflow.md](workflow.md#main-sequence). After those gates, add later PR/CI links to the ledger through `record-pr` and `record-ci`, and to the PR description when repository instructions permit that placement. This completes the evidence without another tracked documentation delta. If repository instructions require those links in versioned documentation, comply: route the change through `implementing`, make an additional commit and repeat every applicable downstream gate before delivery. Do not edit tracked acceptance documentation after final validation and treat its previous evidence as current.
+
 Before creation, confirm the ledger is `delivery-ready`, the branch is pushed, and the checkout has no uncommitted delivery delta. For schemas v5/v6, require current evidence for every selected local validation. Older ledgers retain their original requirements. In particular:
 
 - current passed `final-verify` for selected local checks, or documented `not-applicable` when no local verification applies; `final-sonar` only when local Sonar was selected;
@@ -35,7 +37,7 @@ Do not merge the pull request and do not delete either branch.
 
 ## Monitor CI
 
-Follow every required check to a terminal result. For schemas v5/v6, record each selected CI-only inventory check with `record-ci --check-id`, including its run identifier, URL, and diagnostic evidence. The ledger requires a current pass for every such check before `ready-for-merge`.
+Follow every required check to a terminal result. For schemas v5/v6, record each selected CI-only inventory check with `record-ci --check-id`, including its run identifier, URL, and diagnostic evidence. Update the PR description with later CI links/results under the repository's documentation rules above. The ledger requires a current pass for every such check before `ready-for-merge`.
 
 - Route a code failure back through `implementing`, produce an additional commit, push, and repeat Habit, clean validation, mutation testing, structural review, final Habit, final validation, and mutation recheck as applicable.
 - Route an environment failure to the Validator; mutation-runner environment failures remain diagnostic work for the Mutation Analyst and Coordinator and do not authorize code changes.

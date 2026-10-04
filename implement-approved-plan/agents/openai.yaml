@@ -1,7 +1,7 @@
 interface:
   display_name: "Implement Approved Plan"
-  short_description: "Run approved plans with configurable workers and role gates"
-  default_prompt: "Use $implement-approved-plan to execute this approved repository plan through configurable persistent workers, role-scoped leases, validation, review, and pull request delivery."
+  short_description: "Run approved plans here with deterministic validation"
+  default_prompt: "Use $implement-approved-plan to execute this approved repository plan in this chat with its current model and effort, deterministic validation evidence, role leases, review, and pull request delivery; delegate specialist chats only if explicitly selected."
 
 policy:
   allow_implicit_invocation: false

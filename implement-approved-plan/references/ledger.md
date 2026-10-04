@@ -6,11 +6,11 @@ Use `scripts/workflow_state.py` with Python's standard library. Keep the plan, l
 python3 <skill>/scripts/workflow_state.py --state .agent/tmp/<slug>.workflow.json <command> ...
 ```
 
-New ledgers use schema v6. Existing schema-v1 through schema-v5 ledgers remain readable and retain their original model validation, transitions, evidence, pull-request, and cleanup rules. Reading an old ledger does not migrate, normalize, or rewrite it. The script uses atomic replacement and rejects corrupt state, conflicting identities, invalid transitions, conflicting leases, model/effort fallback, incomplete mutation classifications, unjustified reuse, premature pull requests, repeated transient CI retries, and cleanup without a matching GitHub `MERGED` confirmation.
+New ledgers use schema v6. Existing schema-v1 through schema-v5 ledgers remain readable and retain their original model validation, transitions, evidence, pull-request, and cleanup rules. Reading an old ledger does not migrate, normalize, or rewrite it. The script uses atomic replacement and rejects corrupt state, conflicting identities, invalid transitions, conflicting leases, model/effort fallback, incomplete mutation classifications, unjustified reuse, premature pull requests, repeated transient CI retries, and cleanup without a matching GitHub `MERGED` confirmation. New v6 workflows execute and record commits with `commit-staged`; `record-commit` remains available for existing callers.
 
 ## Initialize and inspect
 
-Resolve the declared base ref once and pass its full commit SHA:
+For a new skill invocation, first apply [the title contract](../../approved-plan-title-bootstrap/SKILL.md) after distribution confirmation and verify the exact current-worker title before initialization or registration. Resumes retain registered identities and titles. Resolve the declared base ref once and pass its full commit SHA:
 
 ```text
 base_sha=$(git rev-parse --verify '<base>^{commit}')
@@ -19,7 +19,7 @@ python3 <skill>/scripts/workflow_state.py \
   init --slug <slug> --plan .agent/tmp/<slug>.md \
   --repo <absolute-repo> --branch <branch> --base <base> --base-sha "$base_sha" \
   --validation-plan .agent/tmp/<slug>.validation.json \
-  [--worker-plan .agent/tmp/<slug>.workers.json]
+  --worker-plan .agent/tmp/<slug>.workers.json
 python3 <skill>/scripts/workflow_state.py \
   --state .agent/tmp/<slug>.workflow.json show
 ```
@@ -28,25 +28,15 @@ python3 <skill>/scripts/workflow_state.py \
 
 ```json
 {
-  "implementation": {
-    "roles": ["coordinator", "implementer"],
-    "model": "gpt-6-sol",
-    "effort": "medium"
-  },
-  "quality": {
-    "roles": ["committer", "validator", "mutation-analyst", "habit-curator"],
-    "model": "gpt-6-luna",
-    "effort": "high"
-  },
-  "structural-review": {
-    "roles": ["structural-reviewer"],
-    "model": "gpt-6-sol",
-    "effort": "medium"
+  "primary": {
+    "roles": ["coordinator", "implementer", "committer", "validator", "mutation-analyst", "habit-curator", "structural-reviewer"],
+    "model": "<actual-current-model>",
+    "effort": "<actual-current-effort>"
   }
 }
 ```
 
-Without `--worker-plan`, a new ledger uses this suggestion. `worker_selection` stores the complete immutable partition, including inactive roles. Each of the seven role IDs must appear exactly once. Worker IDs use lowercase kebab-case (`[a-z][a-z0-9]*(?:-[a-z0-9]+)*`), each worker has a non-empty role list, a non-empty model and one effort from `low`, `medium`, `high`, `xhigh`, `max`, or `ultra`. Availability of the exact model/effort pairs is verified by the executing skill before startup; the offline script validates structure and pair consistency.
+The skill always supplies `--worker-plan` with the confirmed distribution, normally `primary`. Replace the placeholders with the actual invoking chat settings; `gpt-6.1-sol`/`medium` is only a recommendation. Register `primary` with the current chat ID and execute locally, without creating a replacement chat. For existing CLI callers only, omitting `--worker-plan` on a new ledger retains its prior three-worker default: `implementation` (`gpt-6-sol`/`medium`, Coordinator + Implementer), `quality` (`gpt-6-luna`/`high`, Committer + Validator + Mutation Analyst + Habit Curator), and `structural-review` (`gpt-6-sol`/`medium`, Structural Reviewer). `worker_selection` stores the complete immutable partition, including inactive roles. Each of the seven role IDs must appear exactly once. Worker IDs use lowercase kebab-case (`[a-z][a-z0-9]*(?:-[a-z0-9]+)*`), each worker has a non-empty role list, a non-empty model and one effort from `low`, `medium`, `high`, `xhigh`, `max`, or `ultra`. Availability of the exact model/effort pairs is verified by the executing skill before startup; the offline script validates structure and pair consistency.
 
 Schema v6 stores actual chats in `workers`, mapping each worker ID to exactly `thread_id`, `model` and `effort`. The executor of a role is derived from `worker_selection`; there is no v6 `chats` or `model_selection`. No command changes worker topology or selected pairs after initialization. Repeating identical initialization or worker registration is idempotent and does not rewrite the ledger. Reinitialization with a changed identity, partition or pair fails; a v6 resume without a worker file reuses its recorded selection.
 
@@ -73,6 +63,31 @@ Register the worker containing Coordinator and all workers containing Implemente
 `acquire --owner <role>` requires that role to be active and its configured worker to be registered. The lease stores `owner`, `worker` and `acquired_at`. Acquire before checkout work, including local execution by Coordinator's worker. A second role is rejected until the previous role releases, even when both roles share a worker. An existing same-role lease is idempotent. Release only after the role is idle and its evidence has been inspected. Switching from Validator to Committer requires release and a new explicit assignment and lease; neither shared chat identity nor a different role's lease authorizes evidence recording. GitHub and CI status queries do not need the checkout lease; source-changing corrections do.
 
 V1–v5 use `register-chat --role <role> --thread-id <id> --model <model> --effort <effort>`. Their leases retain `owner` and `acquired_at` without a worker field. V5 requires the four mandatory specialists before `implementing`; optional specialists can be registered/leased only when selected locally, while earlier registrations remain readable after exclusion. V1–v4 retain their original required specialists and gates. Mutation Analyst is rejected by v1/v2. Legacy behavior is not changed by v6 registration rules.
+
+The validation executor reads the unchanged inventory plus complementary collector configuration under `.agent/tmp`; it never updates this ledger. The active chat evaluates [validation evidence](validation-runner.md) and records gates with the commands below. A zero process exit is not a semantic pass.
+
+## Execute and record staged commits
+
+For new v6 workflows, prepare history, convention, language, message and staging with [commit-the-changes](../../commit-the-changes/SKILL.md), applying [the workflow body/breaking contract](workflow.md#commit-message-contract). The executor replaces only the composition's commit execution and recording. It never stages files or approves semantic gates.
+
+```text
+commit-staged --message-file .agent/tmp/<slug>.commit.txt \
+  --kind implementation --attempt-id checkpoint-1 \
+  --header-max-length <discovered-limit> \
+  --body-max-length <discovered-limit> \
+  --footer-max-length <discovered-limit> \
+  --validate-command '<repository-native-command> {message_file}'
+```
+
+Use the common `python3 <skill>/scripts/workflow_state.py --state ...` prefix. `--kind` is `implementation` or `correction` in `checkpoint-committing`; in `final-committing` it is `correction`, `habit-refactor` or `structural-refactor`. The executor requires v6, the corresponding phase, Committer's lease, the recorded branch, an existing nonempty UTF-8 message and nonempty staging. Earlier schemas retain `record-commit`; they are never migrated by this command.
+
+Each line-limit flag accepts a positive integer and defaults to 100 characters. Header, body and trailer/continuation lines are checked separately. Discovery supplies the actual repository limits. Keep body semantic fields and breaking classification under chat review; line validation does not approve their meaning. Omit `--validate-command` only when no native candidate-message validation exists. The command runs under Bash with failure/pipeline checking in the repository, against a saved message snapshot; `{message_file}` is replaced with its shell-quoted path, or use the quoted `COMMIT_MESSAGE_FILE` environment variable. Do not add shell quotes around the placeholder. The snapshot preserves the candidate content and supplies a final newline if absent. The complete validated snapshot is committed with normal hooks. Native rejection, altered snapshot or changed checkout prevents `git commit`.
+
+An attempt ID has 1–100 ASCII letters, digits, underscores or hyphens, starting with a letter or digit. The ledger transaction is locked during execution and recording. Artifacts live in `.agent/tmp/commits/<ledger-filename>/<attempt-id>/`: `message.txt`, `command.log` and an atomic `journal.json`. The journal preserves the prior HEAD, prepared tree, full message, phase and identity, validation result, invocation count, Git exit code, observed commit and resulting checkout when available. Full native-validator and hook output stays in the log.
+
+Success returns exit zero with `status: recorded`, the commit record and journal/log paths, only after proving exit zero, a new SHA with exactly the prior HEAD as parent, the prepared tree, identical effective message, emptied staging and preserved unstaged/untracked state, then persisting the ledger. Only this result authorizes release of Committer's lease and phase advancement. The command itself never transitions or releases the lease. Failure returns exit two, preserves the phase, staging and evidence, and does not register an unproven commit. Inspect hook/validator changes when they caused the failure; the executor never discards them or restores the checkout automatically.
+
+If Git succeeded but ledger persistence failed, rerun the **same attempt ID with identical arguments**. Even with empty staging, it verifies the journal's existing SHA, parent, tree, effective message and checkout, then finishes registration without another Git invocation. Repeating a recorded attempt in the same phase is idempotent and does not rewrite the ledger. Divergent message/settings, phase generation, HEAD, branch, staging or working state block recovery. A failed, merely prepared or uncertain invoked attempt cannot retry Git under that ID; diagnose its artifacts before explicitly creating a new attempt. Never use `record-commit` to bypass the failed executor, and never amend or rebase for recovery.
 
 ## Phases and ordinary evidence
 
