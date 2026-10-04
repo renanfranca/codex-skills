@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plan Behavioral Acceptance"
+  short_description: "Plan verifiable behavior and execution evidence"
+  default_prompt: "Use $plan-behavioral-acceptance during planning to ground behavioral acceptance criteria in existing sources and define verification and evidence for the executor."

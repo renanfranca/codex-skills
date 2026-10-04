@@ -41,6 +41,7 @@ The root `AGENTS.md` defines the required remote check and safety boundary.
 - [`restructure-documentation`](restructure-documentation/SKILL.md) — Audit and reorganize existing documentation around clear audiences, canonical sources, ordered concepts, and validated navigation.
 - [`refactor-design`](refactor-design/SKILL.md) — Review completed green implementations for structural risks and apply behavior preserving refactors.
 - [`implement-execplan`](implement-execplan/SKILL.md) — Create, maintain, and execute self contained living plans for substantial or handoff sensitive work.
+- [`plan-behavioral-acceptance`](plan-behavioral-acceptance/SKILL.md) — Deepen acceptance during planning with source-backed behavioral expectations, planned verification, and evidence obligations for execution.
 - [`implement-approved-plan`](implement-approved-plan/SKILL.md) — Explicitly execute an approved plan in the invoking chat, with verified titles, deterministic validation and commit evidence, and optional delegated workers.
 - [`approved-plan-title-bootstrap`](approved-plan-title-bootstrap/SKILL.md) — Apply shared-prefix titles to that explicit workflow; default to `<prefix>-primary`.
 - [`execplan-tdd`](execplan-tdd/SKILL.md) — Explicitly invoke the complete living ExecPlan, behavior TDD, public checkpoint, design review, documentation reconciliation, and final validation workflow.
