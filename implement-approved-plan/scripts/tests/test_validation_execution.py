@@ -77,6 +77,67 @@ class ValidationExecutionTest(unittest.TestCase):
     self.assertTrue(Path(check["artifacts"]["evidence"]).is_file())
     self.assertTrue(Path(check["artifacts"]["inputs"]).is_file())
 
+  def test_incompatible_report_formats_reject_the_whole_run_before_commands(self):
+    supported = {
+      "maven": {"junit", "jacoco", "artifact"}, "kof": {"kof", "artifact"},
+      "pit": {"pit", "artifact"}, "generic": {"artifact"}, "habit": {"artifact"},
+    }
+    for collector, formats in supported.items():
+      for report_format in {"junit", "jacoco", "kof", "pit", "artifact"} - formats:
+        with self.subTest(collector=collector, report_format=report_format):
+          checks = [self.check("touch first-ran", "first"), self.check("touch invalid-ran")]
+          config = {"first": {"collector": "generic"}, "verify": {
+            "collector": collector, "reports": [{"glob": "report.xml", "format": report_format}],
+          }}
+
+          result = subprocess.run(self.arguments(checks, config), capture_output=True, text=True)
+
+          self.assertEqual(2, result.returncode, result.stdout)
+          error = json.loads(result.stdout)["error"]
+          for detail in ("verify", collector, report_format, "report.xml"):
+            self.assertIn(detail, error)
+          self.assertFalse((self.root / "first-ran").exists())
+          self.assertFalse((self.root / "invalid-ran").exists())
+
+  def test_generic_conclusion_is_a_bounded_utf8_tail_with_the_complete_log(self):
+    for ending in ("one\ntwo\nthree\nfour\nfive\n", "á" * 400 + "\nconclusão final\n"):
+      with self.subTest(ending=ending[-20:]):
+        output = "ignored early output\n" + ending
+        command = self.command(f"print({output!r}, end='')\n")
+
+        result, summary = self.run_checks([self.check(command)], {"verify": {"collector": "generic"}})
+
+        self.assertEqual(0, result.returncode)
+        check = summary["checks"][0]
+        conclusion = check["conclusion"]
+        self.assertLessEqual(len(conclusion.splitlines()), 4)
+        self.assertLessEqual(len(conclusion.encode("utf-8")), 512)
+        self.assertTrue(conclusion.endswith(ending.rstrip().splitlines()[-1]))
+        self.assertNotIn("ignored early output", conclusion)
+        self.assertEqual(output, Path(check["artifacts"]["log"]).read_text())
+        self.assertEqual(conclusion, json.loads(Path(check["artifacts"]["evidence"]).read_text())["conclusion"])
+
+  def test_invalid_required_xml_is_parsed_by_its_collector_and_retained(self):
+    for collector, report_format in (("maven", "junit"), ("maven", "jacoco"), ("pit", "pit")):
+      with self.subTest(collector=collector, report_format=report_format):
+        command = self.command("from pathlib import Path\nPath('report.xml').write_text('<broken')\n"
+                               "Path('tests.xml').write_text('<testsuite tests=\"1\"/>')\n")
+        reports = [{"glob": "report.xml", "format": report_format, "required": True}]
+        if report_format == "jacoco":
+          reports.append({"glob": "tests.xml", "format": "junit", "required": True})
+
+        result, summary = self.run_checks([self.check(command)], {"verify": {"collector": collector, "reports": reports}})
+
+        self.assertEqual(1, result.returncode)
+        check = summary["checks"][0]
+        self.assertEqual(collector, check["collector"])
+        self.assertEqual("completed", check["execution"]["status"])
+        self.assertEqual("error", check["collection"]["status"])
+        self.assertEqual("blocked", check["evaluation"]["status"])
+        self.assertIn("collection error", " ".join(check["collection"]["issues"]))
+        copied = next(r for r in check["artifacts"]["reports"] if r["format"] == report_format)
+        self.assertEqual("<broken", Path(copied["path"]).read_text())
+
   def test_earlier_shell_and_pipeline_failures_survive_later_success_without_retries(self):
     for command in ("false; printf 'later success\\n'", "false | cat; printf 'later success\\n'"):
       with self.subTest(command=command):

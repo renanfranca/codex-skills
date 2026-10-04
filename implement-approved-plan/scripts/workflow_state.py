@@ -4,10 +4,13 @@ import argparse
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
 import re
+import shlex
+import subprocess
 import sys
 import tempfile
 
@@ -1480,9 +1483,7 @@ def require_lease(ledger, owner):
     raise WorkflowError(f"Operation requires checkout lease for {owner}; held by {held_by}")
 
 
-def command_record_commit(args):
-  ledger = load_ledger(args.state)
-  require_lease(ledger, "committer")
+def require_commit_kind(ledger, kind):
   if ledger["schema_version"] in (2, 3, 4, 5, 6):
     allowed_kinds_by_phase = {
       "checkpoint-committing": ("implementation", "correction"),
@@ -1492,28 +1493,216 @@ def command_record_commit(args):
         "structural-refactor",
       ),
     }
-    if args.kind not in allowed_kinds_by_phase.get(ledger["phase"], ()):
+    if kind not in allowed_kinds_by_phase.get(ledger["phase"], ()):
       raise WorkflowError(
-        f"Commit kind {args.kind} is not allowed during {ledger['phase']}"
+        f"Commit kind {kind} is not allowed during {ledger['phase']}"
       )
+
+
+def record_commit(args, ledger, sha, kind, subject):
   commit = {
-    "sha": args.sha,
-    "kind": args.kind,
-    "subject": args.subject,
+    "sha": sha,
+    "kind": kind,
+    "subject": subject,
   }
   if ledger["schema_version"] in (2, 3, 4, 5, 6):
     commit["phase"] = ledger["phase"]
-  existing = next((item for item in ledger["commits"] if item["sha"] == args.sha), None)
+  existing = next((item for item in ledger["commits"] if item["sha"] == sha), None)
   if existing is not None:
     comparable = {key: existing[key] for key in commit}
     if comparable != commit:
-      raise WorkflowError(f"Commit {args.sha} already recorded with different details")
-    print(json.dumps(existing, sort_keys=True))
-    return
+      raise WorkflowError(f"Commit {sha} already recorded with different details")
+    return existing
   commit["recorded_at"] = now()
   ledger["commits"].append(commit)
   persist(args, ledger)
-  print(json.dumps(commit, sort_keys=True))
+  return commit
+
+
+def command_record_commit(args):
+  ledger = load_ledger(args.state)
+  require_lease(ledger, "committer")
+  require_commit_kind(ledger, args.kind)
+  print(json.dumps(record_commit(args, ledger, args.sha, args.kind, args.subject), sort_keys=True))
+
+
+def commit_git(repository, *arguments):
+  result = subprocess.run(["git", "-C", str(repository), *arguments], capture_output=True)
+  if result.returncode:
+    raise WorkflowError(f"Git {' '.join(arguments)} failed: {result.stderr.decode(errors='replace').strip()}")
+  return result.stdout
+
+
+def commit_checkout(repository):
+  return {
+    "index_tree": commit_git(repository, "write-tree").decode().strip(),
+    "status": commit_git(repository, "status", "--porcelain=v1", "-z").decode(),
+    "unstaged_diff": hashlib.sha256(commit_git(repository, "diff", "--binary")).hexdigest(),
+    "untracked": commit_git(repository, "ls-files", "--others", "--exclude-standard", "-z").decode(),
+  }
+
+
+def observe_commit(repository):
+  sha = commit_git(repository, "rev-parse", "HEAD").decode().strip()
+  parents = commit_git(repository, "show", "-s", "--format=%P", sha).decode().strip()
+  tree = commit_git(repository, "rev-parse", f"{sha}^{{tree}}").decode().strip()
+  message = commit_git(repository, "cat-file", "commit", sha).split(b"\n\n", 1)[1].decode()
+  checkout = commit_checkout(repository)
+  return {"sha": sha, "parent": parents, "tree": tree, "effective_message": message,
+          "checkout_after": checkout,
+          "branch_after": commit_git(repository, "branch", "--show-current").decode().strip()}
+
+
+def prove_commit(journal, observed):
+  sha, parents, tree, message, checkout = (
+    observed[key] for key in ("sha", "parent", "tree", "effective_message", "checkout_after")
+  )
+  if (
+    journal.get("exit_code") != 0 or sha == journal["previous_head"]
+    or journal.get("commit_invocations") != 1 or observed["branch_after"] != journal["branch"]
+    or parents != journal["previous_head"] or tree != journal["staged_tree"]
+    or message != journal["message"] or checkout["index_tree"] != tree
+    or checkout["unstaged_diff"] != journal["checkout_before"]["unstaged_diff"]
+    or checkout["untracked"] != journal["checkout_before"]["untracked"]
+    or (journal.get("sha") is not None and journal["sha"] != sha)
+    or (journal.get("checkout_after") is not None and journal["checkout_after"] != checkout)
+  ):
+    raise WorkflowError("Commit proof diverged from the attempt; recovery is blocked")
+
+
+def validate_commit_message(message, limits):
+  part, paragraph_start = "header", True
+  for number, line in enumerate(message.splitlines(), 1):
+    if number > 1:
+      if not line:
+        paragraph_start = True
+        continue
+      if part == "header":
+        part = "body"
+      if paragraph_start and re.match(r"(?:BREAKING CHANGE|[A-Za-z][A-Za-z0-9-]*)(?::\s| #)", line):
+        part = "footer"
+    if len(line) > limits[part]:
+      raise WorkflowError(f"Commit {part} line {number} exceeds {limits[part]} characters")
+    paragraph_start = False
+
+
+def command_commit_staged(args):
+  with exclusive_ledger_transaction(args.state):
+    ledger = load_ledger(args.state)
+    if ledger["schema_version"] != 6:
+      raise WorkflowError("commit-staged requires schema v6; legacy workflows retain record-commit")
+    require_lease(ledger, "committer")
+    require_commit_kind(ledger, args.kind)
+    repository = Path(ledger["repository"])
+    if commit_git(repository, "branch", "--show-current").decode().strip() != ledger["branch"]:
+      raise WorkflowError("Commit requires the ledger branch")
+    if re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}", args.attempt_id) is None:
+      raise WorkflowError("Invalid commit attempt ID")
+    try:
+      message = args.message_file.read_bytes().decode("utf-8")
+    except (OSError, UnicodeError) as error:
+      raise WorkflowError(f"Commit message file unavailable: {error}") from error
+    if not message.strip() or "\0" in message:
+      raise WorkflowError("Commit message must be nonempty UTF-8 text without NUL")
+    message = message if message.endswith("\n") else message + "\n"
+    identity = {
+      "state": str(args.state.resolve()), "repository": str(repository), "branch": ledger["branch"],
+      "phase": ledger["phase"], "phase_started_at": ledger["history"][-1]["at"],
+      "kind": args.kind, "attempt_id": args.attempt_id,
+      "message_file": str(args.message_file.resolve()), "message": message,
+      "limits": {part: getattr(args, f"{part}_max_length") for part in ("header", "body", "footer")},
+      "validate_command": args.validate_command,
+    }
+    attempt = repository / ".agent/tmp/commits" / args.state.name / args.attempt_id
+    attempt.mkdir(parents=True, exist_ok=True)
+    journal_path, log_path = attempt / "journal.json", attempt / "command.log"
+    if journal_path.exists():
+      try:
+        journal = json.loads(journal_path.read_text(encoding="utf-8"))
+      except (OSError, ValueError) as error:
+        raise WorkflowError(f"Commit journal unavailable: {error}") from error
+      if (
+        not fields_match(journal, {"previous_head": str, "staged_tree": str,
+                                   "checkout_before": dict, "status": str, "commit_invocations": int})
+        or not fields_match(journal["checkout_before"], {"index_tree": str, "status": str,
+                                                       "unstaged_diff": str, "untracked": str})
+        or (journal["status"] in ("committed", "recorded") and not fields_match(
+          journal, {"exit_code": int, "sha": str, "parent": str, "tree": str,
+                    "effective_message": str, "checkout_after": dict, "branch_after": str}
+        ))
+      ):
+        raise WorkflowError("Corrupt commit journal; recovery is blocked")
+      if any(journal.get(key) != value for key, value in identity.items()):
+        raise WorkflowError("Commit attempt identity diverged; recovery is blocked")
+      if journal["status"] not in ("committed", "recorded"):
+        raise WorkflowError("Commit attempt was already prepared or failed; no automatic retry")
+      observed = observe_commit(repository)
+      prove_commit(journal, observed)
+      journal.update(observed)
+    else:
+      previous = commit_git(repository, "rev-parse", "HEAD").decode().strip()
+      checkout = commit_checkout(repository)
+      if checkout["index_tree"] == commit_git(repository, "rev-parse", "HEAD^{tree}").decode().strip():
+        raise WorkflowError("Commit requires nonempty staging")
+      journal = dict(identity, previous_head=previous, staged_tree=checkout["index_tree"],
+                     checkout_before=checkout, status="prepared", commit_invocations=0)
+      write_atomic(journal_path, journal)
+      candidate = attempt / "message.txt"
+      candidate.write_text(message, encoding="utf-8")
+      log_path.touch()
+      try:
+        if any(limit < 1 for limit in identity["limits"].values()):
+          raise WorkflowError("Commit message limits must be positive")
+        validate_commit_message(message, identity["limits"])
+        if args.validate_command is not None:
+          if not args.validate_command.strip():
+            raise WorkflowError("Native message validation command must be nonempty")
+          command = args.validate_command.replace("{message_file}", shlex.quote(str(candidate)))
+          with log_path.open("ab") as log:
+            result = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", command], cwd=repository,
+                                    env=dict(os.environ, COMMIT_MESSAGE_FILE=str(candidate)),
+                                    stdout=log, stderr=subprocess.STDOUT)
+          journal["validation_exit_code"] = result.returncode
+          if result.returncode:
+            raise WorkflowError(f"Native message validation failed with exit {result.returncode}")
+        if candidate.read_bytes() != message.encode("utf-8"):
+          raise WorkflowError("Validated commit message changed before commit")
+        if commit_git(repository, "rev-parse", "HEAD").decode().strip() != previous or commit_checkout(repository) != checkout:
+          raise WorkflowError("Checkout changed during message validation")
+        if commit_git(repository, "branch", "--show-current").decode().strip() != ledger["branch"]:
+          raise WorkflowError("Branch changed during message validation")
+      except (WorkflowError, OSError) as error:
+        journal.update(status="failed", error=str(error))
+        with log_path.open("a", encoding="utf-8") as log:
+          log.write(str(error) + "\n")
+        write_atomic(journal_path, journal)
+        raise WorkflowError(f"{error}; evidence: {journal_path}") from error
+      journal["status"] = "invoked"
+      journal["commit_invocations"] = 1
+      write_atomic(journal_path, journal)
+      with log_path.open("ab") as log:
+        result = subprocess.run(["git", "-C", str(repository), "commit", "--cleanup=verbatim", "--file", str(candidate)],
+                                stdout=log, stderr=subprocess.STDOUT)
+      journal["exit_code"] = result.returncode
+      journal["status"] = "failed"
+      write_atomic(journal_path, journal)
+      if result.returncode:
+        raise WorkflowError(f"git commit failed with exit {result.returncode}; evidence: {journal_path}")
+      journal.update(observe_commit(repository))
+      write_atomic(journal_path, journal)
+      try:
+        prove_commit(journal, journal)
+      except WorkflowError as error:
+        journal["error"] = str(error)
+        write_atomic(journal_path, journal)
+        raise WorkflowError(f"{error}; evidence: {journal_path}") from error
+      journal["status"] = "committed"
+      write_atomic(journal_path, journal)
+    commit = record_commit(args, ledger, journal["sha"], args.kind, message.splitlines()[0])
+    if journal["status"] != "recorded":
+      journal["status"] = "recorded"
+      write_atomic(journal_path, journal)
+    print(json.dumps({"status": "recorded", "commit": commit, "journal": str(journal_path), "log": str(log_path)}, sort_keys=True))
 
 
 def command_record_gate(args):
@@ -2131,6 +2320,15 @@ def build_parser():
   record_commit.add_argument("--subject", required=True)
   record_commit.set_defaults(handler=command_record_commit)
 
+  commit_staged = subparsers.add_parser("commit-staged")
+  commit_staged.add_argument("--message-file", required=True, type=Path)
+  commit_staged.add_argument("--kind", required=True, choices=COMMIT_KINDS)
+  commit_staged.add_argument("--attempt-id", required=True)
+  commit_staged.add_argument("--validate-command")
+  for part in ("header", "body", "footer"):
+    commit_staged.add_argument(f"--{part}-max-length", type=int, default=100)
+  commit_staged.set_defaults(handler=command_commit_staged)
+
   record_gate = subparsers.add_parser("record-gate")
   record_gate.add_argument("--name", required=True, choices=ALL_GATE_NAMES)
   record_gate.add_argument("--status", required=True, choices=GATE_STATUSES)
@@ -2215,7 +2413,7 @@ def main():
   args = build_parser().parse_args()
   try:
     args.handler(args)
-  except WorkflowError as error:
+  except (WorkflowError, OSError, UnicodeError) as error:
     print(f"error: {error}", file=sys.stderr)
     return 2
   return 0

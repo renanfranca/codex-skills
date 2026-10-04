@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+from collections import deque
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -20,6 +21,10 @@ from workflow_state import validation_plan_is_valid
 
 
 LIMIT = 16 * 1024
+REPORT_FORMATS = {
+  "maven": ("junit", "jacoco", "artifact"), "kof": ("kof", "artifact"),
+  "pit": ("pit", "artifact"), "generic": ("artifact",), "habit": ("artifact",),
+}
 PHASES = {
   "initial-validating": "validator", "final-validating": "validator",
   "habit-checking": "habit-curator", "habit-rechecking": "habit-curator",
@@ -66,6 +71,15 @@ def diagnostics(log):
         found.append(line.strip()[:500])
         found = found[-8:]
   return found
+
+
+def conclusion(log):
+  lines = deque(maxlen=4)
+  with log.open(encoding="utf-8", errors="replace") as stream:
+    for line in stream:
+      if line.strip():
+        lines.append(line.rstrip().encode("utf-8")[-512:].decode("utf-8", errors="ignore"))
+  return "\n".join(lines).encode("utf-8")[-512:].decode("utf-8", errors="ignore")
 
 
 def run_process(argv, repo, stdout, stderr, stdin=None, pass_fds=()):
@@ -366,6 +380,8 @@ def run_check(repo, check, config, attempt):
     result["artifacts"].update({"sensors": str(attempt / "sensors.json"), "guides": str(attempt / "guides.log"),
                                "sensor_stderr": str(attempt / "sensors.stderr.log"), "mapper_stderr": str(attempt / "mapper.stderr.log")})
     result["evaluation"]["habit_status"] = habit_status
+  if result["collector"] == "generic":
+    result["conclusion"] = conclusion(log)
   if config["collector"] == "pit" and metrics:
     result["evaluation"]["unclassified_mutants"] = metrics["survived"] + metrics["no_coverage"]
   save(attempt / "evidence.json", result)
@@ -433,7 +449,7 @@ def main():
     for check in selected:
       if not isinstance(config, dict) or not isinstance(config.get(check["id"]), dict):
         raise ValueError("each selected check needs explicit collector configuration")
-      if config[check["id"]]["collector"] not in ("generic", "maven", "kof", "pit", "habit"):
+      if config[check["id"]]["collector"] not in REPORT_FORMATS:
         raise ValueError("unsupported collector")
       settings = config[check["id"]]
       for pattern in settings.get("inputs", []):
@@ -445,6 +461,12 @@ def main():
           raise ValueError("report globs must stay inside the repository")
         if report["format"] not in ("junit", "jacoco", "kof", "pit", "artifact"):
           raise ValueError("unknown report format")
+        if report["format"] not in REPORT_FORMATS[settings["collector"]]:
+          raise ValueError(
+            f"check {check['id']}: collector {settings['collector']} does not accept "
+            f"report format {report['format']} ({pattern}); supported formats: "
+            + ", ".join(REPORT_FORMATS[settings["collector"]])
+          )
         if "required" in report and not isinstance(report["required"], bool):
           raise ValueError("required must be boolean")
     started = time.monotonic()

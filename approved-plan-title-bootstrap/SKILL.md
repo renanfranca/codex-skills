@@ -1,11 +1,11 @@
 ---
 name: approved-plan-title-bootstrap
-description: $implement-approved-plan bootstrap that names the invoking chat primary by default or gives explicitly delegated workers exact shared-prefix titles and hands off. Apply only when a message explicitly invokes $implement-approved-plan from its bootstrap task; do not use for an existing Coordinator or unrelated title changes.
+description: Title contract composed during startup of explicitly invoked $implement-approved-plan executions. Name the invoking chat primary by default or give explicitly delegated workers exact shared-prefix titles and hand off; verify recorded titles on resume without restarting bootstrap. Do not use for unrelated title changes.
 ---
 
 # Bootstrap Approved-Plan Titles
 
-Add this title contract, then follow `$implement-approved-plan` without changing its model/effort choices, roles, gates, authorization boundaries or Git behavior.
+The main `$implement-approved-plan` skill loads this contract for new executions. Apply it after its initial distribution confirmation and before ledger initialization or worker registration, without changing model/effort choices, roles, gates, authorization boundaries or Git behavior. On resume, use only the recorded-execution procedure below.
 
 ## Resolve the prefix
 
@@ -23,7 +23,7 @@ A custom confirmed single current-chat worker uses `<prefix>-<worker-id>`. Every
 
 Only when the user confirms a delegated distribution, name the bootstrap `<prefix>-boot` and verify success before creating workflow chats. Every new v6 worker gets exactly `<prefix>-<worker-id>`, including the one containing Coordinator. For example, `implementation`, `quality` and `structural-review` get those suffixes. Seven separate workers get seven worker titles; do not add titles per role or a separate `-coordinator` when its role is grouped elsewhere.
 
-Pass the prefix, schema version, confirmed worker selection and complete title contract in the Coordinator worker's initial context. Do not derive the prefix again or send the contract only in a follow-up. The Coordinator verifies its own title and each created worker title before assignments, reuses them across phases, and gives later activated optional workers the same contract.
+Pass the prefix, schema version, confirmed worker selection and complete title contract in the Coordinator worker's initial context. Do not derive the prefix again or send the contract only in a follow-up. The Coordinator verifies its own title before initializing the ledger and each created worker title before registration or assignment, reuses them across phases, and gives later activated optional workers the same contract.
 
 After successful handoff to the Coordinator worker, end bootstrap work. The bootstrap does not continue implementing, issuing leases or coordinating alongside that worker. If the invoking chat is already the confirmed Coordinator worker, execute locally and do not hand off to itself.
 

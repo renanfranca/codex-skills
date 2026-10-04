@@ -151,6 +151,8 @@ Use $skill-name to inspect <repository state> and perform <commit or worktree ou
 
 The approved-plan workflow activates only through an explicit `$implement-approved-plan` invocation. It uses the current chat and its actual model/effort by default; GPT-6.1 Sol medium is a recommendation. Its initial confirmation covers validation inventory and worker distribution, and separate chats require explicit selection. Same-context validation/review is disclosed. Existing v1–v6 executions retain their recorded configuration.
 
+New approved-plan executions apply [the title contract](approved-plan-title-bootstrap/SKILL.md) after that confirmation and before initializing/registering workers, using `<prefix>-primary` by default. Inside new v6 workflows, `$commit-the-changes` prepares history, message and staging; [commit-staged](implement-approved-plan/references/ledger.md#execute-and-record-staged-commits) validates, executes and records the commit before the phase can advance. The standalone commit skills keep their existing behavior.
+
 The two commit skills create commits but never imply a push. Use `commit-staged-change` only when the exact intended diff is already staged. Use `commit-the-changes` when Codex is authorized to decide which current changes belong together and stage them.
 
 The Seed4J model runner and evaluator are explicit-only companion workflows. Run the runner from an empty local project already saved in Codex, then invoke the evaluator separately after every result branch and audit artifact is frozen. The runner requests one confirmation before it creates the public repository, pushes branches, or starts model tasks; the evaluator opens but never merges the documentation pull request.

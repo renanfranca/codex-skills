@@ -8,6 +8,17 @@ Keep the confirmed inventory's existing `checks` shape and fields from [workflow
 
 Optional `reports` entries contain a repository-relative `glob`, `format` (`junit`, `jacoco`, `kof`, `pit`, `artifact`), and boolean `required` (default true). A Kof report also needs `target`. Use `artifact` for HTML, stylesheets and other opaque artifacts. `inputs` optionally lists additional repository-relative file globs, including ignored runtime/configuration inputs that affect the check. Missing configured inputs block execution. Do not add collector fields to the inventory or consumer manifests.
 
+Before any selected command runs, the executor validates every selected collector/report pair:
+
+| Collector | Accepted declared formats |
+| --- | --- |
+| `maven` | `junit`, `jacoco`, `artifact` |
+| `kof` | `kof`, `artifact` |
+| `pit` | `pit`, `artifact` |
+| `generic`, `habit` | `artifact` only, for additional opaque artifacts |
+
+An incompatible pair returns invalid-configuration exit two, identifying the check, collector, format and glob, before executing even an earlier valid check. Never relabel a structured report as `artifact` to avoid its collector's parsing or required-report gate.
+
 Example configuration; replace IDs, globs and requiredness with repository discovery:
 
 ```json
@@ -66,7 +77,9 @@ SIGINT/SIGTERM cancellation terminates the active process group, preserves evide
 
 Each run gets a unique directory under `.agent/tmp/validation/`, with numbered check attempts. An attempt contains `command.log`, `inputs.json`, `evidence.json`, copied reports with their relative directory structure, and shell exit observations when applicable. Habit adds `sensors.json`, `guides.log` and both stages' stderr logs. Full output is written to files, never streamed into the chat. `summary.json` preserves the full run evidence.
 
-The JSON returned on stdout is at most 16 KiB, including its newline and UTF-8 bytes. Each check identifies its ID, effective command, collector, analyzed Git revision, input fingerprint, command duration, exit code(s), execution status, collection state/issues, available metrics, findings/diagnostics and artifact paths. Large findings/report lists and strings are abbreviated with `summary_truncated`; omitted checks are counted by `checks_omitted`. Read `evidence` and `artifacts.evidence` selectively for the complete command, findings or omitted checks. A compact excerpt never replaces the full artifacts.
+The JSON returned on stdout is at most 16 KiB, including its newline and UTF-8 bytes. Each check identifies its ID, effective command, collector, analyzed Git revision, input fingerprint, command duration, exit code(s), execution status, collection state/issues, available metrics, findings/diagnostics and artifact paths. Generic checks also return `conclusion`: the last nonempty log lines, limited to four lines and 512 UTF-8 bytes; this is an output excerpt, not an executor judgment. Custom Habit commands using generic execution receive the same excerpt. Large findings/report lists and strings are abbreviated with `summary_truncated`; omitted checks are counted by `checks_omitted`. Full logs, reports and evidence remain available.
+
+Read counts, execution/collection/evaluation states, metrics, diagnostics and conclusion excerpts first. Open `evidence`, `artifacts.evidence` or a specific log/report only to answer a concrete failure, question, omission or classification; do not routinely load complete logs into chat. Account for every omitted check/finding before recording its gate. This reading order preserves the chat's analysis of every surviving/uncovered mutant and Habit finding, including native Habit output needed to establish whether files were scanned. A compact excerpt never replaces required semantic review or full artifacts.
 
 `inputs.json` records the exact command, collector configuration and SHA-256 hashes of tracked/unignored working inputs plus configured `inputs`, excluding workflow scratch unless explicitly listed in `inputs`, and excluding configured report outputs. Include the focal mutation manifest in `inputs` for traceability. The fingerprint uses canonical sorted JSON; it describes the inputs before execution, including dirty file content. It is execution evidence, not automatic approval or mutation reuse authorization. The chat must still create the focal mutation manifest and perform the ledger's existing comparisons from [workflow.md](workflow.md) and [ledger.md](ledger.md).
 
@@ -80,7 +93,7 @@ Evaluation is either `blocked` or `needs-analysis`; it is never automatically `p
 - **Kof:** Collect every structured `N failed of M tests` summary and preserve all failures, including `FAIL` and named directory-suite failures before later successful suites. Keep test and file counts separate. One command log requires a configured `target`; multiple targets require separate fresh `format: kof` reports tagged with each target, using repository-native logs/configuration. Do not infer targets from output that does not identify them or add another test invocation to get metrics. Unknown suite identity/counts remain unknown.
 - **PIT:** Parse mutation XML into metrics and individual identities/statuses, with report path, class, method/descriptor, line, mutator, indexes, description and killing test when supplied. Every `SURVIVED` and `NO_COVERAGE` contributes to `unclassified_mutants` and requires chat classification. Unsupported/incomplete states are execution errors or collection errors, never accepted killed mutants. Keep focal scope, one invocation per attempt, complete classifications and fingerprint/reuse rules unchanged. HTML remains available for directed review.
 - **Habit:** Adapt only a standalone canonical `habit-hooks` invocation (including its executable path and native arguments). Resolve native sibling `habit-sensors` and `habit-mapper`; execute sensors once, store their JSON, feed it to mapper once, and forward `--config` to both exactly as the native wrapper does. Preserve raw findings, guide output and both stage codes. Mapper exit one is enforcement; a failed sensor, mapper tool-error code or `incomplete-run` is tooling failure. Exit zero with findings is `guidance`, not clean. Even zero raw findings require inspecting native output for no configured/scanned files. Do not infer active counts or modify snooze state. Custom shell commands, wrappers and pipelines use generic execution without a second scan.
-- **Generic:** Preserve exit observations, elapsed duration, complete log and compact diagnostics. Unavailable metrics stay `null`; chat interpretation remains mandatory.
+- **Generic:** Preserve exit observations, elapsed duration, complete log, compact diagnostics and the bounded `conclusion` excerpt. Only declared additional opaque artifacts are accepted. Unavailable metrics stay `null`; chat interpretation remains mandatory.
 
 ## Measure efficiency from actual evidence
 
