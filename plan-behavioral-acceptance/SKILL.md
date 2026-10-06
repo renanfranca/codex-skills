@@ -28,6 +28,12 @@ transitions, boundaries, repeated actions, and simultaneous events only when
 they affect the requested behavior. For simultaneous events, specify allowed
 outcomes and invariants without inventing an ordering guarantee.
 
+When behavior depends on state or time, specify how it starts, persists, and
+ends. Include the first observable step after the real triggering event and
+the event immediately after a relevant boundary when either can change the
+result. Preparing an intermediate state alone may miss creation or transition
+errors.
+
 For historical preservation or compatibility, verify the expectation against
 the original source at the relevant revision, not merely the current code or
 test. Record its location/revision and any approved exception with the source
@@ -46,6 +52,12 @@ For each criterion, answer two questions:
    point, and assertions. Confirm they distinguish the expected result from a
    plausible incorrect result, including relevant transitions. A green test
    with the wrong expected value or insufficient assertions proves neither.
+
+Check that the scenario's initial conditions make a plausible incorrect
+behavior observable. Another condition must not prevent the consequence and
+make the assertion pass regardless of the behavior under test. For example,
+to demonstrate that interception prevents damage, use a target that could
+otherwise take damage.
 
 Reuse a test or record that already demonstrates the criterion; do not add a
 duplicate. If coverage is insufficient, describe the missing behavioral check
